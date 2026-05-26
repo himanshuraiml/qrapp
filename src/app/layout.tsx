@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import InstallPWA from '@/components/InstallPWA'
 
 export const metadata: Metadata = {
   title: 'QR Attendance — SRMIST',
@@ -26,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <InstallPWA />
+      </body>
     </html>
   )
 }

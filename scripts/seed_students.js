@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
- * Seed script — creates Supabase auth users + profiles for all students.
+ * Seeding & Migration Script — creates Supabase auth users + profiles for all students.
+ * Fully idempotent and self-healing:
+ *  - Automatically migrates existing accounts with old email addresses to @student.local
+ *  - Automatically deletes or links duplicate/orphaned accounts to avoid key conflicts
+ *
  * Usage: node seed_students.js [path/to/students.csv]
  * Default CSV: ./students.csv (in same directory)
  */
@@ -9,9 +13,29 @@ const { createClient } = require('@supabase/supabase-js');
 const fs   = require('fs');
 const path = require('path');
 
-// ── Config ──────────────────────────────────────────────────────────────────
-const SUPABASE_URL          = 'https://wgdhuaatzolkrofkwxdb.supabase.co';
-const SUPABASE_SERVICE_KEY  = 'REDACTED_SECRET';
+// ── Load Environment Variables ──────────────────────────────────────────────
+function loadEnv() {
+  const envPath = path.join(__dirname, '../.env.local');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split('\n').forEach(line => {
+      const match = line.match(/^\s*([\w.\-]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        const key = match[1];
+        let value = match[2] || '';
+        // Remove wrapping quotes
+        if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+        if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+        process.env[key] = value;
+      }
+    });
+  }
+}
+
+loadEnv();
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wgdhuaatzolkrofkwxdb.supabase.co';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'REDACTED_SECRET';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
@@ -24,12 +48,6 @@ function parseYear(raw) {
   return m ? parseInt(m[1], 10) : null;
 }
 
-function fixEmail(email) {
-  if (!email) return null;
-  // fix "as3130@srmist.edu in" typo → "as3130@srmist.edu.in"
-  return email.trim().replace(/\.edu\s+in$/, '.edu.in');
-}
-
 function parseCSV(content) {
   const lines  = content.split('\n').map(l => l.trim()).filter(Boolean);
   const header = lines[0].split(',');
@@ -39,10 +57,9 @@ function parseCSV(content) {
 
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
-    // handle commas inside JSON qrData field — split carefully
     const raw = lines[i];
 
-    // Extract qrData JSON (everything between first { and last })
+    // Extract qrData JSON if it exists
     const qrStart = raw.indexOf('"{');
     const qrEnd   = raw.lastIndexOf('}"');
     let qrData = '';
@@ -73,7 +90,24 @@ function deduplicate(rows) {
   });
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+async function getAllAuthUsers() {
+  const users = [];
+  let page = 1;
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) {
+      console.error(`Error retrieving auth users: ${error.message}`);
+      break;
+    }
+    if (!data.users.length) break;
+    users.push(...data.users);
+    if (data.users.length < 1000) break;
+    page++;
+  }
+  return users;
+}
+
+// ── Main Seeding Execution ───────────────────────────────────────────────────
 async function main() {
   const csvPath = process.argv[2] || path.join(__dirname, 'students.csv');
 
@@ -85,53 +119,147 @@ async function main() {
   const raw  = fs.readFileSync(csvPath, 'utf8');
   const rows = deduplicate(parseCSV(raw));
 
+  console.log('=== IDEMPOTENT SUPABASE STUDENT SEEDING & MIGRATION ===');
   console.log(`Parsed ${rows.length} unique students from CSV`);
 
-  let created = 0, skipped = 0, errors = 0;
+  // 1. Fetch Profiles from DB
+  console.log('Fetching existing student profiles...');
+  const { data: profiles, error: profErr } = await supabase
+    .from('profiles')
+    .select('id, student_id, name')
+    .eq('role', 'Student');
+
+  if (profErr) {
+    console.error(`PROFILE FETCH ERROR: ${profErr.message}`);
+    process.exit(1);
+  }
+  
+  // Create profile lookups
+  const profilesByStudentId = new Map(profiles.map(p => [p.student_id.toUpperCase(), p]));
+  console.log(`Loaded ${profiles.length} profiles from database.`);
+
+  // 2. Fetch Auth Users from DB
+  console.log('Fetching existing auth users...');
+  const authUsers = await getAllAuthUsers();
+  
+  // Create auth lookups
+  const authById = new Map(authUsers.map(u => [u.id, u]));
+  const authByEmail = new Map(authUsers.map(u => [(u.email || '').toLowerCase(), u]));
+  console.log(`Loaded ${authUsers.length} auth users from database.\n`);
+
+  console.log('Starting migration and seeding process...');
+
+  let created = 0, migrated = 0, linked = 0, skipped = 0, errors = 0;
 
   for (let i = 0; i < rows.length; i++) {
     const r   = rows[i];
     const sid = r['Student_ID'];
-    const email = fixEmail(r['StudentMail']);
-    // Password: use CSV value; fallback to Student_ID
-    const password = (r['Password'] && r['Password'].trim()) ? r['Password'].trim() : sid;
-    const name   = (r['Name'] || '').trim();
-    const dept   = (r['Department'] || '').trim();
-    const sec    = (r['Section'] || '').trim();
-    const year   = parseYear(r['Year']);
+    if (!sid) { skipped++; continue; }
 
-    if (!email || !email.includes('@')) {
-      console.warn(`[${i+1}] SKIP ${sid} — invalid email: "${email}"`);
-      skipped++;
-      continue;
-    }
+    const email    = `${sid.toLowerCase()}@student.local`;
+    const password = (r['Password'] && r['Password'].trim()) ? r['Password'].trim() : sid;
+    const name     = (r['Name'] || '').trim();
+    const dept     = (r['Department'] || '').trim();
+    const sec      = (r['Section'] || '').trim();
+    const year     = parseYear(r['Year']);
 
     process.stdout.write(`[${i+1}/${rows.length}] ${sid} ... `);
 
-    // 1. Create auth user
-    const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, student_id: sid }
-    });
+    let targetUserId = null;
+    let isNewAccount = false;
+    let didMigrateAuth = false;
 
-    if (authErr) {
-      if (authErr.message?.includes('already been registered') || authErr.code === 'email_exists') {
-        console.log('already exists — skipped');
-        skipped++;
-      } else {
-        console.error(`AUTH ERROR: ${authErr.message}`);
-        errors++;
+    // Check if a profile already exists for this Student ID
+    const existingProfile = profilesByStudentId.get(sid.toUpperCase());
+
+    if (existingProfile) {
+      // ── CASE 1: Profile already exists (UUID is existingProfile.id) ──
+      targetUserId = existingProfile.id;
+      const authUser = authById.get(targetUserId);
+
+      if (authUser) {
+        const currentEmail = (authUser.email || '').toLowerCase();
+        
+        if (currentEmail !== email) {
+          // Email needs migration to @student.local
+          
+          // If the target email is already registered to a different user ID (e.g. orphaned account)
+          // we must delete that orphaned account first so the email can be updated.
+          const conflictingUser = authByEmail.get(email);
+          if (conflictingUser && conflictingUser.id !== targetUserId) {
+            await supabase.auth.admin.deleteUser(conflictingUser.id);
+          }
+
+          // Update the auth user's email and password
+          const { error: updateErr } = await supabase.auth.admin.updateUserById(targetUserId, {
+            email,
+            password,
+            email_confirm: true
+          });
+
+          if (updateErr) {
+            console.error(`AUTH UPDATE ERROR: ${updateErr.message}`);
+            errors++;
+            continue;
+          }
+          didMigrateAuth = true;
+          migrated++;
+        }
       }
-      continue;
+    } else {
+      // ── CASE 2: Profile does NOT exist ──
+      
+      // Check if an auth user with the target email already exists (orphaned account)
+      const existingAuthUser = authByEmail.get(email);
+
+      if (existingAuthUser) {
+        // Sub-case A: Orphaned auth user exists — link to it!
+        targetUserId = existingAuthUser.id;
+        
+        // Ensure their password is correct
+        await supabase.auth.admin.updateUserById(targetUserId, {
+          password,
+          email_confirm: true
+        });
+        linked++;
+      } else {
+        // Sub-case B: Create a brand new account
+        const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { name, student_id: sid }
+        });
+
+        if (authErr) {
+          console.error(`AUTH CREATE ERROR: ${authErr.message}`);
+          errors++;
+          continue;
+        }
+
+        targetUserId = authData.user.id;
+        isNewAccount = true;
+        created++;
+      }
     }
 
-    const userId = authData.user.id;
+    // 3. Remove any duplicate profile rows for this student_id that point to a DIFFERENT UUID.
+    //    This prevents the unique constraint violation on profiles_student_id_key which occurs
+    //    when previous seed runs created separate profile rows for the same student_id.
+    const { error: cleanupErr } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('student_id', sid)
+      .neq('id', targetUserId);
 
-    // 2. Upsert profile
+    if (cleanupErr) {
+      console.error(`CLEANUP ERROR for ${sid}: ${cleanupErr.message}`);
+      // Non-fatal — log and attempt the upsert anyway
+    }
+
+    // 4. Upsert profile row using the resolved targetUserId
     const { error: profErr } = await supabase.from('profiles').upsert({
-      id:         userId,
+      id:         targetUserId,
       name,
       role:       'Student',
       student_id: sid,
@@ -142,19 +270,32 @@ async function main() {
     }, { onConflict: 'id' });
 
     if (profErr) {
-      console.error(`PROFILE ERROR: ${profErr.message}`);
+      console.error(`PROFILE UPSERT ERROR: ${profErr.message}`);
       errors++;
     } else {
-      console.log('OK');
-      created++;
+      if (isNewAccount) {
+        console.log('CREATED');
+      } else if (didMigrateAuth) {
+        console.log('MIGRATED & UPDATED');
+      } else if (existingProfile) {
+        console.log('OK (Profile Details Verified)');
+      } else {
+        console.log('LINKED & VERIFIED');
+      }
     }
 
-    // Throttle — Supabase free tier rate-limits admin API
-    if ((i + 1) % 10 === 0) await new Promise(r => setTimeout(r, 500));
+    // Throttle slightly to respect Supabase API rate limits
+    if ((i + 1) % 10 === 0) await new Promise(r => setTimeout(r, 200));
   }
 
-  console.log('\n──────────────────────────────────');
-  console.log(`Done.  Created: ${created}  |  Skipped: ${skipped}  |  Errors: ${errors}`);
+  console.log('\n──────────────────────────────────────────────────');
+  console.log('SEEDING & MIGRATION SUMMARY:');
+  console.log(`Created New:     ${created}`);
+  console.log(`Migrated Email:  ${migrated}`);
+  console.log(`Linked Orphaned: ${linked}`);
+  console.log(`Skipped:         ${skipped}`);
+  console.log(`Errors:          ${errors}`);
+  console.log('──────────────────────────────────────────────────\n');
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

@@ -52,36 +52,44 @@ export default function LoginPage() {
       return
     }
 
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('tab_session_active', 'true')
+    }
+
     router.push(`/${profile.role.toLowerCase()}`)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-slate-900 to-slate-800 p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden p-4">
+      {/* Decorative Background Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+      <div className="w-full max-w-md relative z-10 animate-slide-up">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-600 mb-4">
-            <svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-lg shadow-brand-500/30 mb-5">
+            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
                 d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">QR Attendance</h1>
-          <p className="text-slate-400 text-sm mt-1">SRMIST Trichy</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">QR Attendance</h1>
+          <p className="text-slate-400 text-sm mt-2 font-medium tracking-wide uppercase">SRMIST Trichy</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="glass-dark rounded-3xl overflow-hidden shadow-2xl">
           {/* Tabs */}
-          <div className="flex border-b border-slate-100">
+          <div className="flex border-b border-white/10 bg-white/5">
             {(['staff', 'student'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => { setTab(t); setError('') }}
-                className={`flex-1 py-3.5 text-sm font-semibold transition-colors
+                className={`flex-1 py-4 text-sm font-semibold transition-all duration-300
                   ${tab === t
-                    ? 'text-brand-600 border-b-2 border-brand-600'
-                    : 'text-slate-500 hover:text-slate-700'
+                    ? 'text-white border-b-2 border-brand-500 bg-white/10'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                   }`}
               >
                 {t === 'staff' ? 'Staff / Admin' : 'Student'}
@@ -89,66 +97,66 @@ export default function LoginPage() {
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-5">
+          <form onSubmit={handleSubmit} className="p-8 space-y-6">
             {tab === 'staff' ? (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Email address
                   </label>
                   <input
                     type="email" required
                     value={email} onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@srmist.ac.in"
-                    className="input"
+                    className="w-full border border-white/20 rounded-xl px-4 py-3 text-sm bg-black/20 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Password
                   </label>
                   <input
                     type="password" required
                     value={password} onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="input"
+                    className="w-full border border-white/20 rounded-xl px-4 py-3 text-sm bg-black/20 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300"
                   />
                 </div>
               </>
             ) : (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Roll Number
                   </label>
                   <input
                     type="text" required
                     value={rollNo} onChange={(e) => setRollNo(e.target.value)}
                     placeholder="RA2311003010001"
-                    className="input uppercase"
+                    className="w-full border border-white/20 rounded-xl px-4 py-3 text-sm bg-black/20 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300 uppercase"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Password
                   </label>
                   <input
                     type="password" required
                     value={stuPass} onChange={(e) => setStuPass(e.target.value)}
                     placeholder="••••••••"
-                    className="input"
+                    className="w-full border border-white/20 rounded-xl px-4 py-3 text-sm bg-black/20 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition-all duration-300"
                   />
                 </div>
               </>
             )}
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <p className="text-sm text-red-400 bg-red-950/50 border border-red-900/50 rounded-xl px-4 py-3 backdrop-blur-md">
                 {error}
               </p>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full">
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 text-base shadow-[0_0_20px_rgba(59,130,246,0.3)]">
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>

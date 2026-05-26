@@ -1,4 +1,4 @@
-import type { AttendanceRecord, SectionSummary } from '@/types'
+import type { AttendanceRecord, SectionSummary, RosterRecord } from '@/types'
 import { formatTime } from './utils'
 
 // ─────────────────────────────────────────
@@ -131,4 +131,75 @@ export async function exportSectionSummaryToPDF(
   })
 
   doc.save(`section_summary_${date}.pdf`)
+}
+
+// ─────────────────────────────────────────
+// Roster export (attendance drill-down)
+// ─────────────────────────────────────────
+export async function exportRosterToExcel(
+  rows: RosterRecord[],
+  date: string,
+  session: string
+) {
+  const XLSX = await import('xlsx')
+
+  const data = rows.map((r) => ({
+    'Student ID': r.student_id,
+    Name:         r.name,
+    Department:   r.department,
+    Year:         r.year,
+    Section:      r.section,
+    Status:       r.present ? 'Present' : 'Absent',
+  }))
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(data)
+  ws['!cols'] = [18, 28, 16, 6, 10, 10].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, `Roster_${session}`)
+  XLSX.writeFile(wb, `roster_${date}_${session}.xlsx`)
+}
+
+export async function exportRosterToPDF(
+  rows: RosterRecord[],
+  date: string,
+  session: string
+) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('Attendance Roster — SRMIST Trichy', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date: ${date}  |  Session: ${session}`, 14, 23)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
+
+  autoTable(doc, {
+    startY: 35,
+    head: [['Student ID', 'Name', 'Department', 'Year', 'Section', 'Status']],
+    body: rows.map((r) => [
+      r.student_id, r.name, r.department, r.year, r.section,
+      r.present ? 'Present' : 'Absent',
+    ]),
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    columnStyles: {
+      5: {
+        fontStyle: 'bold',
+      },
+    },
+    didParseCell: (data: any) => {
+      if (data.column.index === 5 && data.section === 'body') {
+        data.cell.styles.textColor =
+          data.cell.raw === 'Present' ? [22, 163, 74] : [220, 38, 38]
+      }
+    },
+    alternateRowStyles: { fillColor: [238, 242, 255] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`roster_${date}_${session}.pdf`)
 }

@@ -34,25 +34,25 @@ export default function FacultyDashboard() {
   const anCount = records.filter((r) => r.session.startsWith('AN')).length
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Welcome, {profile?.name?.split(' ')[0]}</h1>
-        <p className="text-sm text-slate-500 mt-0.5">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })}</p>
+    <div className="space-y-8 animate-fade-in pb-10">
+      <div className="glass p-6 rounded-2xl">
+        <h1 className="text-3xl font-bold text-slate-900">Welcome, {profile?.name?.split(' ')[0]}</h1>
+        <p className="text-sm font-medium text-slate-500 mt-1">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })}</p>
       </div>
 
       {/* Scan CTA */}
       <Link
         href="/faculty/scan"
-        className="flex items-center justify-between card bg-brand-600 hover:bg-brand-700
-                   text-white transition-colors cursor-pointer border-0 p-6"
+        className="flex items-center justify-between card bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500
+                   text-white transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl cursor-pointer border-0 p-8 shadow-brand-500/20"
       >
         <div>
-          <p className="font-bold text-lg">Scan QR Codes</p>
-          <p className="text-brand-100 text-sm mt-0.5">Tap to open camera scanner</p>
+          <p className="font-bold text-2xl tracking-tight">Scan QR Codes</p>
+          <p className="text-brand-100 text-sm mt-1 font-medium">Tap to open camera scanner</p>
         </div>
-        <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+        <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
           <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
               d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
           </svg>
         </div>

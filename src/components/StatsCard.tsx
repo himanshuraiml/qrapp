@@ -21,13 +21,13 @@ interface Props {
 export default function StatsCard({ label, value, icon, color, sub }: Props) {
   const c = COLOR_MAP[color]
   return (
-    <div className="card flex flex-col gap-3">
-      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-xl ring-1', c.bg, c.ring)}>
+    <div className="card flex flex-col gap-3 group">
+      <div className={cn('w-12 h-12 rounded-2xl flex items-center justify-center text-2xl ring-1 shadow-inner group-hover:scale-110 transition-transform duration-300', c.bg, c.ring)}>
         {icon}
       </div>
-      <div>
-        <p className={cn('text-2xl font-bold', c.text)}>{value}</p>
-        <p className="text-sm text-slate-500 mt-0.5">{label}</p>
+      <div className="mt-2">
+        <p className={cn('text-3xl font-bold tracking-tight', c.text)}>{value}</p>
+        <p className="text-sm font-medium text-slate-500 mt-1 uppercase tracking-wider">{label}</p>
         {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
       </div>
     </div>

@@ -19,26 +19,47 @@ export function useAuth() {
   }, [supabase])
 
   useEffect(() => {
+    let active = true
+
+    // Fetch initial user state
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) fetchProfile(user.id).finally(() => setLoading(false))
-      else setLoading(false)
+      if (!active) return
+      if (user) {
+        fetchProfile(user.id).finally(() => {
+          if (active) setLoading(false)
+        })
+      } else {
+        setLoading(false)
+      }
     })
 
+    // Listen to subsequent auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        if (session?.user) await fetchProfile(session.user.id)
-        else setProfile(null)
+        if (!active) return
+        if (session?.user) {
+          await fetchProfile(session.user.id)
+        } else {
+          setProfile(null)
+        }
         setLoading(false)
       }
     )
 
-    return () => subscription.unsubscribe()
-  }, [fetchProfile, supabase.auth])
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [fetchProfile, supabase])
 
   async function logout() {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('tab_session_active')
+    }
     await supabase.auth.signOut()
     window.location.href = '/login'
   }
 
   return { profile, loading, logout }
 }
+

@@ -51,28 +51,34 @@ export default function StudentDashboard() {
       }
     : null
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">{profile?.name}</h1>
-        <p className="text-sm text-slate-500">
+    <div className="space-y-8 animate-fade-in pb-10">
+      <div className="glass p-6 rounded-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+        <h1 className="text-2xl font-bold text-slate-900">{profile?.name}</h1>
+        <p className="text-sm text-slate-500 mt-1">
           {profile?.department} · Year {profile?.year} · Section {profile?.section}
         </p>
-        <p className="text-xs font-mono text-slate-400 mt-0.5">{profile?.student_id}</p>
+        <p className="text-xs font-mono text-slate-400 mt-2 bg-white/50 inline-block px-2 py-1 rounded-md">{profile?.student_id}</p>
       </div>
 
       {/* QR Code */}
       {qrPayload && <QrDisplay basePayload={qrPayload} />}
 
       {/* Today's summary */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card text-center p-4">
-          <p className="text-2xl font-bold text-blue-600">{fnToday.length}</p>
-          <p className="text-xs text-slate-500 mt-1">FN sessions today</p>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="card text-center flex flex-col items-center justify-center p-6">
+          <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mb-3">
+            <span className="text-xl">🌅</span>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{fnToday.length}</p>
+          <p className="text-xs font-medium text-slate-500 mt-1 uppercase tracking-wider">FN Sessions</p>
         </div>
-        <div className="card text-center p-4">
-          <p className="text-2xl font-bold text-amber-600">{anToday.length}</p>
-          <p className="text-xs text-slate-500 mt-1">AN sessions today</p>
+        <div className="card text-center flex flex-col items-center justify-center p-6">
+          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+            <span className="text-xl">🌇</span>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{anToday.length}</p>
+          <p className="text-xs font-medium text-slate-500 mt-1 uppercase tracking-wider">AN Sessions</p>
         </div>
       </div>
 

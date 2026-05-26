@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
@@ -36,8 +36,48 @@ export default function NavBar({ role }: { role: UserRole }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const links = NAV_LINKS[role]
 
+  // Automatic logout on tab-close and tab-switch inactivity (5 min)
+  useEffect(() => {
+    if (!profile) return
+
+    // 1. Detect if tab was closed and reopened
+    const tabSessionActive = sessionStorage.getItem('tab_session_active')
+    if (!tabSessionActive) {
+      // Reopened tab after closing -> sign out immediately
+      logout()
+      return
+    }
+
+    // 2. Detect tab-switch inactivity
+    let visibilityTimeoutId: NodeJS.Timeout | null = null
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Start 5-minute logout timer (300,000 ms)
+        visibilityTimeoutId = setTimeout(() => {
+          logout()
+        }, 5 * 60 * 1000)
+      } else if (document.visibilityState === 'visible') {
+        // Returned before timeout -> cancel logout timer
+        if (visibilityTimeoutId) {
+          clearTimeout(visibilityTimeoutId)
+          visibilityTimeoutId = null
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (visibilityTimeoutId) {
+        clearTimeout(visibilityTimeoutId)
+      }
+    }
+  }, [profile, logout])
+
   return (
-    <nav className="bg-white border-b border-slate-100 sticky top-0 z-30">
+    <nav className="bg-white/80 backdrop-blur-xl border-b border-white/40 shadow-sm sticky top-0 z-30 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
 
@@ -61,10 +101,10 @@ export default function NavBar({ role }: { role: UserRole }) {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                  'px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300',
                   pathname === l.href
-                    ? 'bg-brand-50 text-brand-600'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'bg-brand-50 text-brand-600 shadow-sm ring-1 ring-brand-500/10'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 )}
               >
                 {l.label}
@@ -80,7 +120,7 @@ export default function NavBar({ role }: { role: UserRole }) {
             <button
               onClick={logout}
               className="text-sm text-slate-500 hover:text-slate-900 px-3 py-1.5
-                         rounded-lg hover:bg-slate-100 transition-colors"
+                         rounded-lg hover:bg-slate-100 transition-all duration-300"
             >
               Sign out
             </button>

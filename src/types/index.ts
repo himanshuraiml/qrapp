@@ -79,3 +79,12 @@ export interface ReportFilters {
   year: string
   session: string
 }
+
+export interface RosterRecord {
+  student_id:  string
+  name:        string
+  department:  string
+  year:        number
+  section:     string
+  present:     boolean
+}

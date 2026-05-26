@@ -29,30 +29,49 @@ export default function ScanPage() {
     if (!active) return
 
     let html5QrCode: any
+    let isCancelled = false
 
     async function startScanner() {
-      const { Html5Qrcode } = await import('html5-qrcode')
-      html5QrCode = new Html5Qrcode('qr-reader')
-      scannerRef.current = html5QrCode
-
       try {
+        const { Html5Qrcode } = await import('html5-qrcode')
+        if (isCancelled) return
+
+        html5QrCode = new Html5Qrcode('qr-reader')
+        scannerRef.current = html5QrCode
+
         await html5QrCode.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 260, height: 260 } },
           handleQrCode,
           () => {}
         )
+
+        // If the scanner was cancelled while starting up, stop it immediately
+        if (isCancelled) {
+          if (html5QrCode.isScanning) {
+            await html5QrCode.stop()
+          }
+        }
       } catch {
-        setResult({ type: 'error', message: 'Camera access denied. Enable camera permission.' })
-        setActive(false)
+        if (!isCancelled) {
+          setResult({ type: 'error', message: 'Camera access denied. Enable camera permission.' })
+          setActive(false)
+        }
       }
     }
 
     startScanner()
 
     return () => {
-      if (scannerRef.current?.isScanning) {
-        scannerRef.current.stop().catch(() => {})
+      isCancelled = true
+      if (html5QrCode) {
+        if (html5QrCode.isScanning) {
+          html5QrCode.stop().catch(() => {})
+        }
+      } else if (scannerRef.current) {
+        if (scannerRef.current.isScanning) {
+          scannerRef.current.stop().catch(() => {})
+        }
       }
     }
   }, [active])
