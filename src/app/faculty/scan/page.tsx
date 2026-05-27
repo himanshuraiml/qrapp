@@ -80,7 +80,13 @@ export default function ScanPage() {
     processingRef.current = true
 
     try {
-      const payload: QrPayload = JSON.parse(text)
+      let payload: QrPayload
+      try {
+        payload = JSON.parse(text)
+      } catch {
+        setResult({ type: 'error', message: 'Could not read QR code' })
+        return
+      }
 
       if (!payload.student_id || !payload.ts) {
         setResult({ type: 'error', message: 'Invalid QR code' })
@@ -92,15 +98,18 @@ export default function ScanPage() {
         return
       }
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        setResult({ type: 'error', message: 'Session expired. Please log out and log in again.' })
+        return
+      }
 
       const { data: profile } = await supabase
         .from('profiles').select('name').eq('id', user.id).single()
 
       const today = todayIST()
 
-      const { data } = await supabase.rpc('mark_attendance_safe', {
+      const { data, error: rpcError } = await supabase.rpc('mark_attendance_safe', {
         p_student_id:     payload.student_id,
         p_student_name:   payload.name,
         p_department:     payload.department,
@@ -112,6 +121,11 @@ export default function ScanPage() {
         p_date:           today,
         p_timestamp:      new Date().toISOString(),
       })
+
+      if (rpcError) {
+        setResult({ type: 'error', message: `Database error: ${rpcError.message}` })
+        return
+      }
 
       if (data?.success) {
         setScanCount((c) => c + 1)
@@ -125,8 +139,8 @@ export default function ScanPage() {
           message: data?.message ?? `Already marked: ${payload.name}`,
         })
       }
-    } catch {
-      setResult({ type: 'error', message: 'Could not read QR code' })
+    } catch (err: any) {
+      setResult({ type: 'error', message: err?.message ?? 'An unexpected error occurred' })
     } finally {
       // Brief pause then clear result and allow next scan
       setTimeout(() => {

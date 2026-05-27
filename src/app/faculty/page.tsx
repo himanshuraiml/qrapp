@@ -31,6 +31,7 @@ export default function FacultyDashboard() {
         setRecords(rows)
         setLoading(false)
       })
+      .catch(() => setLoading(false))
   }, [profile])
 
   const fnCount = records.filter((r) => r.session.startsWith('FN')).length

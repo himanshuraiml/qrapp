@@ -50,12 +50,12 @@ export function useAuth() {
       }
     })
 
-    // Listen for auth changes
+    // Listen for auth changes (INITIAL_SESSION covers session restoration after refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!active) return
-        
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           if (session?.user) {
             await fetchProfile(session.user.id)
           }
@@ -63,7 +63,7 @@ export function useAuth() {
           setProfile(null)
           _cache.clear()
         }
-        
+
         setLoading(false)
       }
     )
@@ -76,11 +76,13 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     _cache.clear()
-    clearCache() // wipe all sessionStorage caches (attendance, scans, options)
+    clearCache()
     try {
       await supabase.auth.signOut()
     } catch {
-      // session may already be gone — still redirect
+      // Global signOut threw (e.g. lock timeout) — clear local session so
+      // middleware won't find cookies and redirect us back to the dashboard
+      try { await supabase.auth.signOut({ scope: 'local' }) } catch {}
     }
     window.location.href = '/login'
   }, [supabase])

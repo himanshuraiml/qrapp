@@ -32,6 +32,7 @@ export default function StudentDashboard() {
         setRecords(rows)
         setLoading(false)
       })
+      .catch(() => setLoading(false))
   }, [profile])
 
   const today = todayIST()

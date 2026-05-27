@@ -10,9 +10,10 @@ interface Props {
 }
 
 export default function QrDisplay({ basePayload }: Props) {
-  const [qrValue, setQrValue]     = useState('')
-  const [countdown, setCountdown] = useState(QR_TTL)
-  const [QRCode, setQRCode]       = useState<any>(null)
+  const [qrValue, setQrValue]           = useState('')
+  const [countdown, setCountdown]       = useState(QR_TTL)
+  const [QRCode, setQRCode]             = useState<any>(null)
+  const [lastGenerated, setLastGenerated] = useState<number>(0)
 
   // Lazy-load qrcode library (client-only)
   useEffect(() => {
@@ -21,9 +22,10 @@ export default function QrDisplay({ basePayload }: Props) {
 
   const generateQr = useCallback(async () => {
     if (!QRCode) return
+    const nowSec = Math.floor(Date.now() / 1000)
     const payload: QrPayload = {
       ...basePayload,
-      ts: Math.floor(Date.now() / 1000),
+      ts: nowSec,
     }
     const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
       width: 280,
@@ -32,6 +34,7 @@ export default function QrDisplay({ basePayload }: Props) {
       errorCorrectionLevel: 'M',
     })
     setQrValue(dataUrl)
+    setLastGenerated(nowSec)
     setCountdown(QR_TTL)
   }, [QRCode, basePayload])
 
@@ -40,19 +43,40 @@ export default function QrDisplay({ basePayload }: Props) {
     if (QRCode) generateQr()
   }, [QRCode, generateQr])
 
-  // Countdown + auto-refresh
+  // Countdown + auto-refresh based on physical elapsed time
   useEffect(() => {
-    if (!QRCode) return
+    if (!QRCode || !lastGenerated) return
     const tick = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          generateQr()
-          return QR_TTL
-        }
-        return c - 1
-      })
+      const nowSec = Math.floor(Date.now() / 1000)
+      const elapsed = nowSec - lastGenerated
+      const remaining = QR_TTL - elapsed
+
+      if (remaining <= 0) {
+        generateQr()
+      } else {
+        setCountdown(remaining)
+      }
     }, 1000)
     return () => clearInterval(tick)
+  }, [QRCode, lastGenerated, generateQr])
+
+  // Refresh QR code automatically on tab visibility change or window focus
+  useEffect(() => {
+    if (!QRCode) return
+
+    const handleActiveState = () => {
+      if (document.visibilityState === 'visible') {
+        generateQr()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleActiveState)
+    window.addEventListener('focus', handleActiveState)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleActiveState)
+      window.removeEventListener('focus', handleActiveState)
+    }
   }, [QRCode, generateQr])
 
   const pct = (countdown / QR_TTL) * 100

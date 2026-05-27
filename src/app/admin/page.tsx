@@ -36,16 +36,19 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const [{ data: statsData }, { data: sumData }] = await Promise.all([
-        supabase.rpc('get_dashboard_stats', { p_date: date }),
-        supabase.rpc('get_section_summary', {
-          p_date: date,
-          p_department: dept || null,
-        }),
-      ])
-      setStats(statsData)
-      setSummary(sumData ?? [])
-      setLoading(false)
+      try {
+        const [{ data: statsData }, { data: sumData }] = await Promise.all([
+          supabase.rpc('get_dashboard_stats', { p_date: date }),
+          supabase.rpc('get_section_summary', {
+            p_date: date,
+            p_department: dept || null,
+          }),
+        ])
+        setStats(statsData)
+        setSummary(sumData ?? [])
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [date, dept])

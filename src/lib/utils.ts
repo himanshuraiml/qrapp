@@ -61,9 +61,9 @@ export function sessionColor(session: string): string {
     : 'bg-amber-100 text-amber-700'
 }
 
-// Validate QR payload freshness (max 90 seconds old)
+// Validate QR payload freshness (max 300 seconds / 5 minutes old)
 export function isQrFresh(tsUnix: number): boolean {
-  return Math.floor(Date.now() / 1000) - tsUnix <= 90
+  return Math.floor(Date.now() / 1000) - tsUnix <= 300
 }
 
 export const SESSIONS: Array<{ label: string; value: string }> = [
