@@ -36,10 +36,15 @@ export default function FacultyDashboard() {
   const fnCount = records.filter((r) => r.session.startsWith('FN')).length
   const anCount = records.filter((r) => r.session.startsWith('AN')).length
 
+  const words = profile?.name?.split(' ') ?? []
+  const greeting = /^(Dr|Prof|Mr|Mrs|Ms)\.?$/i.test(words[0] ?? '')
+    ? `${words[0]} ${words[1] ?? ''}`.trim()
+    : words[0] ?? ''
+
   return (
     <div className="space-y-8 animate-fade-in pb-10">
       <div className="glass p-6 rounded-2xl">
-        <h1 className="text-3xl font-bold text-slate-900">Welcome, {profile?.name?.split(' ')[0]}</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Welcome, {greeting}</h1>
         <p className="text-sm font-medium text-slate-500 mt-1">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })}</p>
       </div>
 

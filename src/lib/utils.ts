@@ -12,12 +12,29 @@ export function todayIST(): string {
 
 // Formats a YYYY-MM-DD date string as "15 Jan 2024" — no timezone conversion needed
 // (date-only strings have no time component, so we parse manually to avoid UTC/local ambiguity)
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+function getMonthName(monthNum: number): string | undefined {
+  switch (monthNum) {
+    case 1: return 'Jan'
+    case 2: return 'Feb'
+    case 3: return 'Mar'
+    case 4: return 'Apr'
+    case 5: return 'May'
+    case 6: return 'Jun'
+    case 7: return 'Jul'
+    case 8: return 'Aug'
+    case 9: return 'Sep'
+    case 10: return 'Oct'
+    case 11: return 'Nov'
+    case 12: return 'Dec'
+    default: return undefined
+  }
+}
+
 export function formatDate(dateStr: string): string {
   const parts = (dateStr ?? '').split('-')
   if (parts.length !== 3) return dateStr
   const [y, m, d] = parts
-  const month = MONTHS[parseInt(m, 10) - 1]
+  const month = getMonthName(parseInt(m, 10))
   return month ? `${d} ${month} ${y}` : dateStr
 }
 
