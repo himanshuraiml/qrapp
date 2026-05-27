@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate, sessionColor } from '@/lib/utils'
+import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import QrDisplay from '@/components/student/QrDisplay'
 import type { AttendanceRecord, QrPayload } from '@/types'
 
@@ -15,6 +16,9 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (!profile?.student_id) return
+    const cacheKey = `attendance_${profile.student_id}_${todayIST()}`
+    const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.attendance)
+    if (cached) { setRecords(cached); setLoading(false); return }
     supabase
       .from('attendance')
       .select('*')
@@ -23,7 +27,9 @@ export default function StudentDashboard() {
       .order('session')
       .limit(60)
       .then(({ data }: { data: any }) => {
-        setRecords((data as AttendanceRecord[]) ?? [])
+        const rows = (data as AttendanceRecord[]) ?? []
+        writeCache(cacheKey, rows)
+        setRecords(rows)
         setLoading(false)
       })
   }, [profile])
@@ -40,16 +46,18 @@ export default function StudentDashboard() {
     return acc
   }, {})
 
-  const qrPayload: QrPayload | null = profile?.student_id
+  const qrPayload: QrPayload | null = useMemo(() => profile?.student_id
     ? {
         student_id: profile.student_id,
         name:       profile.name,
         department: profile.department ?? '',
         year:       profile.year ?? 1,
         section:    profile.section ?? '',
-        ts:         0, // QrDisplay overrides ts on each render
+        ts:         0,
       }
-    : null
+    : null,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [profile?.student_id, profile?.name, profile?.department, profile?.year, profile?.section])
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatTime, sessionColor } from '@/lib/utils'
+import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import type { AttendanceRecord } from '@/types'
 
 export default function FacultyDashboard() {
@@ -15,19 +16,21 @@ export default function FacultyDashboard() {
 
   useEffect(() => {
     if (!profile) return
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase
-        .from('attendance')
-        .select('*')
-        .eq('marked_by', user.id)
-        .eq('date', todayIST())
-        .order('timestamp', { ascending: false })
-        .then(({ data }) => {
-          setRecords(data ?? [])
-          setLoading(false)
-        })
-    })
+    const cacheKey = `faculty_scans_${profile.id}_${todayIST()}`
+    const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.scans)
+    if (cached) { setRecords(cached); setLoading(false); return }
+    supabase
+      .from('attendance')
+      .select('*')
+      .eq('marked_by', profile.id)
+      .eq('date', todayIST())
+      .order('timestamp', { ascending: false })
+      .then(({ data }) => {
+        const rows = data ?? []
+        writeCache(cacheKey, rows)
+        setRecords(rows)
+        setLoading(false)
+      })
   }, [profile])
 
   const fnCount = records.filter((r) => r.session.startsWith('FN')).length
