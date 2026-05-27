@@ -38,10 +38,11 @@ export function useAuth() {
   useEffect(() => {
     let active = true
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    // Initialize session state on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active) return
-      if (user) {
-        fetchProfile(user.id).finally(() => {
+      if (session?.user) {
+        fetchProfile(session.user.id).finally(() => {
           if (active) setLoading(false)
         })
       } else {
@@ -49,14 +50,20 @@ export function useAuth() {
       }
     })
 
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (!active) return
-        if (session?.user) {
-          await fetchProfile(session.user.id)
-        } else {
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (session?.user) {
+            await fetchProfile(session.user.id)
+          }
+        } else if (event === 'SIGNED_OUT') {
           setProfile(null)
+          _cache.clear()
         }
+        
         setLoading(false)
       }
     )

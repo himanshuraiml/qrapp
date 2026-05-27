@@ -17,10 +17,43 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-function parseYear(raw) {
-  if (!raw) return null;
-  const m = String(raw).match(/(\d)/);
-  return m ? parseInt(m[1], 10) : null;
+function parseDepartmentSectionYear(rawDept, rawSec, rawYearString) {
+  let department = String(rawDept || '').trim();
+  let section = String(rawSec || '').trim();
+  let year = null;
+
+  // Resolve Year
+  if (rawYearString) {
+    const ym = String(rawYearString).match(/(\d)/);
+    year = ym ? parseInt(ym[1], 10) : null;
+  }
+
+  const romanToYear = { 'I': 1, 'II': 2, 'III': 3, 'IV': 4 };
+  const yearToRoman = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' };
+
+  // Match e.g. "III-ECE-B" or "III-Biotech"
+  const match = department.match(/^(I|II|III|IV)-([A-Za-z\s&]+)(?:-([A-Za-z]))?$/i);
+
+  if (match) {
+    const roman = match[1].toUpperCase();
+    const branch = match[2].trim().toUpperCase();
+    const secLetter = match[3];
+
+    year = romanToYear[roman] || year;
+    section = secLetter ? secLetter.toUpperCase() : 'A';
+    department = `${roman} ${branch} ${section}`;
+  } else if (department.toUpperCase() === 'IT' || section.toUpperCase() === 'IT') {
+    // Special rule for IT students: department -> "[Roman] IT A", section -> "A"
+    const roman = yearToRoman[year] || 'III';
+    section = 'A';
+    department = `${roman} IT A`;
+  } else {
+    if (section === 'B.Tech' || section === 'Btech') {
+      section = 'A';
+    }
+  }
+
+  return { department, section, year };
 }
 
 function fixEmail(email) {
@@ -96,9 +129,11 @@ async function main() {
 
     const sid  = r['Student_ID'];
     const name = (r['Name'] || '').trim();
-    const dept = (r['Department'] || '').trim();
-    const sec  = (r['Section'] || '').trim();
-    const year = parseYear(r['Year']);
+    const { department: dept, section: sec, year } = parseDepartmentSectionYear(
+      (r['Department'] || '').trim(),
+      (r['Section'] || '').trim(),
+      r['Year']
+    );
 
     process.stdout.write(`[${i+1}/${authUsers.length}] ${sid} ... `);
 
