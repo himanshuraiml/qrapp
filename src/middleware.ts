@@ -27,10 +27,31 @@ export async function middleware(request: NextRequest) {
   const protectedPrefixes = ['/admin', '/faculty', '/student']
   const isProtected = protectedPrefixes.some((p) => path.startsWith(p))
 
+  // 1. Not logged in → redirect to login
   if (!user && isProtected) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  // 2. Logged in → enforce role matches the route prefix
+  if (user && isProtected) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const role = profile?.role?.toLowerCase() ?? ''
+
+    // Determine which top-level section the request targets
+    const targetSection = protectedPrefixes.find((p) => path.startsWith(p))?.slice(1) // e.g. "faculty"
+
+    if (targetSection && role !== targetSection) {
+      // Redirect to the user's own dashboard — don't expose a 403
+      return NextResponse.redirect(new URL(`/${role || 'login'}`, request.url))
+    }
+  }
+
+  // 3. Already logged in and trying to visit /login → redirect to their dashboard
   if (user && path === '/login') {
     const { data: profile } = await supabase
       .from('profiles')

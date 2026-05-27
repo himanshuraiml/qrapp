@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate } from '@/lib/utils'
 import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import StatsCard from '@/components/StatsCard'
@@ -10,6 +11,7 @@ import SessionBarChart from '@/components/admin/SessionBarChart'
 import type { DashboardStats, SectionSummary } from '@/types'
 
 export default function AdminDashboard() {
+  const { loading: authLoading } = useAuth()
   const supabase = createClient()
   const [date, setDate]       = useState(todayIST())
   const [dept, setDept]       = useState('')
@@ -34,6 +36,7 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
+    if (authLoading) return
     async function load() {
       setLoading(true)
       try {
@@ -51,7 +54,7 @@ export default function AdminDashboard() {
       }
     }
     load()
-  }, [date, dept])
+  }, [date, dept, authLoading])
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">

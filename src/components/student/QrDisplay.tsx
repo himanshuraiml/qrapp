@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { QrPayload } from '@/types'
 
-const QR_TTL = 30 // seconds before auto-refresh
+const QR_TTL = 300 // seconds before auto-refresh
 
 interface Props {
   basePayload: QrPayload

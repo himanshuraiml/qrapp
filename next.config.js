@@ -1,10 +1,6 @@
 const withPWA = require('@ducanh2912/next-pwa').default({
   dest: 'public',
-  cacheOnFrontEndNav: false,
-  aggressiveFrontEndNavCaching: false,
-  reloadOnOnline: true,
-  disable: process.env.NODE_ENV === 'development',
-  workboxOptions: { disableDevLogs: true },
+  disable: true, // SW disabled — causes stale-cache issues on Vercel; re-enable when cache strategy is ready
 })
 
 /** @type {import('next').NextConfig} */

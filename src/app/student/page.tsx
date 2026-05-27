@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate, sessionColor } from '@/lib/utils'
@@ -9,33 +9,94 @@ import QrDisplay from '@/components/student/QrDisplay'
 import type { AttendanceRecord, QrPayload } from '@/types'
 
 export default function StudentDashboard() {
-  const { profile } = useAuth()
+  const { profile, loading: authLoading } = useAuth()
   const supabase = createClient()
   const [records, setRecords]   = useState<AttendanceRecord[]>([])
   const [loading, setLoading]   = useState(true)
 
-  useEffect(() => {
+  const fetchRecords = useCallback(async (bypassCache = false) => {
     if (!profile?.student_id) return
     const cacheKey = `attendance_${profile.student_id}_${todayIST()}`
-    const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.attendance)
-    if (cached) { setRecords(cached); setLoading(false); return }
-    ;(async () => {
-      try {
-        const { data } = await supabase
-          .from('attendance')
-          .select('*')
-          .eq('student_id', profile.student_id)
-          .order('date', { ascending: false })
-          .order('session')
-          .limit(60)
+    
+    if (!bypassCache) {
+      const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.attendance)
+      if (cached) {
+        setRecords(cached)
+        setLoading(false)
+        return
+      }
+    }
+
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', profile.student_id)
+        .order('date', { ascending: false })
+        .order('session')
+        .limit(60)
+      if (error) {
+        console.error('Failed to fetch attendance:', error)
+      } else {
         const rows = (data as AttendanceRecord[]) ?? []
         writeCache(cacheKey, rows)
         setRecords(rows)
-      } finally {
-        setLoading(false)
       }
-    })()
-  }, [profile])
+    } catch (err) {
+      console.error('Error fetching attendance:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [profile?.student_id, supabase])
+
+  // Initial fetch
+  useEffect(() => {
+    if (authLoading) return
+    if (!profile?.student_id) {
+      setLoading(false)
+      return
+    }
+    fetchRecords(false)
+  }, [authLoading, profile?.student_id, fetchRecords])
+
+  // Real-time subscription
+  useEffect(() => {
+    if (authLoading || !profile?.student_id) return
+
+    const channel = supabase
+      .channel(`student_attendance_${profile.student_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'attendance',
+          filter: `student_id=eq.${profile.student_id}`,
+        },
+        (payload) => {
+          const newRecord = payload.new as AttendanceRecord
+          setRecords((prev) => {
+            // Check for duplicates
+            if (prev.some((r) => r.id === newRecord.id)) return prev
+            const updated = [newRecord, ...prev].sort((a, b) => {
+              if (a.date !== b.date) return b.date.localeCompare(a.date)
+              return b.session.localeCompare(a.session)
+            })
+            // Update cache as well
+            const cacheKey = `attendance_${profile.student_id}_${todayIST()}`
+            writeCache(cacheKey, updated)
+            return updated
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [profile?.student_id, authLoading, supabase])
+
 
   const today = todayIST()
   const todayRecords = records.filter((r: AttendanceRecord) => r.date === today)
@@ -96,7 +157,21 @@ export default function StudentDashboard() {
 
       {/* Attendance history */}
       <div className="card">
-        <h2 className="text-base font-semibold text-slate-800 mb-4">Attendance History</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-slate-800">Attendance History</h2>
+          <button
+            onClick={() => fetchRecords(true)}
+            className="text-xs text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors"
+            disabled={loading}
+          >
+            {loading ? (
+              <span className="w-3 h-3 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span className="text-xs">🔄</span>
+            )}
+            <span>Refresh</span>
+          </button>
+        </div>
         {loading ? (
           <p className="text-sm text-slate-400 text-center py-6">Loading…</p>
         ) : Object.keys(byDate).length === 0 ? (

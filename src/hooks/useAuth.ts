@@ -75,16 +75,28 @@ export function useAuth() {
   }, [fetchProfile, supabase])
 
   const logout = useCallback(async () => {
+    // Clear in-memory caches immediately so the UI reflects logged-out state
     _cache.clear()
     clearCache()
+
+    // Proactively wipe Supabase auth keys from localStorage so the user is
+    // locally signed out even if the network call hangs or the SW intercepts it.
     try {
-      await supabase.auth.signOut()
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('sb-'))
+        .forEach((k) => localStorage.removeItem(k))
+    } catch {}
+
+    // 2-second race: don't let signOut block the redirect
+    const makeTimeout = () => new Promise<void>((resolve) => setTimeout(resolve, 2000))
+    try {
+      await Promise.race([supabase.auth.signOut(), makeTimeout()])
     } catch {
-      // Global signOut threw (e.g. lock timeout) — clear local session so
-      // middleware won't find cookies and redirect us back to the dashboard
-      try { await supabase.auth.signOut({ scope: 'local' }) } catch {}
+      // Fallback: local-only sign-out (clears the session cookie without a network call)
+      try { await Promise.race([supabase.auth.signOut({ scope: 'local' }), makeTimeout()]) } catch {}
+    } finally {
+      window.location.href = '/login'
     }
-    window.location.href = '/login'
   }, [supabase])
 
   return { profile, loading, logout }

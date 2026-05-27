@@ -9,13 +9,14 @@ import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import type { AttendanceRecord } from '@/types'
 
 export default function FacultyDashboard() {
-  const { profile } = useAuth()
+  const { profile, loading: authLoading } = useAuth()
   const supabase = createClient()
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!profile) return
+    if (authLoading) return
+    if (!profile) { setLoading(false); return }
     const cacheKey = `faculty_scans_${profile.id}_${todayIST()}`
     const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.scans)
     if (cached) { setRecords(cached); setLoading(false); return }
@@ -34,7 +35,7 @@ export default function FacultyDashboard() {
         setLoading(false)
       }
     })()
-  }, [profile])
+  }, [profile, authLoading])
 
   const fnCount = records.filter((r) => r.session.startsWith('FN')).length
   const anCount = records.filter((r) => r.session.startsWith('AN')).length
