@@ -52,10 +52,6 @@ export default function LoginPage() {
       return
     }
 
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('tab_session_active', 'true')
-    }
-
     router.push(`/${profile.role.toLowerCase()}`)
   }
 

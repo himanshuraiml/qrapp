@@ -15,14 +15,13 @@ export default function ScanPage() {
   const [active, setActive]       = useState(false)
   const [result, setResult]       = useState<ScanResult | null>(null)
   const [scanCount, setScanCount] = useState(0)
-  const [session, setSession]     = useState<SessionLabel | null>(null)
+  const [sessionMode, setSessionMode] = useState<'FN' | 'AN'>('FN')
   const processingRef = useRef(false)
 
-  // Get active session on mount
+  // Get active session mode on mount
   useEffect(() => {
-    supabase.rpc('get_current_session').then(({ data }) => {
-      setSession(data as SessionLabel | null)
-    })
+    const hour = new Date().getHours()
+    setSessionMode(hour < 12 ? 'FN' : 'AN')
   }, [])
 
   useEffect(() => {
@@ -99,7 +98,6 @@ export default function ScanPage() {
       const { data: profile } = await supabase
         .from('profiles').select('name').eq('id', user.id).single()
 
-      const activeSession = session ?? 'FN1'
       const today = todayIST()
 
       const { data } = await supabase.rpc('mark_attendance_safe', {
@@ -108,7 +106,7 @@ export default function ScanPage() {
         p_department:     payload.department,
         p_section:        payload.section,
         p_year:           payload.year,
-        p_session:        activeSession,
+        p_session:        null, // Determined automatically by DB
         p_marked_by:      user.id,
         p_marked_by_name: profile?.name ?? 'Faculty',
         p_date:           today,
@@ -119,10 +117,13 @@ export default function ScanPage() {
         setScanCount((c) => c + 1)
         setResult({
           type: 'success',
-          message: `✓ ${payload.name} — ${activeSession}`,
+          message: `✓ ${payload.name} — ${data.session || (sessionMode + '1')}`,
         })
       } else {
-        setResult({ type: 'duplicate', message: `Already marked: ${payload.name}` })
+        setResult({
+          type: 'duplicate',
+          message: data?.message ?? `Already marked: ${payload.name}`,
+        })
       }
     } catch {
       setResult({ type: 'error', message: 'Could not read QR code' })
@@ -141,26 +142,12 @@ export default function ScanPage() {
         <button onClick={() => router.back()} className="btn-secondary px-3 py-2 text-sm">← Back</button>
         <div>
           <h1 className="text-xl font-bold text-slate-900">QR Scanner</h1>
-          {session ? (
-            <p className="text-sm text-slate-500">Active session: <span className="font-semibold text-brand-600">{session}</span></p>
-          ) : (
-            <p className="text-sm text-amber-600">No active session — check session settings</p>
-          )}
+          <p className="text-sm text-slate-500">
+            Active session: <span className="font-semibold text-brand-600">
+              {sessionMode === 'FN' ? 'Forenoon (Auto-Advancing)' : 'Afternoon (Auto-Advancing)'}
+            </span>
+          </p>
         </div>
-      </div>
-
-      {/* Session override */}
-      <div className="card p-4">
-        <label className="block text-sm font-medium text-slate-700 mb-1">Override Session</label>
-        <select
-          value={session ?? ''}
-          onChange={(e) => setSession(e.target.value as SessionLabel)}
-          className="input text-sm"
-        >
-          {(['FN1','FN2','FN3','AN1','AN2','AN3'] as SessionLabel[]).map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
       </div>
 
       {/* Scanner */}

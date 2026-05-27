@@ -36,19 +36,11 @@ export default function NavBar({ role }: { role: UserRole }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const links = NAV_LINKS[role]
 
-  // Automatic logout on tab-close and tab-switch inactivity (5 min)
+  // Automatic logout on tab-switch inactivity (5 min)
   useEffect(() => {
     if (!profile) return
 
-    // 1. Detect if tab was closed and reopened
-    const tabSessionActive = sessionStorage.getItem('tab_session_active')
-    if (!tabSessionActive) {
-      // Reopened tab after closing -> sign out immediately
-      logout()
-      return
-    }
-
-    // 2. Detect tab-switch inactivity
+    // Detect tab-switch inactivity
     let visibilityTimeoutId: NodeJS.Timeout | null = null
 
     const handleVisibilityChange = () => {

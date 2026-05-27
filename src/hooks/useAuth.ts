@@ -41,10 +41,6 @@ export function useAuth() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!active) return
       if (user) {
-        // Mark this browser session as active so NavBar doesn't force-logout
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('tab_session_active', 'true')
-        }
         fetchProfile(user.id).finally(() => {
           if (active) setLoading(false)
         })
@@ -57,9 +53,6 @@ export function useAuth() {
       async (_event, session) => {
         if (!active) return
         if (session?.user) {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('tab_session_active', 'true')
-          }
           await fetchProfile(session.user.id)
         } else {
           setProfile(null)

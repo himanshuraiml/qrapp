@@ -19,35 +19,77 @@ CREATE OR REPLACE FUNCTION mark_attendance_safe(
 RETURNS JSON
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_existing UUID;
-  v_new      UUID;
+  v_hour             INTEGER;
+  v_prefix           TEXT;
+  v_last_timestamp   TIMESTAMPTZ;
+  v_last_id          UUID;
+  v_last_session     TEXT;
+  v_count            INTEGER;
+  v_target_session   TEXT;
+  v_gap_minutes      NUMERIC;
+  v_new              UUID;
 BEGIN
-  SELECT id INTO v_existing
+  -- 1. Determine whether it is Forenoon (FN) or Afternoon (AN) based on timestamp in IST
+  v_hour := EXTRACT(HOUR FROM p_timestamp AT TIME ZONE 'Asia/Kolkata');
+  
+  IF v_hour < 12 THEN
+    v_prefix := 'FN';
+  ELSE
+    v_prefix := 'AN';
+  END IF;
+
+  -- 2. Find the most recent scan for this student today within the same half-day (FN or AN)
+  SELECT id, timestamp, session INTO v_last_id, v_last_timestamp, v_last_session
   FROM   attendance
   WHERE  student_id = p_student_id
     AND  date       = p_date
-    AND  session    = p_session;
+    AND  session    LIKE v_prefix || '%'
+  ORDER BY timestamp DESC
+  LIMIT 1;
 
-  IF v_existing IS NOT NULL THEN
+  -- 3. If there is a previous scan, check the 1-hour gap rule
+  IF v_last_id IS NOT NULL THEN
+    v_gap_minutes := EXTRACT(EPOCH FROM (p_timestamp - v_last_timestamp)) / 60;
+    
+    IF v_gap_minutes < 60 THEN
+      RETURN json_build_object(
+        'success', FALSE,
+        'message', 'Already marked (' || v_last_session || ' marked ' || ROUND(v_gap_minutes)::TEXT || 'm ago)',
+        'id',      v_last_id
+      );
+    END IF;
+  END IF;
+
+  -- 4. Determine next sub-session number (1, 2, or 3)
+  SELECT COUNT(DISTINCT session) INTO v_count
+  FROM   attendance
+  WHERE  student_id = p_student_id
+    AND  date       = p_date
+    AND  session    LIKE v_prefix || '%';
+
+  IF v_count >= 3 THEN
     RETURN json_build_object(
       'success', FALSE,
-      'message', 'Already marked for this session',
-      'id',      v_existing
+      'message', 'Maximum ' || v_prefix || ' sessions already marked for today'
     );
   END IF;
 
+  v_target_session := v_prefix || (v_count + 1)::TEXT;
+
+  -- 5. Insert the record
   INSERT INTO attendance
     (student_id, student_name, department, section, year,
      session, marked_by, marked_by_name, date, timestamp)
   VALUES
     (p_student_id, p_student_name, p_department, p_section, p_year,
-     p_session, p_marked_by, p_marked_by_name, p_date, p_timestamp)
+     v_target_session, p_marked_by, p_marked_by_name, p_date, p_timestamp)
   RETURNING id INTO v_new;
 
   RETURN json_build_object(
     'success', TRUE,
-    'message', 'Marked successfully',
-    'id',      v_new
+    'message', 'Marked successfully as ' || v_target_session,
+    'id',      v_new,
+    'session', v_target_session
   );
 END;
 $$;
