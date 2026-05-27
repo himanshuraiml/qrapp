@@ -19,20 +19,22 @@ export default function StudentDashboard() {
     const cacheKey = `attendance_${profile.student_id}_${todayIST()}`
     const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.attendance)
     if (cached) { setRecords(cached); setLoading(false); return }
-    supabase
-      .from('attendance')
-      .select('*')
-      .eq('student_id', profile.student_id)
-      .order('date', { ascending: false })
-      .order('session')
-      .limit(60)
-      .then(({ data }: { data: any }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('student_id', profile.student_id)
+          .order('date', { ascending: false })
+          .order('session')
+          .limit(60)
         const rows = (data as AttendanceRecord[]) ?? []
         writeCache(cacheKey, rows)
         setRecords(rows)
+      } finally {
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      }
+    })()
   }, [profile])
 
   const today = todayIST()

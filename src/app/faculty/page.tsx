@@ -19,19 +19,21 @@ export default function FacultyDashboard() {
     const cacheKey = `faculty_scans_${profile.id}_${todayIST()}`
     const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.scans)
     if (cached) { setRecords(cached); setLoading(false); return }
-    supabase
-      .from('attendance')
-      .select('*')
-      .eq('marked_by', profile.id)
-      .eq('date', todayIST())
-      .order('timestamp', { ascending: false })
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('marked_by', profile.id)
+          .eq('date', todayIST())
+          .order('timestamp', { ascending: false })
         const rows = data ?? []
         writeCache(cacheKey, rows)
         setRecords(rows)
+      } finally {
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+      }
+    })()
   }, [profile])
 
   const fnCount = records.filter((r) => r.session.startsWith('FN')).length
