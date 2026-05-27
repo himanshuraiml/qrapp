@@ -22,19 +22,19 @@ export default function StudentDashboard() {
       .order('date', { ascending: false })
       .order('session')
       .limit(60)
-      .then(({ data }) => {
-        setRecords(data ?? [])
+      .then(({ data }: { data: any }) => {
+        setRecords((data as AttendanceRecord[]) ?? [])
         setLoading(false)
       })
   }, [profile])
 
   const today = todayIST()
-  const todayRecords = records.filter((r) => r.date === today)
-  const fnToday = todayRecords.filter((r) => r.session.startsWith('FN'))
-  const anToday = todayRecords.filter((r) => r.session.startsWith('AN'))
+  const todayRecords = records.filter((r: AttendanceRecord) => r.date === today)
+  const fnToday = todayRecords.filter((r: AttendanceRecord) => r.session.startsWith('FN'))
+  const anToday = todayRecords.filter((r: AttendanceRecord) => r.session.startsWith('AN'))
 
   // Group history by date
-  const byDate = records.reduce<Record<string, AttendanceRecord[]>>((acc, r) => {
+  const byDate = records.reduce<Record<string, AttendanceRecord[]>>((acc: Record<string, AttendanceRecord[]>, r: AttendanceRecord) => {
     if (!acc[r.date]) acc[r.date] = []
     acc[r.date].push(r)
     return acc
@@ -51,6 +51,7 @@ export default function StudentDashboard() {
       }
     : null
 
+  return (
     <div className="space-y-8 animate-fade-in pb-10">
       <div className="glass p-6 rounded-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
@@ -97,7 +98,7 @@ export default function StudentDashboard() {
                   {formatDate(date)}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {recs.map((r) => (
+                  {(recs as AttendanceRecord[]).map((r: AttendanceRecord) => (
                     <span key={r.id} className={`badge ${sessionColor(r.session)} text-xs font-semibold`}>
                       {r.session}
                     </span>
