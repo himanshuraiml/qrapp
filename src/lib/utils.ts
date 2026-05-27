@@ -1,19 +1,27 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { format, parseISO } from 'date-fns'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Returns today's date as YYYY-MM-DD in IST
 export function todayIST(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) // YYYY-MM-DD
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
+// Formats a YYYY-MM-DD date string as "15 Jan 2024" — no timezone conversion needed
+// (date-only strings have no time component, so we parse manually to avoid UTC/local ambiguity)
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 export function formatDate(dateStr: string): string {
-  try { return format(parseISO(dateStr), 'dd MMM yyyy') } catch { return dateStr }
+  const parts = (dateStr ?? '').split('-')
+  if (parts.length !== 3) return dateStr
+  const [y, m, d] = parts
+  const month = MONTHS[parseInt(m, 10) - 1]
+  return month ? `${d} ${month} ${y}` : dateStr
 }
 
+// Formats an ISO timestamp string as IST time, e.g. "02:30 PM"
 export function formatTime(isoStr: string): string {
   return new Date(isoStr).toLocaleTimeString('en-IN', {
     timeZone: 'Asia/Kolkata',
