@@ -8,6 +8,20 @@ import { studentEmail } from '@/lib/utils'
 
 type Tab = 'staff' | 'student'
 
+const LABELS = {
+  title: 'QR Attendance',
+  subtitle: 'SRMIST Trichy',
+  staffAdmin: 'Staff / Admin',
+  student: 'Student',
+  emailAddress: 'Email Address',
+  password: 'Password',
+  rollNumber: 'Roll Number',
+  signIn: 'Sign In',
+  signingIn: 'Signing in...',
+  emailPlaceholder: 'name@srmist.edu.in',
+  rollPlaceholder: 'RA2311003010001',
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -21,6 +35,8 @@ export default function LoginPage() {
   // Student fields
   const [rollNo, setRollNo] = useState('')
   const [stuPass, setStuPass] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showStuPass, setShowStuPass] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -57,10 +73,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 relative overflow-hidden p-6">
-      {/* Dynamic Background Blur Mesh */}
-      <div className="absolute top-[-10%] left-[-10%] w-[550px] h-[550px] bg-brand-600/30 rounded-full filter blur-[120px] animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[550px] h-[550px] bg-indigo-600/25 rounded-full filter blur-[120px] animate-pulse" style={{ animationDelay: '3s' }}></div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 relative overflow-hidden p-6">
+      {/* Dynamic Background Blur Mesh - Light Version */}
+      <div className="absolute top-[-10%] left-[-10%] w-[550px] h-[550px] bg-brand-100/50 rounded-full filter blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[550px] h-[550px] bg-indigo-100/40 rounded-full filter blur-[120px] animate-pulse" style={{ animationDelay: '3s' }} />
 
       <div className="w-full max-w-md relative z-10 animate-slide-up">
         {/* Logo / Branding */}
@@ -71,25 +87,30 @@ export default function LoginPage() {
                 d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight font-heading">QR Attendance</h1>
-          <p className="text-brand-300 text-xs font-semibold mt-1 tracking-widest uppercase">SRMIST Trichy</p>
+          <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight font-heading">{LABELS.title}</h1>
+          <p className="text-brand-600 text-xs font-semibold mt-1 tracking-widest uppercase">{LABELS.subtitle}</p>
         </div>
 
-        {/* glass-dark Card */}
-        <div className="glass-dark rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl transition-all duration-500">
+        {/* Light Glassmorphic Card */}
+        <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] overflow-hidden border border-white/60 shadow-[0_20px_50px_rgba(0,0,0,0.04)] transition-all duration-500">
           {/* Custom Tabs with underline highlight */}
-          <div className="flex border-b border-white/5 bg-slate-950/40 p-2 gap-1">
+          <div className="flex border-b border-slate-100 bg-slate-50/50 p-2 gap-1">
             {(['staff', 'student'] as Tab[]).map((t) => (
               <button
                 key={t}
-                onClick={() => { setTab(t); setError('') }}
+                onClick={() => {
+                  setTab(t)
+                  setError('')
+                  setShowPassword(false)
+                  setShowStuPass(false)
+                }}
                 className={`flex-1 py-3 text-sm font-semibold rounded-2xl transition-all duration-500
                   ${tab === t
-                    ? 'text-white bg-gradient-to-r from-brand-600/90 to-indigo-600/90 shadow-lg shadow-brand-500/10'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                    ? 'text-white bg-gradient-to-r from-brand-600 to-indigo-600 shadow-lg shadow-brand-500/10'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
                   }`}
               >
-                {t === 'staff' ? 'Staff / Admin' : 'Student'}
+                {t === 'staff' ? LABELS.staffAdmin : LABELS.student}
               </button>
             ))}
           </div>
@@ -99,60 +120,96 @@ export default function LoginPage() {
               <div className="space-y-5">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    Email Address
+                    {LABELS.emailAddress}
                   </label>
                   <input
                     type="email" required
                     value={email} onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@srmist.edu.in"
-                    className="w-full border border-white/10 rounded-xl px-4 py-3.5 text-sm bg-slate-950/40 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all duration-300"
+                    placeholder={LABELS.emailPlaceholder}
+                    className="w-full border border-slate-200/80 rounded-xl px-4 py-3.5 text-sm bg-slate-50/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-300"
                   />
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
-                      Password
+                      {LABELS.password}
                     </label>
                   </div>
-                  <input
-                    type="password" required
-                    value={password} onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full border border-white/10 rounded-xl px-4 py-3.5 text-sm bg-slate-950/40 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all duration-300"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'} required
+                      value={password} onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full border border-slate-200/80 rounded-xl pl-4 pr-11 py-3.5 text-sm bg-slate-50/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showPassword ? (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="space-y-5">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                    Roll Number
+                    {LABELS.rollNumber}
                   </label>
                   <input
                     type="text" required
                     value={rollNo} onChange={(e) => setRollNo(e.target.value)}
-                    placeholder="RA2311003010001"
-                    className="w-full border border-white/10 rounded-xl px-4 py-3.5 text-sm bg-slate-950/40 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all duration-300 uppercase"
+                    placeholder={LABELS.rollPlaceholder}
+                    className="w-full border border-slate-200/80 rounded-xl px-4 py-3.5 text-sm bg-slate-50/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-300 uppercase"
                   />
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
-                      Password
+                      {LABELS.password}
                     </label>
                   </div>
-                  <input
-                    type="password" required
-                    value={stuPass} onChange={(e) => setStuPass(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full border border-white/10 rounded-xl px-4 py-3.5 text-sm bg-slate-950/40 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 transition-all duration-300"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showStuPass ? 'text' : 'password'} required
+                      value={stuPass} onChange={(e) => setStuPass(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full border border-slate-200/80 rounded-xl pl-4 pr-11 py-3.5 text-sm bg-slate-50/50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowStuPass(!showStuPass)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showStuPass ? (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="text-sm text-red-400 bg-red-950/40 border border-red-500/20 rounded-2xl px-4 py-3 backdrop-blur-md animate-fade-in flex items-start gap-2.5">
+              <div className="text-xs font-bold text-red-500 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-start gap-2.5 shadow-sm animate-fade-in">
                 <span className="text-base mt-0.5">⚠️</span>
                 <span>{error}</span>
               </div>
@@ -166,10 +223,10 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  <span>Signing in...</span>
+                  <span>{LABELS.signingIn}</span>
                 </>
               ) : (
-                <span>Sign In</span>
+                <span>{LABELS.signIn}</span>
               )}
             </button>
           </form>
