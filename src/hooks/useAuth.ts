@@ -26,24 +26,29 @@ export function useAuth() {
   useEffect(() => {
     let active = true
 
-    // Hard failsafe: if auth doesn't resolve in 8s, just clear loading.
-    // Never force-redirect here — middleware handles unauthenticated requests.
     const failsafe = setTimeout(() => {
-      if (!active) return
-      setLoading(false)
+      if (active) setLoading(false)
     }, 8000)
 
-    // onAuthStateChange is the primary signal — INITIAL_SESSION fires on every page load.
-    // We rely on this exclusively; getSession() is only a fallback.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!active) return
         clearTimeout(failsafe)
         try {
-          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          if (event === 'INITIAL_SESSION') {
             if (session?.user) {
+              // Fast path: client-side session readable
               await fetchProfile(session.user.id)
+            } else {
+              // Refresh path: client can't read cookie — ask the server
+              try {
+                const res = await fetch('/api/auth/me')
+                const { userId } = await res.json()
+                if (userId && active) await fetchProfile(userId)
+              } catch {}
             }
+          } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            if (session?.user) await fetchProfile(session.user.id)
           } else if (event === 'SIGNED_OUT') {
             setProfile(null)
           }
@@ -52,20 +57,6 @@ export function useAuth() {
         }
       }
     )
-
-    // Fallback: if onAuthStateChange never fires (rare), getSession() catches it
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!active) return
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => {
-          if (active) setLoading(false)
-        })
-      } else {
-        setLoading(false)
-      }
-    }).catch(() => {
-      if (active) setLoading(false)
-    })
 
     return () => {
       active = false
