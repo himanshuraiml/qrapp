@@ -42,15 +42,35 @@ export function useAuth() {
   useEffect(() => {
     let active = true
 
-    // Hard failsafe: if auth doesn't resolve in 8s (e.g. token refresh hangs),
-    // clear loading and redirect to login so the user is never stuck.
+    // Hard failsafe: if auth doesn't resolve in 8s, just clear loading.
+    // Never force-redirect here — middleware handles unauthenticated requests.
     const failsafe = setTimeout(() => {
       if (!active) return
       setLoading(false)
-      window.location.replace('/login')
     }, 8000)
 
-    // Initialize session state on mount
+    // onAuthStateChange is the primary signal — INITIAL_SESSION fires on every page load.
+    // We rely on this exclusively; getSession() is only a fallback.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!active) return
+        clearTimeout(failsafe)
+        try {
+          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            if (session?.user) {
+              await fetchProfile(session.user.id)
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setProfile(null)
+            _cache.clear()
+          }
+        } finally {
+          if (active) setLoading(false)
+        }
+      }
+    )
+
+    // Fallback: if onAuthStateChange never fires (rare), getSession() catches it
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!active) return
       if (session?.user) {
@@ -64,26 +84,6 @@ export function useAuth() {
       if (active) setLoading(false)
     })
 
-    // onAuthStateChange is the primary signal — INITIAL_SESSION fires on every page load
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!active) return
-        try {
-          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-            if (session?.user) {
-              await fetchProfile(session.user.id)
-            }
-          } else if (event === 'SIGNED_OUT') {
-            setProfile(null)
-            _cache.clear()
-          }
-        } finally {
-          // Always clear loading, even if fetchProfile throws/hangs
-          if (active) setLoading(false)
-        }
-      }
-    )
-
     return () => {
       active = false
       clearTimeout(failsafe)
@@ -92,25 +92,31 @@ export function useAuth() {
   }, [fetchProfile, supabase])
 
   const logout = useCallback(async () => {
-    // Clear in-memory caches immediately so the UI reflects logged-out state
     _cache.clear()
     clearCache()
 
-    // Proactively wipe Supabase auth keys from localStorage so the user is
-    // locally signed out even if the network call hangs or the SW intercepts it.
+    // Wipe session from every client-side storage so the middleware never
+    // sees stale auth cookies and bounces the user back to the dashboard.
     try {
+      // localStorage keys
       Object.keys(localStorage)
         .filter((k) => k.startsWith('sb-'))
         .forEach((k) => localStorage.removeItem(k))
+      // Cookies set by @supabase/ssr (not httpOnly — safe to clear via JS)
+      document.cookie.split(';').forEach((c) => {
+        const key = c.split('=')[0].trim()
+        if (key.startsWith('sb-')) {
+          document.cookie = `${key}=; max-age=0; path=/`
+        }
+      })
     } catch {}
 
-    // 2-second race: don't let signOut block the redirect
-    const makeTimeout = () => new Promise<void>((resolve) => setTimeout(resolve, 2000))
+    // Best-effort network signOut — but don't let it block the redirect
+    const timeout = new Promise<void>((resolve) => setTimeout(resolve, 2000))
     try {
-      await Promise.race([supabase.auth.signOut(), makeTimeout()])
+      await Promise.race([supabase.auth.signOut(), timeout])
     } catch {
-      // Fallback: local-only sign-out (clears the session cookie without a network call)
-      try { await Promise.race([supabase.auth.signOut({ scope: 'local' }), makeTimeout()]) } catch {}
+      try { await Promise.race([supabase.auth.signOut({ scope: 'local' }), timeout]) } catch {}
     } finally {
       window.location.href = '/login'
     }
