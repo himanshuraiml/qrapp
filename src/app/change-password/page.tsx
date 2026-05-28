@@ -6,6 +6,17 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import NavBar from '@/components/NavBar'
 
+const LABELS = {
+  updatePassword: 'Update Password',
+  subtitle: 'Keep your SRMIST attendance portal secure',
+  newPassword: 'New Password',
+  confirmNewPassword: 'Confirm New Password',
+  updating: 'Updating...',
+  cancel: 'Cancel',
+  minCharacters: 'Min. 6 characters',
+  repeatPassword: 'Repeat password',
+}
+
 export default function ChangePasswordPage() {
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
@@ -31,6 +42,8 @@ export default function ChangePasswordPage() {
       </div>
     )
   }
+
+  const roleLower = profile.role.toLowerCase()
 
   async function handlePasswordChange(e: FormEvent) {
     e.preventDefault()
@@ -67,7 +80,7 @@ export default function ChangePasswordPage() {
     
     // Redirect back to role dashboard after 2 seconds
     setTimeout(() => {
-      router.push(`/${profile.role.toLowerCase()}`)
+      router.push(`/${roleLower}`)
     }, 2000)
   }
 
@@ -84,35 +97,35 @@ export default function ChangePasswordPage() {
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm text-2xl mb-2">
               🔒
             </div>
-            <h1 className="text-xl font-extrabold text-slate-800 font-heading">Update Password</h1>
-            <p className="text-xs text-slate-400 font-medium">Keep your SRMIST attendance portal secure</p>
+            <h1 className="text-xl font-extrabold text-slate-800 font-heading">{LABELS.updatePassword}</h1>
+            <p className="text-xs text-slate-400 font-medium">{LABELS.subtitle}</p>
           </div>
 
           <form onSubmit={handlePasswordChange} className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                New Password
+                {LABELS.newPassword}
               </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 6 characters"
+                placeholder={LABELS.minCharacters}
                 className="w-full border border-slate-200/80 rounded-xl px-4 py-3 text-xs bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-300"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-                Confirm New Password
+                {LABELS.confirmNewPassword}
               </label>
               <input
                 type="password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat password"
+                placeholder={LABELS.repeatPassword}
                 className="w-full border border-slate-200/80 rounded-xl px-4 py-3 text-xs bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all duration-300"
               />
             </div>
@@ -135,14 +148,14 @@ export default function ChangePasswordPage() {
                 disabled={loading}
                 className="btn-primary flex-1 text-xs font-bold py-2.5 shadow-md shadow-brand-500/10 active:scale-95"
               >
-                {loading ? 'Updating...' : 'Update Password'}
+                {loading ? LABELS.updating : LABELS.updatePassword}
               </button>
               <button
                 type="button"
-                onClick={() => router.push(`/${profile.role.toLowerCase()}`)}
+                onClick={() => router.push(`/${roleLower}`)}
                 className="btn-secondary text-xs font-bold py-2.5"
               >
-                Cancel
+                {LABELS.cancel}
               </button>
             </div>
           </form>
