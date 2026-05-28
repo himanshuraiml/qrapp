@@ -26,17 +26,29 @@ export function useAuth() {
   const fetchProfile = useCallback(async (userId: string) => {
     const cached = getCached(userId)
     if (cached) { setProfile(cached); return }
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    if (data) _cache.set(userId, { profile: data, ts: Date.now() })
-    setProfile(data ?? null)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (data) _cache.set(userId, { profile: data, ts: Date.now() })
+      setProfile(data ?? null)
+    } catch {
+      // Network error — leave profile null, loading is cleared by the caller's finally
+    }
   }, [supabase])
 
   useEffect(() => {
     let active = true
+
+    // Hard failsafe: if auth doesn't resolve in 8s (e.g. token refresh hangs),
+    // clear loading and redirect to login so the user is never stuck.
+    const failsafe = setTimeout(() => {
+      if (!active) return
+      setLoading(false)
+      window.location.replace('/login')
+    }, 8000)
 
     // Initialize session state on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -48,28 +60,33 @@ export function useAuth() {
       } else {
         setLoading(false)
       }
+    }).catch(() => {
+      if (active) setLoading(false)
     })
 
-    // Listen for auth changes (INITIAL_SESSION covers session restoration after refresh)
+    // onAuthStateChange is the primary signal — INITIAL_SESSION fires on every page load
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!active) return
-
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          if (session?.user) {
-            await fetchProfile(session.user.id)
+        try {
+          if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            if (session?.user) {
+              await fetchProfile(session.user.id)
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setProfile(null)
+            _cache.clear()
           }
-        } else if (event === 'SIGNED_OUT') {
-          setProfile(null)
-          _cache.clear()
+        } finally {
+          // Always clear loading, even if fetchProfile throws/hangs
+          if (active) setLoading(false)
         }
-
-        setLoading(false)
       }
     )
 
     return () => {
       active = false
+      clearTimeout(failsafe)
       subscription.unsubscribe()
     }
   }, [fetchProfile, supabase])
