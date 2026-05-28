@@ -204,6 +204,7 @@ export default function FacultyDashboard() {
                   <p className="text-[10px] text-slate-400 font-semibold">{formatTime(r.timestamp)}</p>
                 </div>
               </div>
+            ))}
           </div>
         )}
       </div>
