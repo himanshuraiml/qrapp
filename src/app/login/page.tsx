@@ -25,7 +25,7 @@ const LABELS = {
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [tab, setTab] = useState<Tab>('staff')
+  const [tab, setTab] = useState<Tab>('student')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 

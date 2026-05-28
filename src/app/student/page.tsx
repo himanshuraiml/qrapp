@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate } from '@/lib/utils'
 import QrDisplay from '@/components/student/QrDisplay'
+import AboutApp from '@/components/AboutApp'
 import type { AttendanceRecord, QrPayload } from '@/types'
 
 export default function StudentDashboard() {
@@ -258,9 +259,9 @@ export default function StudentDashboard() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
       </div>
+
+      <AboutApp />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { todayIST, formatDate } from '@/lib/utils'
 import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import SessionBarChart from '@/components/admin/SessionBarChart'
 import type { DashboardStats, SectionSummary } from '@/types'
+import AboutApp from '@/components/AboutApp'
 
 function KpiCard({
   label, value, sub, icon, gradient, trend,
@@ -380,6 +381,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      <AboutApp />
     </div>
   )
 }

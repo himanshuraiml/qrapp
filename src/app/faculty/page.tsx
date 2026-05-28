@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatTime, sessionColor } from '@/lib/utils'
 import type { AttendanceRecord } from '@/types'
+import AboutApp from '@/components/AboutApp'
 
 export default function FacultyDashboard() {
   const { profile, loading: authLoading } = useAuth()
@@ -203,10 +204,11 @@ export default function FacultyDashboard() {
                   <p className="text-[10px] text-slate-400 font-semibold">{formatTime(r.timestamp)}</p>
                 </div>
               </div>
-            ))}
           </div>
         )}
       </div>
+
+      <AboutApp />
     </div>
   )
 }
