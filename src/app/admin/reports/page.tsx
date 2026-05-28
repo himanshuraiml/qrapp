@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { todayIST, formatDate, formatTime, sessionColor, SESSIONS } from '@/lib/utils'
-import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import {
   exportAttendanceToExcel,
   exportAttendanceToPDF,
@@ -41,11 +40,7 @@ export default function ReportsPage() {
     setFilters((f) => ({ ...f, [key]: value }))
   }
 
-  // Load dept + section options (cached — these lists rarely change mid-session)
   useEffect(() => {
-    type DeptSection = { depts: string[]; sections: string[] }
-    const cached = readCache<DeptSection>('dept_section_list', CACHE_TTL.options)
-    if (cached) { setDepts(cached.depts); setSections(cached.sections); return }
     supabase
       .from('profiles')
       .select('department, section')
@@ -54,7 +49,6 @@ export default function ReportsPage() {
         if (!data) return
         const depts    = [...new Set(data.map((r: any) => r.department).filter(Boolean))].sort()
         const sections = [...new Set(data.map((r: any) => r.section).filter(Boolean))].sort()
-        writeCache('dept_section_list', { depts, sections })
         setDepts(depts)
         setSections(sections)
       })

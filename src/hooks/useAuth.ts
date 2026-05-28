@@ -2,21 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { clearCache, CACHE_TTL } from '@/lib/cache'
+import { clearCache } from '@/lib/cache'
 import type { Profile } from '@/types'
-
-// Module-level cache — shared across every useAuth() instance on the same page
-// (NavBar + page component both call useAuth(), so without this they'd each hit the DB)
-const _cache = new Map<string, { profile: Profile; ts: number }>()
-
-function getCached(userId: string): Profile | null {
-  const entry = _cache.get(userId)
-  if (!entry || Date.now() - entry.ts > CACHE_TTL.profile) {
-    _cache.delete(userId)
-    return null
-  }
-  return entry.profile
-}
 
 export function useAuth() {
   const supabase = createClient()
@@ -24,18 +11,15 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const cached = getCached(userId)
-    if (cached) { setProfile(cached); return }
     try {
       const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single()
-      if (data) _cache.set(userId, { profile: data, ts: Date.now() })
       setProfile(data ?? null)
     } catch {
-      // Network error — leave profile null, loading is cleared by the caller's finally
+      // Network error — leave profile null
     }
   }, [supabase])
 
@@ -62,7 +46,6 @@ export function useAuth() {
             }
           } else if (event === 'SIGNED_OUT') {
             setProfile(null)
-            _cache.clear()
           }
         } finally {
           if (active) setLoading(false)
@@ -92,7 +75,6 @@ export function useAuth() {
   }, [fetchProfile, supabase])
 
   const logout = useCallback(async () => {
-    _cache.clear()
     clearCache()
 
     // Wipe session from every client-side storage so the middleware never

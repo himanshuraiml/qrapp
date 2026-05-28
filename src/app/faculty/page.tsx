@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatTime, sessionColor } from '@/lib/utils'
-import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import type { AttendanceRecord } from '@/types'
 
 export default function FacultyDashboard() {
@@ -17,20 +16,17 @@ export default function FacultyDashboard() {
   useEffect(() => {
     if (authLoading) return
     if (!profile) { setLoading(false); return }
-    const cacheKey = `faculty_scans_${profile.id}_${todayIST()}`
-    const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.scans)
-    if (cached) { setRecords(cached); setLoading(false); return }
+    setLoading(true)
     ;(async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('attendance')
           .select('*')
           .eq('marked_by', profile.id)
           .eq('date', todayIST())
           .order('timestamp', { ascending: false })
-        const rows = data ?? []
-        writeCache(cacheKey, rows)
-        setRecords(rows)
+        if (error) console.error('Faculty fetch error:', error)
+        setRecords(data ?? [])
       } finally {
         setLoading(false)
       }

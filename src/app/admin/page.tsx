@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate } from '@/lib/utils'
-import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import StatsCard from '@/components/StatsCard'
 import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import SessionBarChart from '@/components/admin/SessionBarChart'
@@ -21,8 +20,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const cached = readCache<string[]>('dept_list', CACHE_TTL.options)
-    if (cached) { setDepts(cached); return }
     supabase
       .from('profiles')
       .select('department')
@@ -30,7 +27,6 @@ export default function AdminDashboard() {
       .not('department', 'is', null)
       .then(({ data }) => {
         const unique = [...new Set((data ?? []).map((r: any) => r.department))].sort()
-        writeCache('dept_list', unique)
         setDepts(unique)
       })
   }, [])

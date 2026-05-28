@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate, sessionColor } from '@/lib/utils'
-import { readCache, writeCache, CACHE_TTL } from '@/lib/cache'
 import QrDisplay from '@/components/student/QrDisplay'
 import type { AttendanceRecord, QrPayload } from '@/types'
 
@@ -14,19 +13,8 @@ export default function StudentDashboard() {
   const [records, setRecords]   = useState<AttendanceRecord[]>([])
   const [loading, setLoading]   = useState(true)
 
-  const fetchRecords = useCallback(async (bypassCache = false) => {
+  const fetchRecords = useCallback(async () => {
     if (!profile?.student_id) return
-    const cacheKey = `attendance_${profile.student_id}_${todayIST()}`
-    
-    if (!bypassCache) {
-      const cached = readCache<AttendanceRecord[]>(cacheKey, CACHE_TTL.attendance)
-      if (cached) {
-        setRecords(cached)
-        setLoading(false)
-        return
-      }
-    }
-
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -39,9 +27,7 @@ export default function StudentDashboard() {
       if (error) {
         console.error('Failed to fetch attendance:', error)
       } else {
-        const rows = (data as AttendanceRecord[]) ?? []
-        writeCache(cacheKey, rows)
-        setRecords(rows)
+        setRecords((data as AttendanceRecord[]) ?? [])
       }
     } catch (err) {
       console.error('Error fetching attendance:', err)
@@ -57,7 +43,7 @@ export default function StudentDashboard() {
       setLoading(false)
       return
     }
-    fetchRecords(false)
+    fetchRecords()
   }, [authLoading, profile?.student_id, fetchRecords])
 
   // Real-time subscription
@@ -77,16 +63,11 @@ export default function StudentDashboard() {
         (payload) => {
           const newRecord = payload.new as AttendanceRecord
           setRecords((prev) => {
-            // Check for duplicates
             if (prev.some((r) => r.id === newRecord.id)) return prev
-            const updated = [newRecord, ...prev].sort((a, b) => {
+            return [newRecord, ...prev].sort((a, b) => {
               if (a.date !== b.date) return b.date.localeCompare(a.date)
               return b.session.localeCompare(a.session)
             })
-            // Update cache as well
-            const cacheKey = `attendance_${profile.student_id}_${todayIST()}`
-            writeCache(cacheKey, updated)
-            return updated
           })
         }
       )
@@ -160,7 +141,7 @@ export default function StudentDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-slate-800">Attendance History</h2>
           <button
-            onClick={() => fetchRecords(true)}
+            onClick={() => fetchRecords()}
             className="text-xs text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-50 hover:bg-brand-100 transition-colors"
             disabled={loading}
           >
