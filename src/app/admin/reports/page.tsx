@@ -17,23 +17,23 @@ type Tab = 'summary' | 'records' | 'roster'
 
 export default function ReportsPage() {
   const supabase = createClient()
-  const [tab, setTab]         = useState<Tab>('summary')
+  const [tab, setTab] = useState<Tab>('summary')
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [summary, setSummary] = useState<SectionSummary[]>([])
-  const [roster,  setRoster]  = useState<RosterRecord[]>([])
-  const [depts,   setDepts]   = useState<string[]>([])
+  const [roster, setRoster] = useState<RosterRecord[]>([])
+  const [depts, setDepts] = useState<string[]>([])
   const [sections, setSections] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   const today = todayIST()
   const [filters, setFilters] = useState<ReportFilters>({
-    dateFrom:   today,
-    dateTo:     today,
+    dateFrom: today,
+    dateTo: today,
     department: '',
-    section:    '',
-    year:       '',
-    session:    '',
+    section: '',
+    year: '',
+    session: '',
   })
 
   function setFilter(key: keyof ReportFilters, value: string) {
@@ -47,30 +47,30 @@ export default function ReportsPage() {
       .eq('role', 'Student')
       .then(({ data }) => {
         if (!data) return
-        const depts    = [...new Set(data.map((r: any) => r.department).filter(Boolean))].sort()
+        const depts = [...new Set(data.map((r: any) => r.department).filter(Boolean))].sort()
         const sections = [...new Set(data.map((r: any) => r.section).filter(Boolean))].sort()
-        setDepts(depts)
-        setSections(sections)
+        setDepts(depts as string[])
+        setSections(sections as string[])
       })
-  }, [])
+  }, [supabase])
 
   async function loadData() {
     setLoading(true)
 
     if (tab === 'records') {
       const { data } = await supabase.rpc('get_attendance_report', {
-        p_date_from:  filters.dateFrom || null,
-        p_date_to:    filters.dateTo   || null,
+        p_date_from: filters.dateFrom || null,
+        p_date_to: filters.dateTo || null,
         p_department: filters.department || null,
-        p_section:    filters.section   || null,
-        p_year:       filters.year ? parseInt(filters.year) : null,
-        p_session:    filters.session   || null,
+        p_section: filters.section || null,
+        p_year: filters.year ? parseInt(filters.year) : null,
+        p_session: filters.session || null,
       })
       setRecords(data ?? [])
 
     } else if (tab === 'summary') {
       const { data } = await supabase.rpc('get_section_summary', {
-        p_date:       filters.dateFrom,
+        p_date: filters.dateFrom,
         p_department: filters.department || null,
       })
       setSummary(data ?? [])
@@ -78,10 +78,10 @@ export default function ReportsPage() {
     } else {
       // roster tab
       const { data } = await supabase.rpc('get_attendance_roster', {
-        p_date:       filters.dateFrom,
-        p_session:    filters.session    || null,
+        p_date: filters.dateFrom,
+        p_session: filters.session || null,
         p_department: filters.department || null,
-        p_section:    filters.section    || null,
+        p_section: filters.section || null,
       })
       setRoster(data ?? [])
     }
@@ -93,8 +93,8 @@ export default function ReportsPage() {
     formatDate(filters.dateFrom),
     filters.dateTo !== filters.dateFrom ? `– ${formatDate(filters.dateTo)}` : '',
     filters.department ? `· ${filters.department}` : '',
-    filters.section    ? filters.section : '',
-    filters.session    ? `· ${filters.session}` : '',
+    filters.section ? filters.section : '',
+    filters.session ? `· ${filters.session}` : '',
   ].filter(Boolean).join(' ')
 
   async function handleExportExcel() {
@@ -104,7 +104,6 @@ export default function ReportsPage() {
     } else if (tab === 'summary') {
       await exportSectionSummaryToExcel(summary, filters.dateFrom)
     }
-    // Roster export is handled inside AttendanceRosterTable component
     setExporting(false)
   }
 
@@ -120,86 +119,95 @@ export default function ReportsPage() {
 
   const hasResults =
     (tab === 'records' && records.length > 0) ||
-    (tab === 'summary' && summary.length > 0)  ||
-    (tab === 'roster'  && roster.length  > 0)
+    (tab === 'summary' && summary.length > 0) ||
+    (tab === 'roster' && roster.length > 0)
 
   const TAB_META: { id: Tab; label: string }[] = [
     { id: 'summary', label: 'Section Summary' },
     { id: 'records', label: 'Attendance Records' },
-    { id: 'roster',  label: '🗂 Roster (Present / Absent)' },
+    { id: 'roster', label: '🗂 Roster (Present/Absent Split)' },
   ]
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
+    <div className="space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Page Title & Navigation Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 text-xs font-bold uppercase tracking-wider">
+            <span>📄</span> Academic Analytics
+          </div>
+          <h1 className="text-3xl font-extrabold text-slate-800 font-heading">Attendance Reports</h1>
+          <p className="text-xs text-slate-400 font-medium">Generate records summaries, check split rosters, or export files</p>
+        </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-        {TAB_META.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors
-              ${tab === id
-                ? 'bg-white text-brand-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            {label}
-          </button>
-        ))}
+        {/* Tab Selection Row */}
+        <div className="flex bg-slate-100 p-1 rounded-2xl gap-1 border border-slate-200/50 w-fit">
+          {TAB_META.map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]) }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300
+                ${tab === id
+                  ? 'bg-white text-brand-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="card">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Filters Glass Panel */}
+      <div className="card space-y-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
           {/* Date From */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              {tab === 'roster' ? 'Date' : 'From'}
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+              {tab === 'roster' ? 'Class Date' : 'From Date'}
             </label>
             <input
               type="date"
               value={filters.dateFrom}
               onChange={(e) => setFilter('dateFrom', e.target.value)}
-              className="input text-sm"
+              className="input text-xs font-semibold"
             />
           </div>
 
-          {/* Date To — hidden for roster (single date only) */}
+          {/* Date To — hidden for roster */}
           {tab !== 'roster' && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">To</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">To Date</label>
               <input
                 type="date"
                 value={filters.dateTo}
                 onChange={(e) => setFilter('dateTo', e.target.value)}
-                className="input text-sm"
+                className="input text-xs font-semibold"
               />
             </div>
           )}
 
           {/* Department */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Department</label>
             <select
               value={filters.department}
               onChange={(e) => setFilter('department', e.target.value)}
-              className="input text-sm"
+              className="input text-xs font-bold text-slate-700"
             >
-              <option value="">All</option>
+              <option value="">All Departments</option>
               {depts.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
 
           {/* Section */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Section</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Section</label>
             <select
               value={filters.section}
               onChange={(e) => setFilter('section', e.target.value)}
-              className="input text-sm"
+              className="input text-xs font-bold text-slate-700"
             >
-              <option value="">All</option>
+              <option value="">All Sections</option>
               {sections.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -207,80 +215,85 @@ export default function ReportsPage() {
           {/* Year — hidden for roster */}
           {tab !== 'roster' && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Year</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Year</label>
               <select
                 value={filters.year}
                 onChange={(e) => setFilter('year', e.target.value)}
-                className="input text-sm"
+                className="input text-xs font-bold text-slate-700"
               >
-                <option value="">All</option>
+                <option value="">All Years</option>
                 {[1, 2, 3, 4].map((y) => <option key={y} value={y}>Year {y}</option>)}
               </select>
             </div>
           )}
 
-          {/* Session — required for roster, optional for others */}
+          {/* Session */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
               Session{tab === 'roster' && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             <select
               value={filters.session}
               onChange={(e) => setFilter('session', e.target.value)}
-              className="input text-sm"
+              className="input text-xs font-bold text-slate-700"
             >
               {SESSIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
         </div>
 
-        {/* Roster hint */}
         {tab === 'roster' && !filters.session && (
-          <p className="mt-3 text-xs text-amber-600 font-medium">
-            ⚠ Select a session to see accurate present/absent split. Without a session, students present in ANY session on the date are marked Present.
-          </p>
+          <div className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5">
+            ⚠️ Select a session to filter precise split roster lists. Empty selections display students present in ANY session on the date.
+          </div>
         )}
 
-        <div className="flex gap-3 mt-4">
+        <div className="flex pt-4 border-t border-slate-100">
           <button
             onClick={loadData}
             disabled={loading}
-            className="btn-primary"
+            className="btn-primary inline-flex items-center gap-1.5 text-xs py-2.5 font-bold shadow-md shadow-brand-500/10 active:scale-95"
           >
-            {loading ? 'Loading…' : 'Generate Report'}
+            {loading ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Generating...</span>
+              </>
+            ) : (
+              <span>Generate Roster Report</span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Results */}
+      {/* Results panel */}
       {hasResults && (
-        <div className="card">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="card space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <span className="text-sm font-medium text-slate-700">{filterTitle}</span>
-              <span className="ml-2 text-sm text-slate-400">
+              <span className="text-xs font-extrabold text-slate-800 font-heading">{filterTitle}</span>
+              <span className="ml-2 text-slate-400 text-xs font-semibold">
                 ({tab === 'records' ? records.length
                   : tab === 'summary' ? summary.length
-                  : roster.length} rows)
+                  : roster.length} rows fetched)
               </span>
             </div>
 
-            {/* Export buttons — only for non-roster tabs (roster handles its own) */}
             {tab !== 'roster' && (
               <div className="flex gap-2">
                 <button
                   onClick={handleExportExcel}
                   disabled={exporting}
-                  className="btn-secondary text-sm flex items-center gap-1.5"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <span>📊</span> Excel
+                  <span>📊</span> Export Excel
                 </button>
                 <button
                   onClick={handleExportPDF}
                   disabled={exporting}
-                  className="btn-secondary text-sm flex items-center gap-1.5"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
                 >
-                  <span>📄</span> PDF
+                  <span>📄</span> Export PDF
                 </button>
               </div>
             )}
@@ -291,29 +304,35 @@ export default function ReportsPage() {
           )}
 
           {tab === 'records' && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50">
+              <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left border-b border-slate-100">
-                    {['Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Session', 'Date', 'Time', 'Marked By'].map((h) => (
-                      <th key={h} className="pb-3 pr-4 font-semibold text-slate-600 whitespace-nowrap">{h}</th>
-                    ))}
+                  <tr className="text-left border-b border-slate-100 bg-slate-50/50">
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Student ID</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Student Name</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Dept</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Yr</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Sec</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Session</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Class Date</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Marked Time</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Marked By</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {records.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 pr-4 font-mono text-xs text-slate-500">{r.student_id}</td>
-                      <td className="py-2.5 pr-4 font-medium">{r.student_name}</td>
-                      <td className="py-2.5 pr-4">{r.department}</td>
-                      <td className="py-2.5 pr-4">{r.year}</td>
-                      <td className="py-2.5 pr-4">{r.section}</td>
-                      <td className="py-2.5 pr-4">
-                        <span className={`badge ${sessionColor(r.session)}`}>{r.session}</span>
+                    <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4 font-mono font-bold text-brand-600">{r.student_id}</td>
+                      <td className="p-4 font-bold text-slate-800">{r.student_name}</td>
+                      <td className="p-4 font-semibold text-slate-500 uppercase">{r.department}</td>
+                      <td className="p-4 font-bold text-slate-600 text-center">{r.year}</td>
+                      <td className="p-4 font-bold text-slate-600 text-center uppercase">{r.section}</td>
+                      <td className="p-4">
+                        <span className={`badge ${sessionColor(r.session)} text-[10px]`}>{r.session}</span>
                       </td>
-                      <td className="py-2.5 pr-4">{r.date}</td>
-                      <td className="py-2.5 pr-4 text-slate-500">{formatTime(r.timestamp)}</td>
-                      <td className="py-2.5 text-slate-500">{r.marked_by_name}</td>
+                      <td className="p-4 font-semibold text-slate-500">{r.date}</td>
+                      <td className="p-4 font-semibold text-slate-400">{formatTime(r.timestamp)}</td>
+                      <td className="p-4 font-semibold text-slate-500">{r.marked_by_name || r.marked_by}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -332,7 +351,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Empty state for roster when no data yet */}
+      {/* Roster empty fallback */}
       {tab === 'roster' && !hasResults && !loading && (
         <div className="card">
           <AttendanceRosterTable

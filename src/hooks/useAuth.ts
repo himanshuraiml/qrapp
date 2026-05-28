@@ -40,11 +40,19 @@ export function useAuth() {
               // Fast path: client-side session readable
               await fetchProfile(session.user.id)
             } else {
-              // Refresh path: client can't read cookie — ask the server
+              // Refresh path: client lost its session — pull tokens from the
+              // server (which still has the cookies) and re-hydrate the client
+              // so subsequent queries are authenticated.
               try {
                 const res = await fetch('/api/auth/me')
-                const { userId } = await res.json()
-                if (userId && active) await fetchProfile(userId)
+                const { userId, accessToken, refreshToken } = await res.json()
+                if (userId && accessToken && refreshToken && active) {
+                  await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                  })
+                  await fetchProfile(userId)
+                }
               } catch {}
             }
           } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {

@@ -14,6 +14,17 @@ export async function GET() {
       },
     }
   )
+
+  // Validate the user (refreshes token if needed) then return the session
+  // so the browser client can re-hydrate via supabase.auth.setSession().
   const { data: { user } } = await supabase.auth.getUser()
-  return NextResponse.json({ userId: user?.id ?? null })
+  if (!user) {
+    return NextResponse.json({ userId: null, accessToken: null, refreshToken: null })
+  }
+  const { data: { session } } = await supabase.auth.getSession()
+  return NextResponse.json({
+    userId: user.id,
+    accessToken: session?.access_token ?? null,
+    refreshToken: session?.refresh_token ?? null,
+  })
 }

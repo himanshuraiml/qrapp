@@ -32,9 +32,9 @@ export default function SectionSummaryTable({ rows, loading, date, showExport = 
 
   if (loading) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3 py-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-9 bg-slate-100 rounded animate-pulse" />
+          <div key={i} className="h-10 bg-slate-50 border border-slate-100 rounded-xl animate-pulse" />
         ))}
       </div>
     )
@@ -42,88 +42,89 @@ export default function SectionSummaryTable({ rows, loading, date, showExport = 
 
   if (rows.length === 0) {
     return (
-      <p className="text-sm text-slate-400 text-center py-10">
-        No data for this date / department.
-      </p>
+      <div className="text-center py-12 space-y-2">
+        <span className="text-3xl">📭</span>
+        <p className="text-xs font-bold text-slate-400">No attendance data registered for this date/department</p>
+      </div>
     )
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       {showExport && (
-        <div className="flex justify-end gap-2 mb-3">
+        <div className="flex justify-end gap-2.5">
           <button
             onClick={handleExcel}
             disabled={exporting}
-            className="btn-secondary text-xs flex items-center gap-1"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
           >
-            📊 Excel
+            <span>📊</span> Export Excel
           </button>
           <button
             onClick={handlePDF}
             disabled={exporting}
-            className="btn-secondary text-xs flex items-center gap-1"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
           >
-            📄 PDF
+            <span>📄</span> Export PDF
           </button>
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50 backdrop-blur-md">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="text-left border-b-2 border-slate-100">
-              <th className="pb-3 pr-3 font-semibold text-slate-600 whitespace-nowrap">Dept</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600">Yr</th>
-              <th className="pb-3 pr-3 font-semibold text-slate-600">Sec</th>
+            <tr className="text-left border-b border-slate-100 bg-slate-50/50">
+              <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Dept</th>
+              <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Yr</th>
+              <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Sec</th>
               {/* FN sessions */}
               {['FN1','FN2','FN3'].map((s) => (
-                <th key={s} className="pb-3 pr-3 font-semibold text-blue-600 text-center">{s}</th>
+                <th key={s} className="p-4 font-extrabold text-brand-600 text-center uppercase tracking-widest">{s}</th>
               ))}
               {/* AN sessions */}
               {['AN1','AN2','AN3'].map((s) => (
-                <th key={s} className="pb-3 pr-3 font-semibold text-amber-600 text-center">{s}</th>
+                <th key={s} className="p-4 font-extrabold text-indigo-600 text-center uppercase tracking-widest">{s}</th>
               ))}
-              <th className="pb-3 pr-3 font-semibold text-slate-600 text-center">Total</th>
-              <th className="pb-3 font-semibold text-slate-600 text-center">%</th>
+              <th className="p-4 font-extrabold text-slate-500 text-center uppercase tracking-widest">Total</th>
+              <th className="p-4 font-extrabold text-slate-500 text-center uppercase tracking-widest">%</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-100">
             {rows.map((r, i) => {
               const pct = r.attendance_pct
               return (
-                <tr key={i} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 pr-3 font-medium text-slate-800">{r.department}</td>
-                  <td className="py-2.5 pr-3 text-slate-500">{r.year}</td>
-                  <td className="py-2.5 pr-3 text-slate-500">{r.section}</td>
-                  <td className="py-2.5 pr-3 text-center text-blue-700 font-medium">
-                    {r.fn1_count || <span className="text-slate-300">—</span>}
+                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="p-4 font-bold text-slate-800 uppercase">{r.department}</td>
+                  <td className="p-4 font-semibold text-slate-500">{r.year}</td>
+                  <td className="p-4 font-semibold text-slate-500 uppercase">{r.section}</td>
+                  <td className="p-4 text-center text-brand-600 font-bold">
+                    {r.fn1_count || <span className="text-slate-300 font-normal">—</span>}
                   </td>
-                  <td className="py-2.5 pr-3 text-center text-blue-700 font-medium">
-                    {r.fn2_count || <span className="text-slate-300">—</span>}
+                  <td className="p-4 text-center text-brand-600 font-bold">
+                    {r.fn2_count || <span className="text-slate-300 font-normal">—</span>}
                   </td>
-                  <td className="py-2.5 pr-3 text-center text-blue-700 font-medium">
-                    {r.fn3_count || <span className="text-slate-300">—</span>}
+                  <td className="p-4 text-center text-brand-600 font-bold">
+                    {r.fn3_count || <span className="text-slate-300 font-normal">—</span>}
                   </td>
-                  <td className="py-2.5 pr-3 text-center text-amber-700 font-medium">
-                    {r.an1_count || <span className="text-slate-300">—</span>}
+                  <td className="p-4 text-center text-indigo-600 font-bold">
+                    {r.an1_count || <span className="text-slate-300 font-normal">—</span>}
                   </td>
-                  <td className="py-2.5 pr-3 text-center text-amber-700 font-medium">
-                    {r.an2_count || <span className="text-slate-300">—</span>}
+                  <td className="p-4 text-center text-indigo-600 font-bold">
+                    {r.an2_count || <span className="text-slate-300 font-normal">—</span>}
                   </td>
-                  <td className="py-2.5 pr-3 text-center text-amber-700 font-medium">
-                    {r.an3_count || <span className="text-slate-300">—</span>}
+                  <td className="p-4 text-center text-indigo-600 font-bold">
+                    {r.an3_count || <span className="text-slate-300 font-normal">—</span>}
                   </td>
-                  <td className="py-2.5 pr-3 text-center font-semibold text-slate-700">
+                  <td className="p-4 text-center font-extrabold text-slate-700">
                     {r.total_students}
                   </td>
-                  <td className="py-2.5 text-center">
+                  <td className="p-4 text-center">
                     <span
                       className={cn(
-                        'badge font-semibold',
-                        pct >= 75 ? 'bg-green-100 text-green-700' :
-                        pct >= 50 ? 'bg-amber-100 text-amber-700' :
-                                    'bg-red-100 text-red-600'
+                        'badge border font-bold',
+                        pct >= 75 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        pct >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    'bg-red-50 text-red-600 border-red-200'
                       )}
                     >
                       {pct}%

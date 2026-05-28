@@ -10,9 +10,9 @@ interface Props {
 }
 
 export default function QrDisplay({ basePayload }: Props) {
-  const [qrValue, setQrValue]           = useState('')
-  const [countdown, setCountdown]       = useState(QR_TTL)
-  const [QRCode, setQRCode]             = useState<any>(null)
+  const [qrValue, setQrValue] = useState('')
+  const [countdown, setCountdown] = useState(QR_TTL)
+  const [QRCode, setQRCode] = useState<any>(null)
   const [lastGenerated, setLastGenerated] = useState<number>(0)
 
   // Lazy-load qrcode library (client-only)
@@ -30,7 +30,7 @@ export default function QrDisplay({ basePayload }: Props) {
     const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
       width: 280,
       margin: 2,
-      color: { dark: '#1e1b4b', light: '#ffffff' },
+      color: { dark: '#0f172a', light: '#ffffff' },
       errorCorrectionLevel: 'M',
     })
     setQrValue(dataUrl)
@@ -80,62 +80,79 @@ export default function QrDisplay({ basePayload }: Props) {
   }, [QRCode, generateQr])
 
   const pct = (countdown / QR_TTL) * 100
-  const strokeColor = countdown > 10 ? '#6366f1' : countdown > 5 ? '#f59e0b' : '#ef4444'
+  const strokeColor = countdown > 30 ? '#2563eb' : countdown > 10 ? '#f59e0b' : '#ef4444'
 
   return (
-    <div className="card flex flex-col items-center gap-4 py-6">
-      <p className="text-sm font-semibold text-slate-600">Your Attendance QR</p>
+    <div className="card-premium flex flex-col items-center gap-6 py-8 relative overflow-hidden group">
+      {/* Dynamic background card decorations */}
+      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-500 via-indigo-500 to-indigo-600"></div>
+      <div className="absolute -top-12 -left-12 w-24 h-24 bg-brand-500/5 rounded-full blur-xl group-hover:bg-brand-500/10 transition-all duration-700"></div>
+
+      <div className="text-center space-y-1">
+        <h3 className="text-lg font-bold text-slate-800 font-heading">Your Attendance QR</h3>
+        <p className="text-xs text-slate-500">Present this QR code to the faculty to mark your attendance</p>
+      </div>
 
       {qrValue ? (
-        <div className="relative">
-          <img src={qrValue} alt="Student QR Code" className="rounded-xl" width={280} height={280} />
+        <div className="relative p-4 bg-white rounded-3xl border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.03)] group-hover:scale-[1.02] transition-all duration-500">
+          {/* Animated decorative corner borders */}
+          <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-brand-500 rounded-tl-lg"></div>
+          <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-brand-500 rounded-tr-lg"></div>
+          <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-brand-500 rounded-bl-lg"></div>
+          <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-brand-500 rounded-br-lg"></div>
 
-          {/* Countdown ring overlay */}
-          <div className="absolute -bottom-3 -right-3">
-            <svg width={44} height={44} className="drop-shadow-md">
-              <circle cx={22} cy={22} r={18} fill="white" />
+          <img src={qrValue} alt="Student QR Code" className="rounded-2xl" width={240} height={240} />
+
+          {/* Premium Countdown circle ring overlay */}
+          <div className="absolute -bottom-2.5 -right-2.5">
+            <svg width={48} height={48} className="drop-shadow-[0_4px_10px_rgba(0,0,0,0.08)]">
+              <circle cx={24} cy={24} r={20} fill="white" />
               <circle
-                cx={22} cy={22} r={18}
+                cx={24} cy={24} r={20}
                 fill="none"
-                stroke="#e2e8f0"
-                strokeWidth={3}
+                stroke="#f1f5f9"
+                strokeWidth={3.5}
               />
               <circle
-                cx={22} cy={22} r={18}
+                cx={24} cy={24} r={20}
                 fill="none"
                 stroke={strokeColor}
-                strokeWidth={3}
-                strokeDasharray={`${2 * Math.PI * 18}`}
-                strokeDashoffset={`${2 * Math.PI * 18 * (1 - pct / 100)}`}
+                strokeWidth={3.5}
+                strokeDasharray={`${2 * Math.PI * 20}`}
+                strokeDashoffset={`${2 * Math.PI * 20 * (1 - pct / 100)}`}
                 strokeLinecap="round"
-                transform="rotate(-90 22 22)"
+                transform="rotate(-90 24 24)"
                 style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }}
               />
               <text
-                x={22} y={26}
+                x={24} y={28}
                 textAnchor="middle"
-                fontSize={12}
-                fontWeight={700}
+                fontSize={11}
+                fontWeight={800}
                 fill={strokeColor}
+                className="font-sans"
               >
-                {countdown}
+                {countdown}s
               </text>
             </svg>
           </div>
         </div>
       ) : (
-        <div className="w-[280px] h-[280px] bg-slate-100 rounded-xl animate-pulse" />
+        <div className="w-[240px] h-[240px] bg-slate-50 border border-slate-100 rounded-3xl animate-pulse flex items-center justify-center">
+          <span className="text-slate-400 text-xs font-semibold">Generating QR...</span>
+        </div>
       )}
 
-      <div className="text-center">
-        <p className="text-xs text-slate-400">
-          Refreshes every {QR_TTL}s · Show this to faculty
+      <div className="text-center space-y-3">
+        <p className="text-xs text-slate-400 font-medium">
+          QR refreshes automatically · Fresh code ensures validity
         </p>
         <button
           onClick={generateQr}
-          className="mt-2 text-xs text-brand-600 hover:text-brand-700 font-medium"
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 transition-all duration-300 transform active:scale-95 shadow-sm"
         >
-          Refresh now
+          <span>🔄</span>
+          <span>Refresh Now</span>
         </button>
       </div>
     </div>
