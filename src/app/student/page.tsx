@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { todayIST, formatDate, sessionColor } from '@/lib/utils'
+import { todayIST, formatDate } from '@/lib/utils'
 import QrDisplay from '@/components/student/QrDisplay'
 import type { AttendanceRecord, QrPayload } from '@/types'
 
@@ -102,80 +102,69 @@ export default function StudentDashboard() {
     : null,
   [profile?.student_id, profile?.name, profile?.department, profile?.year, profile?.section])
 
-  // Dynamic percentage metrics (let's assume a total of 45 working days for the term)
-  const totalWorkingSessions = 90 // 45 days * 2 sessions per day
-  const attendedCount = records.length
-  const attendancePercentage = Math.min(
-    Math.round((attendedCount / (totalWorkingSessions || 1)) * 100) || 0,
-    100
-  )
-
-  // Subject-wise attendance calculation helper (mocked for realistic academic structure)
-  const subjects = [
-    { name: 'Computer Networks', code: 'CS1021', present: Math.round(attendancePercentage * 1.05), total: 30, color: 'from-blue-500 to-indigo-500' },
-    { name: 'Database Systems', code: 'CS1022', present: Math.round(attendancePercentage * 0.95), total: 30, color: 'from-violet-500 to-indigo-600' },
-    { name: 'Operating Systems', code: 'CS1023', present: Math.round(attendancePercentage * 0.92), total: 30, color: 'from-brand-500 to-indigo-500' },
-  ]
+  const initials = useMemo(() => {
+    if (!profile?.name) return 'ST'
+    return profile.name
+      .split(' ')
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase()
+  }, [profile?.name])
 
   return (
     <div className="space-y-8 animate-fade-in pb-12 max-w-4xl mx-auto px-4 md:px-0">
       {/* Premium Profile Banner Card */}
-      <div className="card-premium relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-white/10 shadow-2xl p-8 rounded-[2rem] flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-        <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-brand-500/10 rounded-full blur-[80px]"></div>
+      <div className="card-premium relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-white/10 shadow-2xl p-6 sm:p-8 rounded-[2rem]">
+        <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-brand-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+        <div className="absolute bottom-[-50%] left-[-10%] w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[70px] pointer-events-none"></div>
         
-        <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-bold uppercase tracking-wider">
-            <span>🎓</span> Student Profile
+        <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start md:items-center justify-between gap-6">
+          {/* Left Side: Avatar + Info */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 text-center sm:text-left">
+            {/* Avatar Initials Circle */}
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-brand-600/20 to-indigo-600/30 border-2 border-white/15 flex items-center justify-center text-white text-2xl sm:text-3xl font-extrabold shadow-inner shadow-brand-500/20 transition-all duration-300 hover:scale-105 select-none">
+              {initials}
+            </div>
+            
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/25 text-brand-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                <span>🎓</span> Student Profile
+              </div>
+              
+              <div className="space-y-1">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-heading leading-tight">{profile?.name}</h1>
+                
+                {/* Responsive Badges */}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
+                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
+                    {profile?.department}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
+                    Year {profile?.year}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
+                    Sec {profile?.section}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight font-heading">{profile?.name}</h1>
-            <p className="text-slate-400 text-sm mt-1.5 flex items-center gap-1.5 font-medium">
-              <span>{profile?.department}</span>
-              <span className="text-slate-600">•</span>
-              <span>Year {profile?.year}</span>
-              <span className="text-slate-600">•</span>
-              <span>Section {profile?.section}</span>
-            </p>
-          </div>
-          <div className="inline-block bg-white/5 border border-white/10 px-3.5 py-1.5 rounded-xl font-mono text-xs text-brand-300 select-all shadow-inner">
-            ID: {profile?.student_id}
-          </div>
-        </div>
-
-        {/* Attendance Ring Widget */}
-        <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-5 rounded-2xl backdrop-blur-md">
-          <div className="relative flex items-center justify-center">
-            <svg width={72} height={72} className="transform -rotate-90">
-              <circle cx={36} cy={36} r={30} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={6} />
-              <circle
-                cx={36} cy={36} r={30}
-                fill="none"
-                stroke="url(#blueGradient)"
-                strokeWidth={6}
-                strokeDasharray={`${2 * Math.PI * 30}`}
-                strokeDashoffset={`${2 * Math.PI * 30 * (1 - attendancePercentage / 100)}`}
-                strokeLinecap="round"
-                className="transition-all duration-1000 ease-out"
-              />
-              <defs>
-                <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#6366f1" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <span className="absolute text-sm font-extrabold text-white">{attendancePercentage}%</span>
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Overall Attendance</p>
-            <p className="text-lg font-extrabold text-white">{attendedCount} / {totalWorkingSessions} <span className="text-xs font-medium text-slate-400">sessions</span></p>
+          
+          {/* Right Side: Roll Number ID Card */}
+          <div className="w-full sm:w-auto text-center sm:text-right flex flex-col items-center sm:items-end justify-center gap-1">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SRMIST ROLL NO</span>
+            <div className="inline-block bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl font-mono text-xs sm:text-sm text-brand-300 select-all shadow-inner tracking-wider font-bold">
+              {profile?.student_id}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left Column: QR Code Component */}
-        <div className="md:col-span-1 space-y-6">
+        <div className="space-y-6">
           {qrPayload && <QrDisplay basePayload={qrPayload} />}
 
           {/* Today's scan verification status */}
@@ -215,32 +204,8 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Right Column: Subjects + History Lists */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Subject-Wise Cards */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Subject-Wise attendance</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {subjects.map((sub) => (
-                <div key={sub.name} className="card p-5 space-y-3 flex flex-col justify-between group hover:border-brand-500/20 transition-all duration-300">
-                  <div>
-                    <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md font-mono">{sub.code}</span>
-                    <h4 className="text-xs font-extrabold text-slate-800 mt-2 line-clamp-1 group-hover:text-brand-600 transition-colors">{sub.name}</h4>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-end text-xs">
-                      <span className="font-extrabold text-slate-800">{Math.min(sub.present, 100)}%</span>
-                      <span className="text-slate-400 text-[10px] font-medium">{Math.min(Math.round(sub.total * (sub.present / 100)), sub.total)}/{sub.total} classes</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full bg-gradient-to-r ${sub.color} rounded-full transition-all duration-500`} style={{ width: `${Math.min(sub.present, 100)}%` }}></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
+        {/* Right Column: History Lists */}
+        <div className="space-y-6">
           {/* Full History Feed */}
           <div className="card space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">

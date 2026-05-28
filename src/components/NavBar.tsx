@@ -105,14 +105,20 @@ export default function NavBar({ role }: { role: UserRole }) {
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-500 hidden sm:block truncate max-w-[160px]">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-semibold text-slate-700 hidden sm:block truncate max-w-[160px]">
               {profile?.name}
             </span>
+            <Link
+              href="/change-password"
+              className="text-xs font-bold text-brand-600 hover:text-brand-700 px-3 py-1.5 rounded-lg bg-brand-50 hover:bg-brand-100 transition-all duration-300"
+            >
+              🔑 Password
+            </Link>
             <button
               onClick={logout}
-              className="text-sm text-slate-500 hover:text-slate-900 px-3 py-1.5
-                         rounded-lg hover:bg-slate-100 transition-all duration-300"
+              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5
+                         rounded-lg hover:bg-slate-100 transition-all duration-300 border border-slate-200/50"
             >
               Sign out
             </button>
@@ -148,8 +154,15 @@ export default function NavBar({ role }: { role: UserRole }) {
                 {l.label}
               </Link>
             ))}
-            <div className="border-t border-slate-100 pt-2 mt-2">
-              <p className="px-3 py-1 text-xs text-slate-400">{profile?.name}</p>
+            <div className="border-t border-slate-100 pt-2 mt-2 space-y-1">
+              <p className="px-3 py-1 text-xs text-slate-400 font-bold">{profile?.name}</p>
+              <Link
+                href="/change-password"
+                onClick={() => setMenuOpen(false)}
+                className="block px-3 py-2 rounded-lg text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 transition-colors mx-3"
+              >
+                🔑 Change Password
+              </Link>
             </div>
           </div>
         )}

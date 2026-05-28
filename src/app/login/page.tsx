@@ -113,9 +113,6 @@ export default function LoginPage() {
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
                       Password
                     </label>
-                    <Link href="/forgot-password" className="text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors">
-                      Forgot?
-                    </Link>
                   </div>
                   <input
                     type="password" required
@@ -143,9 +140,6 @@ export default function LoginPage() {
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
                       Password
                     </label>
-                    <Link href="/forgot-password" className="text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors">
-                      Forgot?
-                    </Link>
                   </div>
                   <input
                     type="password" required
@@ -179,14 +173,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Card Footer */}
-          <div className="p-6 bg-slate-950/30 border-t border-white/5 text-center text-xs text-slate-400">
-            Need an account?{' '}
-            <Link href="/signup" className="font-bold text-brand-400 hover:text-brand-300 transition-colors">
-              Sign up here
-            </Link>
-          </div>
         </div>
       </div>
     </div>

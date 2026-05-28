@@ -42,6 +42,16 @@ export default function FacultyDashboard() {
     ? `${words[0]} ${words[1] ?? ''}`.trim()
     : words[0] ?? ''
 
+  const initials = profile?.name
+    ? profile.name
+        .split(' ')
+        .filter(Boolean)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'FC'
+
   // Filter records based on search query
   const filteredRecords = records.filter(r => 
     r.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -52,25 +62,49 @@ export default function FacultyDashboard() {
   return (
     <div className="space-y-8 animate-fade-in pb-12 max-w-4xl mx-auto px-4 md:px-0">
       {/* Faculty Welcoming Header */}
-      <div className="card-premium relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-white/10 shadow-2xl p-8 rounded-[2rem] flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-        <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-brand-500/10 rounded-full blur-[80px]"></div>
+      <div className="card-premium relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-white/10 shadow-2xl p-6 sm:p-8 rounded-[2rem]">
+        <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-brand-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+        <div className="absolute bottom-[-50%] left-[-10%] w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[70px] pointer-events-none"></div>
         
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-300 text-xs font-bold uppercase tracking-wider">
-            <span>🏫</span> SRMIST Faculty Control
+        <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start md:items-center justify-between gap-6">
+          {/* Left Side: Avatar + Info */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 text-center sm:text-left">
+            {/* Avatar Initials Circle */}
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-indigo-600/20 to-brand-600/30 border-2 border-white/15 flex items-center justify-center text-white text-2xl sm:text-3xl font-extrabold shadow-inner shadow-brand-500/20 transition-all duration-300 hover:scale-105 select-none">
+              {initials}
+            </div>
+            
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/25 text-brand-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                <span>🏫</span> SRMIST Faculty Control
+              </div>
+              
+              <div className="space-y-1">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-heading leading-tight">Welcome, {greeting}</h1>
+                
+                {/* Responsive Badges */}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
+                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
+                    {profile?.department ?? 'Department of CSE'}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-brand-300">
+                    📅 {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight font-heading">Welcome, {greeting}</h1>
-            <p className="text-slate-400 text-sm mt-1.5 flex items-center gap-1.5 font-medium">
-              <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })}</span>
-            </p>
+          
+          {/* Right Side: Status Badge */}
+          <div className="w-full sm:w-auto text-center sm:text-right flex flex-col items-center sm:items-end justify-center">
+            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-2xl shadow-lg shadow-emerald-500/5">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-bold text-emerald-400 tracking-wide uppercase">Scans Online</span>
+            </div>
           </div>
-        </div>
-
-        {/* Live indicator / status widget */}
-        <div className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl">
-          <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
-          <span className="text-xs font-bold text-slate-300">Classroom Scans Online</span>
         </div>
       </div>
 
