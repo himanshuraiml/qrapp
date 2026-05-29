@@ -71,17 +71,28 @@ export default function ReportsPage() {
 
     try {
       if (tab === 'records') {
-        const { data } = await supabase.rpc('get_attendance_report', {
+        const rpcParams = {
           p_date_from: filters.dateFrom || null,
           p_date_to: filters.dateTo || null,
           p_department: filters.department || null,
           p_section: filters.section || null,
           p_year: filters.year ? parseInt(filters.year) : null,
           p_session: filters.session || null,
-        }).limit(5000)
-        const res = data ?? []
-        setRecords(res)
-        sessionStorage.setItem(cacheKey, JSON.stringify(res))
+        }
+        let allRecords: any[] = []
+        let fromIndex = 0
+        const chunkSize = 1000
+        while (true) {
+          const { data, error } = await supabase
+            .rpc('get_attendance_report', rpcParams)
+            .range(fromIndex, fromIndex + chunkSize - 1)
+          if (error || !data || data.length === 0) break
+          allRecords.push(...data)
+          if (data.length < chunkSize) break
+          fromIndex += chunkSize
+        }
+        setRecords(allRecords)
+        sessionStorage.setItem(cacheKey, JSON.stringify(allRecords))
 
       } else if (tab === 'summary') {
         const { data } = await supabase.rpc('get_section_summary', {
@@ -93,16 +104,27 @@ export default function ReportsPage() {
         sessionStorage.setItem(cacheKey, JSON.stringify(res))
 
       } else {
-        // roster tab
-        const { data } = await supabase.rpc('get_attendance_roster', {
+        // roster tab — paginate to bypass PostgREST 1000-row max_rows cap
+        const rpcParams = {
           p_date: filters.dateFrom,
           p_session: filters.session || null,
           p_department: filters.department || null,
           p_section: filters.section || null,
-        }).limit(5000)
-        const res = data ?? []
-        setRoster(res)
-        sessionStorage.setItem(cacheKey, JSON.stringify(res))
+        }
+        let allRoster: any[] = []
+        let fromIndex = 0
+        const chunkSize = 1000
+        while (true) {
+          const { data, error } = await supabase
+            .rpc('get_attendance_roster', rpcParams)
+            .range(fromIndex, fromIndex + chunkSize - 1)
+          if (error || !data || data.length === 0) break
+          allRoster.push(...data)
+          if (data.length < chunkSize) break
+          fromIndex += chunkSize
+        }
+        setRoster(allRoster)
+        sessionStorage.setItem(cacheKey, JSON.stringify(allRoster))
       }
     } catch (err) {
       console.error('Failed to generate report:', err)
