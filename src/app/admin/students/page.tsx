@@ -39,6 +39,7 @@ export default function ManageStudentsPage() {
       .order('year')
       .order('section')
       .order('name')
+      .limit(5000)
     setStudents(data ?? [])
     setLoading(false)
   }
