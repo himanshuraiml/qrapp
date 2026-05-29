@@ -7,3 +7,16 @@ public/workbox-*.js
 public/worker-*.js
 public/sw.js.map
 public/workbox-*.js.map
+
+# Documents
+*.csv
+*.xlsx
+*.xls
+*.doc
+*.docx
+*.pdf
+*.ppt
+*.pptx
+*.md
+!README.md
+!readme.md

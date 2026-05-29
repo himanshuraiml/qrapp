@@ -9,6 +9,7 @@ export interface Profile {
   department?: string | null
   year?: number | null
   section?: string | null
+  batch?: string | null
   status: 'Active' | 'Inactive'
   created_at: string
   updated_at: string
@@ -50,6 +51,13 @@ export interface DashboardStats {
   attendance_pct: number
   by_session: Partial<Record<SessionLabel, number>>
   by_department: Array<{ department: string; students: number; scans: number }>
+}
+
+export interface BatchSummary {
+  batch: string
+  total_students: number
+  present_count: number
+  attendance_pct: number
 }
 
 export interface SessionSettings {

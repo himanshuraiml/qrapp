@@ -148,6 +148,11 @@ export default function StudentDashboard() {
                   <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
                     Sec {profile?.section}
                   </span>
+                  {profile?.batch && (
+                    <span className="px-2.5 py-1 rounded-lg bg-brand-500/15 border border-brand-500/30 text-[10px] sm:text-xs font-bold text-brand-200">
+                      Batch {profile.batch}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

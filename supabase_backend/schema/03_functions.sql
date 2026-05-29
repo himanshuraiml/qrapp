@@ -303,3 +303,40 @@ BEGIN
 END;
 $$;
 
+
+-- ─────────────────────────────────────────
+-- get_batch_summary
+-- Per-batch present count for a given date.
+-- present = distinct students in the batch with ≥1 scan that day.
+-- ─────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_batch_summary(p_date DATE DEFAULT CURRENT_DATE)
+RETURNS TABLE (
+  batch          TEXT,
+  total_students BIGINT,
+  present_count  BIGINT,
+  attendance_pct NUMERIC
+)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    p.batch,
+    COUNT(DISTINCT p.id),
+    COUNT(DISTINCT a.student_id),
+    CASE WHEN COUNT(DISTINCT p.id) > 0
+      THEN ROUND((COUNT(DISTINCT a.student_id)::NUMERIC / COUNT(DISTINCT p.id)) * 100, 1)
+      ELSE 0::NUMERIC
+    END
+  FROM profiles p
+  LEFT JOIN attendance a
+    ON  a.student_id = p.student_id
+    AND a.date       = p_date
+  WHERE p.role   = 'Student'
+    AND p.status = 'Active'
+    AND p.batch IS NOT NULL
+    AND p.batch != ''
+  GROUP BY p.batch
+  ORDER BY p.batch;
+END;
+$$;
+

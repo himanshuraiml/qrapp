@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate } from '@/lib/utils'
 import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import SessionBarChart from '@/components/admin/SessionBarChart'
-import type { DashboardStats, SectionSummary } from '@/types'
+import type { DashboardStats, SectionSummary, BatchSummary } from '@/types'
 import AboutApp from '@/components/AboutApp'
 
 function KpiCard({
@@ -108,6 +108,7 @@ export default function AdminDashboard() {
   const [dept, setDept] = useState('')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [summary, setSummary] = useState<SectionSummary[]>([])
+  const [batches, setBatches] = useState<BatchSummary[]>([])
   const [depts, setDepts] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -129,17 +130,19 @@ export default function AdminDashboard() {
     async function load(silent = false) {
       if (!silent) setLoading(true)
       try {
-        const [{ data: statsData }, { data: sumData }] = await Promise.all([
+        const [{ data: statsData }, { data: sumData }, { data: batchData }] = await Promise.all([
           supabase.rpc('get_dashboard_stats', { p_date: date }),
           supabase.rpc('get_section_summary', {
             p_date: date,
             p_department: dept || null,
           }),
+          supabase.rpc('get_batch_summary', { p_date: date }),
         ])
         if (statsData) setStats(statsData)
         if (sumData) setSummary(sumData ?? [])
-        
-        sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData }))
+        if (batchData) setBatches(batchData ?? [])
+
+        sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData, batches: batchData }))
       } catch (err) {
         console.error(err)
       } finally {
@@ -151,9 +154,10 @@ export default function AdminDashboard() {
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       try {
-        const { stats: cachedStats, summary: cachedSummary } = JSON.parse(cached)
+        const { stats: cachedStats, summary: cachedSummary, batches: cachedBatches } = JSON.parse(cached)
         setStats(cachedStats)
         setSummary(cachedSummary ?? [])
+        setBatches(cachedBatches ?? [])
         setLoading(false)
       } catch (e) {}
     }
@@ -365,6 +369,58 @@ export default function AdminDashboard() {
 
           <SectionSummaryTable rows={summary} loading={loading} date={date} />
         </div>
+      </div>
+
+      {/* ── Batch-wise Attendance ────────────────────────────────── */}
+      <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold text-neutral-800 font-heading">Batch-wise Attendance</h3>
+            <p className="text-[11px] text-neutral-400 mt-0.5">Students present today per training batch</p>
+          </div>
+          <span className="text-[10px] font-bold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-full">
+            {formatDate(date)}
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-24 bg-neutral-50 rounded-2xl animate-pulse" />
+            ))}
+          </div>
+        ) : batches.length === 0 ? (
+          <p className="text-xs text-neutral-400 font-medium py-6 text-center">No batch data available.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            {batches.map((b) => {
+              const p = b.attendance_pct ?? 0
+              const tone = p >= 75
+                ? { text: 'text-emerald-600', bar: 'bg-emerald-500', ring: 'border-emerald-100' }
+                : p >= 50
+                ? { text: 'text-amber-500', bar: 'bg-amber-500', ring: 'border-amber-100' }
+                : { text: 'text-red-500', bar: 'bg-red-500', ring: 'border-red-100' }
+              return (
+                <div key={b.batch} className={`rounded-2xl border ${tone.ring} bg-white p-3 flex flex-col gap-2 shadow-sm`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Batch</span>
+                    <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white text-xs font-extrabold flex items-center justify-center">{b.batch}</span>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-extrabold text-neutral-800 tracking-tight font-heading leading-none">
+                      {b.present_count}
+                      <span className="text-sm font-bold text-neutral-400">/{b.total_students}</span>
+                    </p>
+                    <p className={`text-[11px] font-bold mt-1 ${tone.text}`}>{p}% present</p>
+                  </div>
+                  <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${Math.min(p, 100)}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Quick Actions ────────────────────────────────────────── */}

@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   student_id   TEXT        UNIQUE,
   department   TEXT,
   year         INTEGER     CHECK (year BETWEEN 1 AND 4),
-  section      TEXT,
+  section      TEXT,        -- permanent home section of the student
+  batch        TEXT,        -- training batch (A, B, C, ...); may change on promote/demote
   -- Shared
   status       TEXT        NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE INDEX IF NOT EXISTS idx_profiles_role       ON profiles(role);
 CREATE INDEX IF NOT EXISTS idx_profiles_student_id ON profiles(student_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_dept       ON profiles(department, section, year);
+CREATE INDEX IF NOT EXISTS idx_profiles_batch      ON profiles(batch);
 CREATE INDEX IF NOT EXISTS idx_profiles_sort_student ON profiles(role, department, year, section, name);
 CREATE INDEX IF NOT EXISTS idx_profiles_sort_faculty ON profiles(role, department, name);
 
