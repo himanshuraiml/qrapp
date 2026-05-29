@@ -41,22 +41,33 @@ export default function ReportsPage() {
   }
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('department, section')
-      .eq('role', 'Student')
-      .limit(5000)
-      .then(({ data }) => {
-        if (!data) return
-        const depts = [...new Set(data.map((r: any) => r.department).filter(Boolean))].sort()
-        const sections = [...new Set(data.map((r: any) => r.section).filter(Boolean))].sort()
-        setDepts(depts as string[])
-        setSections(sections as string[])
-      })
+    async function loadDeptsAndSections() {
+      let allProfiles: any[] = []
+      let fromIndex = 0
+      const chunkSize = 1000
+      while (true) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('department, section')
+          .eq('role', 'Student')
+          .range(fromIndex, fromIndex + chunkSize - 1)
+        if (error || !data || data.length === 0) break
+        allProfiles.push(...data)
+        if (data.length < chunkSize) break
+        fromIndex += chunkSize
+      }
+      const depts = [...new Set(allProfiles.map((r: any) => r.department).filter(Boolean))].sort()
+      const sections = [...new Set(allProfiles.map((r: any) => r.section).filter(Boolean))].sort()
+      setDepts(depts as string[])
+      setSections(sections as string[])
+    }
+    loadDeptsAndSections()
   }, [supabase])
 
-  async function loadData() {
-    setLoading(true)
+  async function loadData(silent = false) {
+    if (!silent) setLoading(true)
+
+    const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
 
     try {
       if (tab === 'records') {
@@ -68,14 +79,18 @@ export default function ReportsPage() {
           p_year: filters.year ? parseInt(filters.year) : null,
           p_session: filters.session || null,
         }).limit(5000)
-        setRecords(data ?? [])
+        const res = data ?? []
+        setRecords(res)
+        sessionStorage.setItem(cacheKey, JSON.stringify(res))
 
       } else if (tab === 'summary') {
         const { data } = await supabase.rpc('get_section_summary', {
           p_date: filters.dateFrom,
           p_department: filters.department || null,
         }).limit(5000)
-        setSummary(data ?? [])
+        const res = data ?? []
+        setSummary(res)
+        sessionStorage.setItem(cacheKey, JSON.stringify(res))
 
       } else {
         // roster tab
@@ -85,7 +100,9 @@ export default function ReportsPage() {
           p_department: filters.department || null,
           p_section: filters.section || null,
         }).limit(5000)
-        setRoster(data ?? [])
+        const res = data ?? []
+        setRoster(res)
+        sessionStorage.setItem(cacheKey, JSON.stringify(res))
       }
     } catch (err) {
       console.error('Failed to generate report:', err)
@@ -96,7 +113,22 @@ export default function ReportsPage() {
 
   // Load report data automatically whenever the tab or any filter changes
   useEffect(() => {
-    loadData()
+    const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
+    
+    // 1. Instant load from cache
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (tab === 'records') setRecords(parsed)
+        else if (tab === 'summary') setSummary(parsed)
+        else setRoster(parsed)
+        setLoading(false)
+      } catch (e) {}
+    }
+    
+    // 2. Silent background refresh
+    loadData(!!cached)
   }, [tab, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session])
 
   const filterTitle = [

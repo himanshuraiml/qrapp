@@ -50,20 +50,35 @@ export default function ManageFacultyPage() {
     }
   }
 
-  async function loadFaculty() {
-    setLoading(true)
-    const { data } = await supabase
+  async function loadFaculty(silent = false) {
+    if (!silent) setLoading(true)
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('role', 'Faculty')
       .order('department')
       .order('name')
       .limit(1000)
-    setFaculty(data ?? [])
+    
+    if (!error && data) {
+      setFaculty(data)
+      sessionStorage.setItem('faculty_cache', JSON.stringify(data))
+    }
     setLoading(false)
   }
 
-  useEffect(() => { loadFaculty() }, [])
+  useEffect(() => {
+    // 1. Instant load from cache
+    const cached = sessionStorage.getItem('faculty_cache')
+    if (cached) {
+      try {
+        setFaculty(JSON.parse(cached))
+        setLoading(false)
+      } catch (e) {}
+    }
+    // 2. Fetch in background (silent refresh)
+    loadFaculty(!!cached)
+  }, [])
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
@@ -81,16 +96,41 @@ export default function ManageFacultyPage() {
       setFormError(json.error ?? 'Failed to create faculty')
     } else {
       setShowForm(false)
+      
+      // Local optimistic append
+      const newFaculty: Profile = {
+        id: json.id,
+        name: form.name,
+        role: 'Faculty',
+        department: form.department,
+        status: 'Active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      const updatedList = [newFaculty, ...faculty]
+      setFaculty(updatedList)
+      sessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
+      
       setForm({ name: '', email: '', department: '', password: '' })
-      loadFaculty()
     }
     setSaving(false)
   }
 
   async function toggleStatus(f: Profile) {
     const newStatus = f.status === 'Active' ? 'Inactive' : 'Active'
-    await supabase.from('profiles').update({ status: newStatus }).eq('id', f.id)
-    loadFaculty()
+    
+    // Local optimistic update
+    const updatedList = faculty.map(item => item.id === f.id ? { ...item, status: newStatus } : item)
+    setFaculty(updatedList)
+    sessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
+    
+    const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', f.id)
+    if (error) {
+      // Revert if database save fails
+      const revertedList = faculty.map(item => item.id === f.id ? { ...item, status: f.status } : item)
+      setFaculty(revertedList)
+      sessionStorage.setItem('faculty_cache', JSON.stringify(revertedList))
+    }
   }
 
   // Filter based on search query

@@ -29,15 +29,34 @@ export default function ManageStudentsPage() {
   // Get unique departments for filter dropdown
   const uniqueDepts = Array.from(new Set(students.map(s => s.department).filter(Boolean))).sort() as string[]
 
-  async function loadStudents() {
-    setLoading(true)
-    const res = await fetch('/api/admin/students')
-    const json = await res.json()
-    setStudents(json.data ?? [])
-    setLoading(false)
+  async function loadStudents(silent = false) {
+    if (!silent) setLoading(true)
+    try {
+      const res = await fetch('/api/admin/students?t=' + Date.now(), { cache: 'no-store' })
+      const json = await res.json()
+      if (json.success && json.data) {
+        setStudents(json.data)
+        sessionStorage.setItem('students_cache', JSON.stringify(json.data))
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { loadStudents() }, [])
+  useEffect(() => {
+    // 1. Instant load from cache
+    const cached = sessionStorage.getItem('students_cache')
+    if (cached) {
+      try {
+        setStudents(JSON.parse(cached))
+        setLoading(false)
+      } catch (e) {}
+    }
+    // 2. Fetch in background (silent refresh)
+    loadStudents(!!cached)
+  }, [])
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
@@ -55,16 +74,44 @@ export default function ManageStudentsPage() {
       setFormError(json.error ?? 'Failed to create student')
     } else {
       setShowForm(false)
+      
+      // Local optimistic append
+      const newStudent: Profile = {
+        id: json.id,
+        name: form.name,
+        role: 'Student',
+        student_id: form.student_id.toUpperCase(),
+        department: form.department,
+        year: parseInt(form.year),
+        section: form.section,
+        status: 'Active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      const updatedList = [newStudent, ...students]
+      setStudents(updatedList)
+      sessionStorage.setItem('students_cache', JSON.stringify(updatedList))
+      
       setForm({ student_id: '', name: '', department: '', year: '1', section: '', password: '' })
-      loadStudents()
     }
     setSaving(false)
   }
 
   async function toggleStatus(student: Profile) {
     const newStatus = student.status === 'Active' ? 'Inactive' : 'Active'
-    await supabase.from('profiles').update({ status: newStatus }).eq('id', student.id)
-    loadStudents()
+    
+    // Local optimistic update
+    const updatedList = students.map(s => s.id === student.id ? { ...s, status: newStatus } : s)
+    setStudents(updatedList)
+    sessionStorage.setItem('students_cache', JSON.stringify(updatedList))
+    
+    const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', student.id)
+    if (error) {
+      // Revert if database save fails
+      const revertedList = students.map(s => s.id === student.id ? { ...s, status: student.status } : s)
+      setStudents(revertedList)
+      sessionStorage.setItem('students_cache', JSON.stringify(revertedList))
+    }
   }
 
   // Filter based on search query, department filter, and year filter

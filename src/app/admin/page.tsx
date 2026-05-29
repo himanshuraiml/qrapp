@@ -112,22 +112,35 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase
-      .from('profiles')
-      .select('department')
-      .eq('role', 'Student')
-      .not('department', 'is', null)
-      .limit(5000)
-      .then(({ data }) => {
-        const unique = [...new Set((data ?? []).map((r: any) => r.department))].sort()
-        setDepts(unique)
-      })
+    async function loadDepts() {
+      let allDepts: any[] = []
+      let fromIndex = 0
+      const chunkSize = 1000
+      while (true) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('department')
+          .eq('role', 'Student')
+          .not('department', 'is', null)
+          .range(fromIndex, fromIndex + chunkSize - 1)
+        if (error || !data || data.length === 0) break
+        allDepts.push(...data)
+        if (data.length < chunkSize) break
+        fromIndex += chunkSize
+      }
+      const unique = [...new Set(allDepts.map((r: any) => r.department))].sort()
+      setDepts(unique)
+    }
+    loadDepts()
   }, [supabase])
 
   useEffect(() => {
     if (authLoading) return
-    async function load() {
-      setLoading(true)
+    
+    const cacheKey = `dashboard_stats_${date}_${dept}`
+    
+    async function load(silent = false) {
+      if (!silent) setLoading(true)
       try {
         const [{ data: statsData }, { data: sumData }] = await Promise.all([
           supabase.rpc('get_dashboard_stats', { p_date: date }),
@@ -136,13 +149,30 @@ export default function AdminDashboard() {
             p_department: dept || null,
           }),
         ])
-        setStats(statsData)
-        setSummary(sumData ?? [])
+        if (statsData) setStats(statsData)
+        if (sumData) setSummary(sumData ?? [])
+        
+        sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData }))
+      } catch (err) {
+        console.error(err)
       } finally {
         setLoading(false)
       }
     }
-    load()
+
+    // 1. Instant load from cache
+    const cached = sessionStorage.getItem(cacheKey)
+    if (cached) {
+      try {
+        const { stats: cachedStats, summary: cachedSummary } = JSON.parse(cached)
+        setStats(cachedStats)
+        setSummary(cachedSummary ?? [])
+        setLoading(false)
+      } catch (e) {}
+    }
+
+    // 2. Refresh silently in background
+    load(!!cached)
   }, [date, dept, authLoading, supabase])
 
   const pct = stats?.attendance_pct ?? 0
