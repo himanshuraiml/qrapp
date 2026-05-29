@@ -19,6 +19,13 @@ export default function ManageStudentsPage() {
     student_id: '', name: '', department: '', year: '1', section: '', password: '',
   })
 
+  // State for password reset modal
+  const [passwordModalUser, setPasswordModalUser] = useState<Profile | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [modalSaving, setModalSaving] = useState(false)
+  const [modalError, setModalError] = useState('')
+  const [modalSuccess, setModalSuccess] = useState(false)
+
   // Get unique departments for filter dropdown
   const uniqueDepts = Array.from(new Set(students.map(s => s.department).filter(Boolean))) as string[]
 
@@ -234,16 +241,29 @@ export default function ManageStudentsPage() {
                       }`}>{s.status}</span>
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => toggleStatus(s)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border active:scale-95
-                          ${s.status === 'Active'
-                            ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          }`}
-                      >
-                        {s.status === 'Active' ? 'Deactivate' : 'Activate'}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setPasswordModalUser(s)
+                            setNewPassword('')
+                            setModalError('')
+                            setModalSuccess(false)
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 active:scale-95 font-semibold"
+                        >
+                          🔑 Reset
+                        </button>
+                        <button
+                          onClick={() => toggleStatus(s)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border active:scale-95
+                            ${s.status === 'Active'
+                              ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                        >
+                          {s.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -259,6 +279,117 @@ export default function ManageStudentsPage() {
           </div>
         )}
       </div>
+
+      {/* ── Student Password Reset Modal ── */}
+      {passwordModalUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative overflow-hidden animate-scale-up">
+            {/* Decorative Top Accent Bar */}
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-500 to-indigo-500" />
+            
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-widest font-heading">
+                🔑 Reset Password
+              </h3>
+              <button
+                onClick={() => setPasswordModalUser(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4">
+              <p className="text-xs text-slate-500 font-medium">Resetting password for:</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">{passwordModalUser.name}</p>
+              {passwordModalUser.student_id && (
+                <p className="text-xs font-mono font-bold text-brand-600 mt-0.5">Roll No: {passwordModalUser.student_id}</p>
+              )}
+            </div>
+
+            {modalSuccess ? (
+              <div className="space-y-4 text-center py-6">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-xl mx-auto animate-bounce">
+                  ✓
+                </div>
+                <p className="text-sm font-bold text-slate-800">Password Updated Successfully</p>
+                <p className="text-xs text-slate-500">The account password has been updated. Provide the new credentials to the student.</p>
+                <button
+                  onClick={() => setPasswordModalUser(null)}
+                  className="btn-primary w-full text-xs font-bold py-2.5 mt-2"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  if (!newPassword || newPassword.length < 6) {
+                    setModalError('Password must be at least 6 characters long.')
+                    return
+                  }
+                  setModalSaving(true)
+                  setModalError('')
+                  try {
+                    const res = await fetch('/api/admin/user-details', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ userId: passwordModalUser.id, password: newPassword }),
+                    })
+                    const data = await res.json()
+                    if (data.success) {
+                      setModalSuccess(true)
+                    } else {
+                      setModalError(data.error || 'Failed to update password')
+                    }
+                  } catch (err: any) {
+                    setModalError(err.message || 'An error occurred')
+                  } finally {
+                    setModalSaving(false)
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                  <input
+                    required
+                    type="password"
+                    className="input animate-fade-in"
+                    placeholder="Enter new password (min. 6 chars)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+
+                {modalError && (
+                  <div className="text-xs font-bold text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3 animate-fade-in">
+                    ⚠️ {modalError}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={modalSaving}
+                    className="btn-primary flex-1 text-xs py-2.5 font-bold shadow-md shadow-brand-500/10"
+                  >
+                    {modalSaving ? 'Updating...' : 'Update Password'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPasswordModalUser(null)}
+                    className="btn-secondary flex-1 text-xs py-2.5 font-bold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

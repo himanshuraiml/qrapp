@@ -17,6 +17,39 @@ export default function ManageFacultyPage() {
     name: '', email: '', department: '', password: '',
   })
 
+  // State for faculty account management modal
+  const [manageModalUser, setManageModalUser] = useState<Profile | null>(null)
+  const [modalEmail, setModalEmail] = useState('')
+  const [modalPassword, setModalPassword] = useState('')
+  const [modalLoading, setModalLoading] = useState(false)
+  const [modalSaving, setModalSaving] = useState(false)
+  const [modalError, setModalError] = useState('')
+  const [modalSuccess, setModalSuccess] = useState(false)
+
+  // Fetch current email when opening modal
+  async function openManageModal(f: Profile) {
+    setManageModalUser(f)
+    setModalEmail('')
+    setModalPassword('')
+    setModalLoading(true)
+    setModalError('')
+    setModalSuccess(false)
+
+    try {
+      const res = await fetch(`/api/admin/user-details?userId=${f.id}`)
+      const data = await res.json()
+      if (data.success) {
+        setModalEmail(data.email || '')
+      } else {
+        setModalError(data.error || 'Failed to fetch account email')
+      }
+    } catch (err: any) {
+      setModalError(err.message || 'An error occurred fetching account details')
+    } finally {
+      setModalLoading(false)
+    }
+  }
+
   async function loadFaculty() {
     setLoading(true)
     const { data } = await supabase
@@ -177,16 +210,24 @@ export default function ManageFacultyPage() {
                       }`}>{f.status}</span>
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => toggleStatus(f)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border active:scale-95
-                          ${f.status === 'Active'
-                            ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          }`}
-                      >
-                        {f.status === 'Active' ? 'Deactivate' : 'Activate'}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => openManageModal(f)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all border border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 active:scale-95 font-semibold"
+                        >
+                          ⚙️ Manage
+                        </button>
+                        <button
+                          onClick={() => toggleStatus(f)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border active:scale-95
+                            ${f.status === 'Active'
+                              ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                        >
+                          {f.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -202,6 +243,144 @@ export default function ManageFacultyPage() {
           </div>
         )}
       </div>
+
+      {/* ── Faculty/Staff Account Management Modal ── */}
+      {manageModalUser && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative overflow-hidden animate-scale-up">
+            {/* Decorative Top Accent Bar */}
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-500 to-indigo-500" />
+            
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-widest font-heading">
+                ⚙️ Manage Faculty Account
+              </h3>
+              <button
+                onClick={() => setManageModalUser(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4">
+              <p className="text-xs text-slate-500 font-medium">Faculty Member:</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">{manageModalUser.name}</p>
+              {manageModalUser.department && (
+                <p className="text-xs font-semibold text-brand-600 mt-0.5">Dept: {manageModalUser.department.toUpperCase()}</p>
+              )}
+            </div>
+
+            {modalLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center space-y-2">
+                <span className="w-6 h-6 border-2 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
+                <span className="text-[11px] text-slate-400 font-semibold">Retrieving credentials from Auth...</span>
+              </div>
+            ) : modalSuccess ? (
+              <div className="space-y-4 text-center py-6">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-xl mx-auto animate-bounce">
+                  ✓
+                </div>
+                <p className="text-sm font-bold text-slate-800">Account Updated Successfully</p>
+                <p className="text-xs text-slate-500">The credentials have been successfully updated in Supabase Auth.</p>
+                <button
+                  onClick={() => setManageModalUser(null)}
+                  className="btn-primary w-full text-xs font-bold py-2.5 mt-2"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  if (!modalEmail.trim()) {
+                    setModalError('Email address is required.')
+                    return
+                  }
+                  if (modalPassword && modalPassword.length < 6) {
+                    setModalError('Password must be at least 6 characters long.')
+                    return
+                  }
+                  
+                  setModalSaving(true)
+                  setModalError('')
+                  try {
+                    const res = await fetch('/api/admin/user-details', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userId: manageModalUser.id,
+                        email: modalEmail,
+                        password: modalPassword || undefined,
+                      }),
+                    })
+                    const data = await res.json()
+                    if (data.success) {
+                      setModalSuccess(true)
+                    } else {
+                      setModalError(data.error || 'Failed to update credentials')
+                    }
+                  } catch (err: any) {
+                    setModalError(err.message || 'An error occurred')
+                  } finally {
+                    setModalSaving(false)
+                  }
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Academic Email</label>
+                  <input
+                    required
+                    type="email"
+                    className="input"
+                    placeholder="name@srmist.edu.in"
+                    value={modalEmail}
+                    onChange={(e) => setModalEmail(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                    New Password <span className="text-[10px] text-slate-400 normal-case font-normal">(Leave blank to keep current)</span>
+                  </label>
+                  <input
+                    type="password"
+                    className="input animate-fade-in"
+                    placeholder="Enter new password (min. 6 chars)"
+                    value={modalPassword}
+                    onChange={(e) => setModalPassword(e.target.value)}
+                  />
+                </div>
+
+                {modalError && (
+                  <div className="text-xs font-bold text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3 animate-fade-in">
+                    ⚠️ {modalError}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={modalSaving}
+                    className="btn-primary flex-1 text-xs py-2.5 font-bold shadow-md shadow-brand-500/10"
+                  >
+                    {modalSaving ? 'Saving Changes...' : 'Save Changes'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setManageModalUser(null)}
+                    className="btn-secondary flex-1 text-xs py-2.5 font-bold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
