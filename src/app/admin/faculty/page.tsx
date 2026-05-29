@@ -117,7 +117,7 @@ export default function ManageFacultyPage() {
   }
 
   async function toggleStatus(f: Profile) {
-    const newStatus = f.status === 'Active' ? 'Inactive' : 'Active'
+    const newStatus: 'Active' | 'Inactive' = f.status === 'Active' ? 'Inactive' : 'Active'
     
     // Local optimistic update
     const updatedList = faculty.map(item => item.id === f.id ? { ...item, status: newStatus } : item)

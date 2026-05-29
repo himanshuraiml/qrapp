@@ -98,7 +98,7 @@ export default function ManageStudentsPage() {
   }
 
   async function toggleStatus(student: Profile) {
-    const newStatus = student.status === 'Active' ? 'Inactive' : 'Active'
+    const newStatus: 'Active' | 'Inactive' = student.status === 'Active' ? 'Inactive' : 'Active'
     
     // Local optimistic update
     const updatedList = students.map(s => s.id === student.id ? { ...s, status: newStatus } : s)
