@@ -182,7 +182,7 @@ export default function StudentDashboard() {
                   <span className="text-lg">🌅</span>
                   <div>
                     <p className="text-xs font-bold text-slate-800">Forenoon Session</p>
-                    <p className="text-[10px] text-slate-400 font-medium">FN1 / FN2 / FN3</p>
+                    <p className="text-[10px] text-slate-400 font-medium">FN1 / FN2</p>
                   </div>
                 </div>
                 {fnToday.length > 0 ? (
@@ -197,7 +197,7 @@ export default function StudentDashboard() {
                   <span className="text-lg">🌇</span>
                   <div>
                     <p className="text-xs font-bold text-slate-800">Afternoon Session</p>
-                    <p className="text-[10px] text-slate-400 font-medium">AN1 / AN2 / AN3</p>
+                    <p className="text-[10px] text-slate-400 font-medium">AN1 / AN2</p>
                   </div>
                 </div>
                 {anToday.length > 0 ? (

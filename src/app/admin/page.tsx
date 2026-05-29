@@ -113,6 +113,7 @@ export default function AdminDashboard() {
   const [depts, setDepts] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [batchView, setBatchView] = useState<'grid' | 'table'>('table')
 
   async function handleExportExcel() {
     setExporting(true)
@@ -154,19 +155,85 @@ export default function AdminDashboard() {
     async function load(silent = false) {
       if (!silent) setLoading(true)
       try {
-        const [{ data: statsData }, { data: sumData }, { data: batchData }] = await Promise.all([
+        const [
+          { data: statsData },
+          { data: sumData },
+          { data: activeStudents },
+          { data: scans }
+        ] = await Promise.all([
           supabase.rpc('get_dashboard_stats', { p_date: date }),
           supabase.rpc('get_section_summary', {
             p_date: date,
             p_department: dept || null,
           }),
-          supabase.rpc('get_batch_summary', { p_date: date }),
+          supabase
+            .from('profiles')
+            .select('student_id, batch')
+            .eq('role', 'Student')
+            .eq('status', 'Active'),
+          supabase
+            .from('attendance')
+            .select('student_id, session')
+            .eq('date', date)
         ])
+
         if (statsData) setStats(statsData)
         if (sumData) setSummary(sumData ?? [])
-        if (batchData) setBatches(batchData ?? [])
 
-        sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData, batches: batchData }))
+        let calculatedBatches: BatchSummary[] = []
+        if (activeStudents) {
+          const studentToBatch = new Map<string, string>()
+          const batchTotalStudents = new Map<string, number>()
+          activeStudents.forEach(s => {
+            if (s.student_id && s.batch) {
+              studentToBatch.set(s.student_id, s.batch)
+              batchTotalStudents.set(s.batch, (batchTotalStudents.get(s.batch) || 0) + 1)
+            }
+          })
+
+          const batchPresentSet = new Map<string, Set<string>>()
+          const sessionCounts = new Map<string, Record<string, number>>()
+
+          const scanList = scans ?? []
+          scanList.forEach(scan => {
+            const batch = studentToBatch.get(scan.student_id)
+            if (batch) {
+              if (!batchPresentSet.has(batch)) {
+                batchPresentSet.set(batch, new Set<string>())
+              }
+              batchPresentSet.get(batch)!.add(scan.student_id)
+
+              if (!sessionCounts.has(batch)) {
+                sessionCounts.set(batch, { FN1: 0, FN2: 0, AN1: 0, AN2: 0 })
+              }
+              const counts = sessionCounts.get(batch)!
+              if (scan.session in counts) {
+                counts[scan.session as any]++
+              }
+            }
+          })
+
+          Array.from(batchTotalStudents.keys()).sort().forEach(batch => {
+            const total = batchTotalStudents.get(batch) || 0
+            const present = batchPresentSet.get(batch)?.size || 0
+            const pct = total > 0 ? parseFloat(((present / total) * 100).toFixed(1)) : 0
+            const counts = sessionCounts.get(batch) || { FN1: 0, FN2: 0, AN1: 0, AN2: 0 }
+
+            calculatedBatches.push({
+              batch,
+              total_students: total,
+              present_count: present,
+              attendance_pct: pct,
+              fn1_count: counts.FN1,
+              fn2_count: counts.FN2,
+              an1_count: counts.AN1,
+              an2_count: counts.AN2,
+            })
+          })
+        }
+        setBatches(calculatedBatches)
+
+        sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData, batches: calculatedBatches }))
       } catch (err) {
         console.error(err)
       } finally {
@@ -346,12 +413,10 @@ export default function AdminDashboard() {
             const fnRows = [
               { key: 'FN1', val: by.FN1 ?? 0 },
               { key: 'FN2', val: by.FN2 ?? 0 },
-              { key: 'FN3', val: by.FN3 ?? 0 },
             ]
             const anRows = [
               { key: 'AN1', val: by.AN1 ?? 0 },
               { key: 'AN2', val: by.AN2 ?? 0 },
-              { key: 'AN3', val: by.AN3 ?? 0 },
             ]
             return (
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-neutral-100">
@@ -400,9 +465,33 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h3 className="text-sm font-extrabold text-neutral-800 font-heading">Batch-wise Attendance</h3>
-            <p className="text-[11px] text-neutral-400 mt-0.5">Students present today per training batch</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">Students present today per training batch on a session basis</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* View Switcher Segmented Control */}
+            <div className="flex bg-neutral-100/80 p-0.5 rounded-xl border border-neutral-200/50">
+              <button
+                onClick={() => setBatchView('table')}
+                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all duration-200 ${
+                  batchView === 'table'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                Line Table
+              </button>
+              <button
+                onClick={() => setBatchView('grid')}
+                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all duration-200 ${
+                  batchView === 'grid'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-800'
+                }`}
+              >
+                Card Grid
+              </button>
+            </div>
+
             <button
               onClick={handleExportExcel}
               disabled={exporting || batches.length === 0}
@@ -431,7 +520,60 @@ export default function AdminDashboard() {
           </div>
         ) : batches.length === 0 ? (
           <p className="text-xs text-neutral-400 font-medium py-6 text-center">No batch data available.</p>
+        ) : batchView === 'table' ? (
+          /* Table (Line) View — Row-by-row batch session-wise counts */
+          <div className="overflow-x-auto rounded-2xl border border-neutral-100 bg-white/60 backdrop-blur-md">
+            <table className="w-full text-xs min-w-[500px]">
+              <thead>
+                <tr className="text-left border-b border-neutral-100 bg-neutral-50/50">
+                  <th className="px-5 py-4 font-extrabold text-neutral-500 uppercase tracking-widest">Training Batch</th>
+                  <th className="px-4 py-4 font-extrabold text-primary-600 text-center uppercase tracking-widest">FN1</th>
+                  <th className="px-4 py-4 font-extrabold text-primary-600 text-center uppercase tracking-widest">FN2</th>
+                  <th className="px-4 py-4 font-extrabold text-secondary-600 text-center uppercase tracking-widest">AN1</th>
+                  <th className="px-4 py-4 font-extrabold text-secondary-600 text-center uppercase tracking-widest">AN2</th>
+                  <th className="px-5 py-4 font-extrabold text-neutral-500 text-center uppercase tracking-widest">Total Students</th>
+                  <th className="px-5 py-4 font-extrabold text-neutral-500 text-center uppercase tracking-widest">Present Today</th>
+                  <th className="px-5 py-4 font-extrabold text-neutral-500 text-center uppercase tracking-widest">%</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {batches.map((b) => {
+                  const p = b.attendance_pct ?? 0
+                  return (
+                    <tr key={b.batch} className="hover:bg-neutral-50/50 transition-colors duration-200">
+                      <td className="px-5 py-4">
+                        <span className="px-3 py-1 rounded-xl bg-neutral-900 text-white text-[11px] font-extrabold uppercase">
+                          Batch {b.batch}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-center font-bold text-primary-600">{b.fn1_count || 0}</td>
+                      <td className="px-4 py-4 text-center font-bold text-primary-600">{b.fn2_count || 0}</td>
+                      <td className="px-4 py-4 text-center font-bold text-secondary-600">{b.an1_count || 0}</td>
+                      <td className="px-4 py-4 text-center font-bold text-secondary-600">{b.an2_count || 0}</td>
+                      <td className="px-5 py-4 text-center font-bold text-neutral-600">{b.total_students}</td>
+                      <td className="px-5 py-4 text-center font-bold text-neutral-800">{b.present_count}</td>
+                      <td className="px-5 py-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${
+                          p >= 75
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : p >= 50
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            p >= 75 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                          }`} />
+                          {p}%
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         ) : (
+          /* Card Grid View (Updated to only show 4 sessions) */
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {batches.map((b) => {
               const p = b.attendance_pct ?? 0
@@ -441,7 +583,7 @@ export default function AdminDashboard() {
                 ? { text: 'text-amber-500', bar: 'bg-amber-500', ring: 'border-amber-100' }
                 : { text: 'text-red-500', bar: 'bg-red-500', ring: 'border-red-100' }
               return (
-                <div key={b.batch} className={`rounded-2xl border ${tone.ring} bg-white p-3 flex flex-col gap-2 shadow-sm`}>
+                <div key={b.batch} className={`rounded-2xl border ${tone.ring} bg-white p-3 flex flex-col gap-2.5 shadow-sm`}>
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Batch</span>
                     <span className="w-6 h-6 rounded-lg bg-neutral-900 text-white text-xs font-extrabold flex items-center justify-center">{b.batch}</span>
@@ -455,6 +597,13 @@ export default function AdminDashboard() {
                   </div>
                   <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${tone.bar}`} style={{ width: `${Math.min(p, 100)}%` }} />
+                  </div>
+                  {/* Session Breakdown Mini Grid */}
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 pt-2.5 border-t border-neutral-100/70 text-[9px] font-bold text-neutral-400">
+                    <div className="flex justify-between"><span>FN1:</span><span className="text-primary-600 ml-0.5 font-extrabold">{b.fn1_count || 0}</span></div>
+                    <div className="flex justify-between"><span>FN2:</span><span className="text-primary-600 ml-0.5 font-extrabold">{b.fn2_count || 0}</span></div>
+                    <div className="flex justify-between"><span>AN1:</span><span className="text-secondary-600 ml-0.5 font-extrabold">{b.an1_count || 0}</span></div>
+                    <div className="flex justify-between"><span>AN2:</span><span className="text-secondary-600 ml-0.5 font-extrabold">{b.an2_count || 0}</span></div>
                   </div>
                 </div>
               )

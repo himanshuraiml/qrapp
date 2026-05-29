@@ -141,7 +141,7 @@ export default function ReportsPage() {
 
         const { data: scans, error: scansError } = await supabase
           .from('attendance')
-          .select('student_id, date')
+          .select('student_id, date, session')
           .gte('date', filters.dateFrom)
           .lte('date', filters.dateTo)
 
@@ -153,13 +153,25 @@ export default function ReportsPage() {
 
         const uniqueScans = new Set<string>()
         const batchPresentStudentDays = new Map<string, number>()
+        const sessionCounts = new Map<string, Record<string, number>>()
+
         scans.forEach(scan => {
           const batch = studentToBatch.get(scan.student_id)
           if (batch) {
+            // Present Set
             const key = `${scan.student_id}:${scan.date}`
             if (!uniqueScans.has(key)) {
               uniqueScans.add(key)
               batchPresentStudentDays.set(batch, (batchPresentStudentDays.get(batch) || 0) + 1)
+            }
+
+            // Session counts
+            if (!sessionCounts.has(batch)) {
+              sessionCounts.set(batch, { FN1: 0, FN2: 0, AN1: 0, AN2: 0 })
+            }
+            const counts = sessionCounts.get(batch)!
+            if (scan.session in counts) {
+              counts[scan.session as any]++
             }
           }
         })
@@ -176,12 +188,18 @@ export default function ReportsPage() {
           const attendancePct = total > 0
             ? parseFloat(((presentDays / (total * numDays)) * 100).toFixed(1))
             : 0
+          
+          const counts = sessionCounts.get(batch) || { FN1: 0, FN2: 0, AN1: 0, AN2: 0 }
 
           rows.push({
             batch,
             total_students: total,
             present_count: avgPresent,
-            attendance_pct: attendancePct
+            attendance_pct: attendancePct,
+            fn1_count: parseFloat((counts.FN1 / numDays).toFixed(1)),
+            fn2_count: parseFloat((counts.FN2 / numDays).toFixed(1)),
+            an1_count: parseFloat((counts.AN1 / numDays).toFixed(1)),
+            an2_count: parseFloat((counts.AN2 / numDays).toFixed(1)),
           })
         })
 
@@ -618,6 +636,10 @@ export default function ReportsPage() {
                 <thead>
                   <tr className="text-left border-b border-slate-100 bg-slate-50/50">
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Training Batch</th>
+                    <th className="px-3 py-4 font-extrabold text-primary-600 text-center uppercase tracking-widest">FN1</th>
+                    <th className="px-3 py-4 font-extrabold text-primary-600 text-center uppercase tracking-widest">FN2</th>
+                    <th className="px-3 py-4 font-extrabold text-secondary-600 text-center uppercase tracking-widest">AN1</th>
+                    <th className="px-3 py-4 font-extrabold text-secondary-600 text-center uppercase tracking-widest">AN2</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Total Students</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Daily Avg Present</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Attendance %</th>
@@ -631,6 +653,10 @@ export default function ReportsPage() {
                           Batch {b.batch}
                         </span>
                       </td>
+                      <td className="px-3 py-4 text-center font-bold text-primary-600">{b.fn1_count ?? 0}</td>
+                      <td className="px-3 py-4 text-center font-bold text-primary-600">{b.fn2_count ?? 0}</td>
+                      <td className="px-3 py-4 text-center font-bold text-secondary-600">{b.an1_count ?? 0}</td>
+                      <td className="px-3 py-4 text-center font-bold text-secondary-600">{b.an2_count ?? 0}</td>
                       <td className="p-4 font-bold text-slate-600 text-center">{b.total_students}</td>
                       <td className="p-4 font-bold text-slate-800 text-center">{b.present_count}</td>
                       <td className="p-4 text-center">

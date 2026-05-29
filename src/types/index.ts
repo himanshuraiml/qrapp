@@ -1,5 +1,5 @@
 export type UserRole = 'Admin' | 'Faculty' | 'Student'
-export type SessionLabel = 'FN1' | 'FN2' | 'FN3' | 'AN1' | 'AN2' | 'AN3'
+export type SessionLabel = 'FN1' | 'FN2' | 'AN1' | 'AN2'
 
 export interface Profile {
   id: string
@@ -35,10 +35,8 @@ export interface SectionSummary {
   year: number
   fn1_count: number
   fn2_count: number
-  fn3_count: number
   an1_count: number
   an2_count: number
-  an3_count: number
   total_students: number
   attendance_pct: number
 }
@@ -58,6 +56,10 @@ export interface BatchSummary {
   total_students: number
   present_count: number
   attendance_pct: number
+  fn1_count?: number
+  fn2_count?: number
+  an1_count?: number
+  an2_count?: number
 }
 
 export interface SessionSettings {

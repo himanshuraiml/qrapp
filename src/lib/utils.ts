@@ -70,8 +70,6 @@ export const SESSIONS: Array<{ label: string; value: string }> = [
   { label: 'All Sessions', value: '' },
   { label: 'FN1', value: 'FN1' },
   { label: 'FN2', value: 'FN2' },
-  { label: 'FN3', value: 'FN3' },
   { label: 'AN1', value: 'AN1' },
   { label: 'AN2', value: 'AN2' },
-  { label: 'AN3', value: 'AN3' },
 ]

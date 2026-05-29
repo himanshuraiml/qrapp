@@ -35,7 +35,7 @@ Students never see the internal email. The web app converts roll number → virt
 | Table             | Purpose                                     |
 |-------------------|---------------------------------------------|
 | `profiles`        | Extends `auth.users` with role/dept/section |
-| `attendance`      | All attendance records (FN1–AN3)            |
+| `attendance`      | All attendance records (FN1–AN2)            |
 | `session_settings`| Single-row FN/AN time window config         |
 
 ## Key Functions

@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   department      TEXT        NOT NULL,
   section         TEXT        NOT NULL,
   year            INTEGER     NOT NULL CHECK (year BETWEEN 1 AND 4),
-  session         TEXT        NOT NULL CHECK (session IN ('FN1','FN2','FN3','AN1','AN2','AN3')),
+  session         TEXT        NOT NULL CHECK (session IN ('FN1','FN2','AN1','AN2')),
   marked_by       UUID        NOT NULL REFERENCES auth.users(id),
   marked_by_name  TEXT        NOT NULL,
   date            DATE        NOT NULL DEFAULT CURRENT_DATE,

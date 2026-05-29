@@ -45,17 +45,15 @@ export async function exportSectionSummaryToExcel(
     Section:          r.section,
     FN1:              r.fn1_count,
     FN2:              r.fn2_count,
-    FN3:              r.fn3_count,
     AN1:              r.an1_count,
     AN2:              r.an2_count,
-    AN3:              r.an3_count,
     'Total Students': r.total_students,
     'Attendance %':   `${r.attendance_pct}%`,
   }))
 
   const wb = XLSX.utils.book_new()
   const ws = XLSX.utils.json_to_sheet(data)
-  ws['!cols'] = [14, 6, 10, 6, 6, 6, 6, 6, 6, 14, 14].map((w) => ({ wch: w }))
+  ws['!cols'] = [14, 6, 10, 6, 6, 6, 6, 14, 14].map((w) => ({ wch: w }))
   XLSX.utils.book_append_sheet(wb, ws, `Summary_${date}`)
   XLSX.writeFile(wb, `section_summary_${date}.xlsx`)
 }
@@ -116,11 +114,11 @@ export async function exportSectionSummaryToPDF(
 
   autoTable(doc, {
     startY: 30,
-    head: [['Department', 'Year', 'Section', 'FN1', 'FN2', 'FN3', 'AN1', 'AN2', 'AN3', 'Total', '%']],
+    head: [['Department', 'Year', 'Section', 'FN1', 'FN2', 'AN1', 'AN2', 'Total', '%']],
     body: rows.map((r) => [
       r.department, r.year, r.section,
-      r.fn1_count, r.fn2_count, r.fn3_count,
-      r.an1_count, r.an2_count, r.an3_count,
+      r.fn1_count, r.fn2_count,
+      r.an1_count, r.an2_count,
       r.total_students, `${r.attendance_pct}%`,
     ]),
     styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
@@ -214,7 +212,11 @@ export async function exportBatchSummaryToExcel(
   const XLSX = await import('xlsx')
 
   const data = rows.map((r) => ({
-    Batch:              r.batch,
+    Batch:              `Batch ${r.batch}`,
+    'FN1':              r.fn1_count ?? 0,
+    'FN2':              r.fn2_count ?? 0,
+    'AN1':              r.an1_count ?? 0,
+    'AN2':              r.an2_count ?? 0,
     'Total Students':   r.total_students,
     'Daily Avg Present': r.present_count,
     'Attendance %':     `${r.attendance_pct}%`,
@@ -222,7 +224,7 @@ export async function exportBatchSummaryToExcel(
 
   const wb = XLSX.utils.book_new()
   const ws = XLSX.utils.json_to_sheet(data)
-  ws['!cols'] = [12, 16, 18, 16].map((w) => ({ wch: w }))
+  ws['!cols'] = [12, 8, 8, 8, 8, 16, 18, 16].map((w) => ({ wch: w }))
   XLSX.utils.book_append_sheet(wb, ws, 'Batch_Summary')
   XLSX.writeFile(wb, `batch_summary_${dateRangeText.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`)
 }
@@ -234,11 +236,11 @@ export async function exportBatchSummaryToPDF(
   const { default: jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
   doc.setFontSize(14)
   doc.setTextColor(30, 27, 75)
-  doc.text('Batch-wise Attendance Summary — SRMIST Tiruchirappalli', 14, 16)
+  doc.text('Batch-wise Session Attendance Summary — SRMIST Tiruchirappalli', 14, 16)
   doc.setFontSize(9)
   doc.setTextColor(100, 100, 100)
   doc.text(`Date Range: ${dateRangeText}`, 14, 23)
@@ -246,9 +248,13 @@ export async function exportBatchSummaryToPDF(
 
   autoTable(doc, {
     startY: 35,
-    head: [['Batch', 'Total Students', 'Daily Avg Present', 'Attendance %']],
+    head: [['Batch', 'FN1', 'FN2', 'AN1', 'AN2', 'Total Students', 'Daily Avg Present', 'Attendance %']],
     body: rows.map((r) => [
       `Batch ${r.batch}`,
+      r.fn1_count ?? 0,
+      r.fn2_count ?? 0,
+      r.an1_count ?? 0,
+      r.an2_count ?? 0,
       r.total_students,
       r.present_count,
       `${r.attendance_pct}%`,

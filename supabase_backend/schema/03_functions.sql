@@ -160,10 +160,8 @@ RETURNS TABLE (
   year            INTEGER,
   fn1_count       BIGINT,
   fn2_count       BIGINT,
-  fn3_count       BIGINT,
   an1_count       BIGINT,
   an2_count       BIGINT,
-  an3_count       BIGINT,
   total_students  BIGINT,
   attendance_pct  NUMERIC
 )
@@ -176,10 +174,8 @@ BEGIN
     p.year,
     COUNT(CASE WHEN a.session='FN1' THEN 1 END),
     COUNT(CASE WHEN a.session='FN2' THEN 1 END),
-    COUNT(CASE WHEN a.session='FN3' THEN 1 END),
     COUNT(CASE WHEN a.session='AN1' THEN 1 END),
     COUNT(CASE WHEN a.session='AN2' THEN 1 END),
-    COUNT(CASE WHEN a.session='AN3' THEN 1 END),
     COUNT(DISTINCT p.id),
     CASE WHEN COUNT(DISTINCT p.id) > 0
       THEN ROUND((COUNT(DISTINCT a.student_id)::NUMERIC / COUNT(DISTINCT p.id)) * 100, 1)
@@ -200,7 +196,7 @@ $$;
 
 -- ─────────────────────────────────────────
 -- get_current_session
--- Returns the active sub-session label (FN1/FN2/.../AN3)
+-- Returns the active sub-session label (FN1/FN2/AN1/AN2)
 -- based on IST time and session settings
 -- ─────────────────────────────────────────
 CREATE OR REPLACE FUNCTION get_current_session()
@@ -227,7 +223,7 @@ BEGIN
   WHERE  date    = (NOW() AT TIME ZONE 'Asia/Kolkata')::DATE
     AND  session LIKE v_prefix || '%';
 
-  IF v_used >= 3 THEN RETURN v_prefix || '3'; END IF;
+  IF v_used >= 2 THEN RETURN v_prefix || '2'; END IF;
   RETURN v_prefix || (v_used + 1)::TEXT;
 END;
 $$;

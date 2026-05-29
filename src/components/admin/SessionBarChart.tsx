@@ -15,10 +15,8 @@ import type { SessionLabel } from '@/types'
 const SESSION_COLORS: Record<string, string> = {
   FN1: '#2563eb', // brand primary
   FN2: '#3b82f6',
-  FN3: '#60a5fa',
   AN1: '#4f46e5', // indigo secondary
   AN2: '#6366f1',
-  AN3: '#818cf8',
 }
 
 interface Props {
@@ -27,7 +25,7 @@ interface Props {
 
 export default function SessionBarChart({ bySession }: Props) {
   const data: Array<{ session: SessionLabel; count: number }> = (
-    ['FN1','FN2','FN3','AN1','AN2','AN3'] as SessionLabel[]
+    ['FN1','FN2','AN1','AN2'] as SessionLabel[]
   ).map((s) => ({ session: s, count: bySession[s] ?? 0 }))
 
   const hasData = data.some((d) => d.count > 0)
