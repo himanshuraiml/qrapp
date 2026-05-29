@@ -148,7 +148,7 @@ export default function ManageFacultyPage() {
             <span>🏫</span> Instructor Registry
           </div>
           <h1 className="text-3xl font-extrabold text-slate-800 font-heading">Faculty Directory</h1>
-          <p className="text-xs text-slate-400 font-medium">Add, activate, or audit SRMIST faculty members</p>
+          <p className="text-xs text-slate-400 font-medium">Add, activate, or audit SRMIST Tiruchirappalli Campus faculty members</p>
         </div>
 
         <button

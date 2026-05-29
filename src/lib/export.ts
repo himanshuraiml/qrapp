@@ -1,4 +1,4 @@
-import type { AttendanceRecord, SectionSummary, RosterRecord } from '@/types'
+import type { AttendanceRecord, SectionSummary, RosterRecord, BatchSummary } from '@/types'
 import { formatTime } from './utils'
 
 // ─────────────────────────────────────────
@@ -76,7 +76,7 @@ export async function exportAttendanceToPDF(
 
   doc.setFontSize(16)
   doc.setTextColor(30, 27, 75)
-  doc.text('QR Attendance Report — SRMIST Trichy', 14, 16)
+  doc.text('QR Attendance Report — SRMIST Tiruchirappalli Campus', 14, 16)
   doc.setFontSize(10)
   doc.setTextColor(100, 100, 100)
   doc.text(title, 14, 23)
@@ -109,7 +109,7 @@ export async function exportSectionSummaryToPDF(
 
   doc.setFontSize(16)
   doc.setTextColor(30, 27, 75)
-  doc.text('Section-wise Attendance Summary — SRMIST Trichy', 14, 16)
+  doc.text('Section-wise Attendance Summary — SRMIST Tiruchirappalli Campus', 14, 16)
   doc.setFontSize(10)
   doc.setTextColor(100, 100, 100)
   doc.text(`Date: ${date}`, 14, 23)
@@ -171,7 +171,7 @@ export async function exportRosterToPDF(
 
   doc.setFontSize(16)
   doc.setTextColor(30, 27, 75)
-  doc.text('Attendance Roster — SRMIST Trichy', 14, 16)
+  doc.text('Attendance Roster — SRMIST Tiruchirappalli Campus', 14, 16)
   doc.setFontSize(10)
   doc.setTextColor(100, 100, 100)
   doc.text(`Date: ${date}  |  Session: ${session}`, 14, 23)
@@ -202,4 +202,63 @@ export async function exportRosterToPDF(
   })
 
   doc.save(`roster_${date}_${session}.pdf`)
+}
+
+// ─────────────────────────────────────────
+// Batch Summary export
+// ─────────────────────────────────────────
+export async function exportBatchSummaryToExcel(
+  rows: BatchSummary[],
+  dateRangeText: string
+) {
+  const XLSX = await import('xlsx')
+
+  const data = rows.map((r) => ({
+    Batch:              r.batch,
+    'Total Students':   r.total_students,
+    'Daily Avg Present': r.present_count,
+    'Attendance %':     `${r.attendance_pct}%`,
+  }))
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(data)
+  ws['!cols'] = [12, 16, 18, 16].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, 'Batch_Summary')
+  XLSX.writeFile(wb, `batch_summary_${dateRangeText.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`)
+}
+
+export async function exportBatchSummaryToPDF(
+  rows: BatchSummary[],
+  dateRangeText: string
+) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(14)
+  doc.setTextColor(30, 27, 75)
+  doc.text('Batch-wise Attendance Summary — SRMIST Tiruchirappalli', 14, 16)
+  doc.setFontSize(9)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date Range: ${dateRangeText}`, 14, 23)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
+
+  autoTable(doc, {
+    startY: 35,
+    head: [['Batch', 'Total Students', 'Daily Avg Present', 'Attendance %']],
+    body: rows.map((r) => [
+      `Batch ${r.batch}`,
+      r.total_students,
+      r.present_count,
+      `${r.attendance_pct}%`,
+    ]),
+    styles: { fontSize: 9, cellPadding: 3, halign: 'center' },
+    columnStyles: { 0: { halign: 'left', fontStyle: 'bold' } },
+    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [238, 242, 255] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`batch_summary_${dateRangeText.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`)
 }

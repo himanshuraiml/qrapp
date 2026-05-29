@@ -77,7 +77,7 @@ export default function FacultyDashboard() {
             
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/25 text-brand-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
-                <span>🏫</span> SRMIST Faculty Control
+                <span>🏫</span> SRMIST Tiruchirappalli Campus Faculty Control
               </div>
               
               <div className="space-y-1">

@@ -371,7 +371,7 @@ export default function ManageStudentsPage() {
             <span>👥</span> Academic Registry
           </div>
           <h1 className="text-3xl font-extrabold text-slate-800 font-heading">Student Directory</h1>
-          <p className="text-xs text-slate-400 font-medium">Add, activate, or audit SRMIST classroom students</p>
+          <p className="text-xs text-slate-400 font-medium">Add, activate, or audit SRMIST Tiruchirappalli classroom students</p>
         </div>
 
         <div className="flex flex-wrap gap-3">

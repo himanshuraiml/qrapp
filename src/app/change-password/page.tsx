@@ -8,7 +8,7 @@ import NavBar from '@/components/NavBar'
 
 const LABELS = {
   updatePassword: 'Update Password',
-  subtitle: 'Keep your SRMIST attendance portal secure',
+  subtitle: 'Keep your SRMIST Tiruchirappalli attendance portal secure',
   newPassword: 'New Password',
   confirmNewPassword: 'Confirm New Password',
   updating: 'Updating...',

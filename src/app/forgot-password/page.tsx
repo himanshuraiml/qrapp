@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight font-heading">Reset Password</h1>
-          <p className="text-brand-300 text-xs font-semibold mt-1 tracking-widest uppercase">SRMIST Attendance</p>
+          <p className="text-brand-300 text-xs font-semibold mt-1 tracking-widest uppercase">SRMIST Tiruchirappalli Campus</p>
         </div>
 
         {/* Card */}

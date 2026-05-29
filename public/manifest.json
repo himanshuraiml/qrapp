@@ -1,7 +1,7 @@
 {
-  "name": "QR Attendance — SRMIST",
+  "name": "QR Attendance — SRMIST Tiruchirappalli",
   "short_name": "QR Attend",
-  "description": "QR Code Based Attendance System for SRMIST Trichy",
+  "description": "QR Code Based Attendance System for SRMIST Tiruchirappalli Campus",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

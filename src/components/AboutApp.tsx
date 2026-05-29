@@ -10,7 +10,7 @@ export default function AboutApp() {
             <span>✨</span> About QR Attendance
           </h3>
           <p className="text-xs text-slate-500 font-medium leading-relaxed">
-            An elegant, high-speed QR-based attendance tracking platform designed for SRMIST Trichy. It facilitates real-time scan verification, dynamic secure QR generation, and automated classroom logs with robust analytics for students, faculty, and administrators alike.
+            An elegant, high-speed QR-based attendance tracking platform designed for SRMIST Tiruchirappalli Campus. It facilitates real-time scan verification, dynamic secure QR generation, and automated classroom logs with robust analytics for students, faculty, and administrators alike.
           </p>
         </div>
         <a

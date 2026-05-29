@@ -10,7 +10,7 @@ type Tab = 'staff' | 'student'
 
 const LABELS = {
   title: 'QR Attendance',
-  subtitle: 'SRMIST Trichy',
+  subtitle: 'SRMIST Tiruchirappalli Campus',
   staffAdmin: 'Staff / Admin',
   student: 'Student',
   emailAddress: 'Email Address',

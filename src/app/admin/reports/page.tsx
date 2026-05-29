@@ -8,12 +8,16 @@ import {
   exportAttendanceToPDF,
   exportSectionSummaryToExcel,
   exportSectionSummaryToPDF,
+  exportRosterToExcel,
+  exportRosterToPDF,
+  exportBatchSummaryToExcel,
+  exportBatchSummaryToPDF,
 } from '@/lib/export'
 import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import AttendanceRosterTable from '@/components/admin/AttendanceRosterTable'
-import type { AttendanceRecord, SectionSummary, ReportFilters, RosterRecord } from '@/types'
+import type { AttendanceRecord, SectionSummary, ReportFilters, RosterRecord, BatchSummary } from '@/types'
 
-type Tab = 'summary' | 'records' | 'roster'
+type Tab = 'summary' | 'records' | 'roster' | 'batch'
 
 export default function ReportsPage() {
   const supabase = createClient()
@@ -21,6 +25,7 @@ export default function ReportsPage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [summary, setSummary] = useState<SectionSummary[]>([])
   const [roster, setRoster] = useState<RosterRecord[]>([])
+  const [batchSummary, setBatchSummary] = useState<BatchSummary[]>([])
   const [depts, setDepts] = useState<string[]>([])
   const [sections, setSections] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -111,6 +116,81 @@ export default function ReportsPage() {
         const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
         sessionStorage.setItem(cacheKey, JSON.stringify({ data: res, count: count ?? res.length }))
 
+      } else if (tab === 'batch') {
+        if (!silent) setLoading(true)
+        const { data: activeStudents, error: profileError } = await supabase
+          .from('profiles')
+          .select('student_id, batch')
+          .eq('role', 'Student')
+          .eq('status', 'Active')
+
+        if (profileError || !activeStudents) {
+          setBatchSummary([])
+          setTotalCount(0)
+          return
+        }
+
+        const studentToBatch = new Map<string, string>()
+        const batchTotalStudents = new Map<string, number>()
+        activeStudents.forEach(s => {
+          if (s.student_id && s.batch) {
+            studentToBatch.set(s.student_id, s.batch)
+            batchTotalStudents.set(s.batch, (batchTotalStudents.get(s.batch) || 0) + 1)
+          }
+        })
+
+        const { data: scans, error: scansError } = await supabase
+          .from('attendance')
+          .select('student_id, date')
+          .gte('date', filters.dateFrom)
+          .lte('date', filters.dateTo)
+
+        if (scansError || !scans) {
+          setBatchSummary([])
+          setTotalCount(0)
+          return
+        }
+
+        const uniqueScans = new Set<string>()
+        const batchPresentStudentDays = new Map<string, number>()
+        scans.forEach(scan => {
+          const batch = studentToBatch.get(scan.student_id)
+          if (batch) {
+            const key = `${scan.student_id}:${scan.date}`
+            if (!uniqueScans.has(key)) {
+              uniqueScans.add(key)
+              batchPresentStudentDays.set(batch, (batchPresentStudentDays.get(batch) || 0) + 1)
+            }
+          }
+        })
+
+        const uniqueDates = new Set<string>()
+        scans.forEach(scan => uniqueDates.add(scan.date))
+        const numDays = uniqueDates.size || 1
+
+        const rows: BatchSummary[] = []
+        Array.from(batchTotalStudents.keys()).sort().forEach(batch => {
+          const total = batchTotalStudents.get(batch) || 0
+          const presentDays = batchPresentStudentDays.get(batch) || 0
+          const avgPresent = parseFloat((presentDays / numDays).toFixed(1))
+          const attendancePct = total > 0
+            ? parseFloat(((presentDays / (total * numDays)) * 100).toFixed(1))
+            : 0
+
+          rows.push({
+            batch,
+            total_students: total,
+            present_count: avgPresent,
+            attendance_pct: attendancePct
+          })
+        })
+
+        setBatchSummary(rows)
+        setTotalCount(rows.length)
+        const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data: rows, count: rows.length }))
+        return rows
+
       } else {
         const rpcParams = {
           p_date: filters.dateFrom,
@@ -157,7 +237,7 @@ export default function ReportsPage() {
 
   // Load report data automatically whenever the tab, page, or any filter changes
   useEffect(() => {
-    const cacheKey = tab === 'summary'
+    const cacheKey = tab === 'summary' || tab === 'batch'
       ? `report_${tab}_${JSON.stringify(filters)}`
       : `report_${tab}_${page}_${JSON.stringify(filters)}`
     
@@ -168,6 +248,7 @@ export default function ReportsPage() {
         const { data, count } = JSON.parse(cached)
         if (tab === 'records') setRecords(data)
         else if (tab === 'summary') setSummary(data)
+        else if (tab === 'batch') setBatchSummary(data)
         else setRoster(data)
         setTotalCount(count ?? 0)
         setLoading(false)
@@ -196,6 +277,16 @@ export default function ReportsPage() {
         }
       } else if (tab === 'summary') {
         await exportSectionSummaryToExcel(summary, filters.dateFrom)
+      } else if (tab === 'roster') {
+        const allRoster = await loadData(true, true)
+        if (allRoster) {
+          await exportRosterToExcel(allRoster, filters.dateFrom, filters.session || 'All Sessions')
+        }
+      } else if (tab === 'batch') {
+        const dateRangeText = filters.dateFrom === filters.dateTo
+          ? filters.dateFrom
+          : `${filters.dateFrom}_to_${filters.dateTo}`
+        await exportBatchSummaryToExcel(batchSummary, dateRangeText)
       }
     } catch (e) {
       console.error(e)
@@ -214,6 +305,16 @@ export default function ReportsPage() {
         }
       } else if (tab === 'summary') {
         await exportSectionSummaryToPDF(summary, filters.dateFrom)
+      } else if (tab === 'roster') {
+        const allRoster = await loadData(true, true)
+        if (allRoster) {
+          await exportRosterToPDF(allRoster, filters.dateFrom, filters.session || 'All Sessions')
+        }
+      } else if (tab === 'batch') {
+        const dateRangeText = filters.dateFrom === filters.dateTo
+          ? filters.dateFrom
+          : `${filters.dateFrom} to ${filters.dateTo}`
+        await exportBatchSummaryToPDF(batchSummary, dateRangeText)
       }
     } catch (e) {
       console.error(e)
@@ -225,12 +326,14 @@ export default function ReportsPage() {
   const hasResults =
     (tab === 'records' && records.length > 0) ||
     (tab === 'summary' && summary.length > 0) ||
-    (tab === 'roster' && roster.length > 0)
+    (tab === 'roster' && roster.length > 0) ||
+    (tab === 'batch' && batchSummary.length > 0)
 
   const TAB_META: { id: Tab; label: string }[] = [
     { id: 'summary', label: 'Section Summary' },
     { id: 'records', label: 'Attendance Records' },
     { id: 'roster', label: '🗂 Roster (Present/Absent Split)' },
+    { id: 'batch', label: '📊 Batch Summary' },
   ]
 
   return (
@@ -239,7 +342,7 @@ export default function ReportsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 text-xs font-bold uppercase tracking-wider">
-            <span>📄</span> Academic Analytics
+            <span>📄</span> SRMIST Tiruchirappalli Campus
           </div>
           <h1 className="text-3xl font-extrabold text-slate-800 font-heading">Attendance Reports</h1>
           <p className="text-xs text-slate-400 font-medium">Generate records summaries, check split rosters, or export files</p>
@@ -250,7 +353,7 @@ export default function ReportsPage() {
           {TAB_META.map(({ id, label }) => (
             <button
               key={id}
-              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]); setPage(1); setTotalCount(0) }}
+              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]); setBatchSummary([]); setPage(1); setTotalCount(0) }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300
                 ${tab === id
                   ? 'bg-white text-brand-600 shadow-sm'
@@ -292,33 +395,37 @@ export default function ReportsPage() {
           )}
 
           {/* Department */}
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Department</label>
-            <select
-              value={filters.department}
-              onChange={(e) => setFilter('department', e.target.value)}
-              className="input text-xs font-bold text-slate-700"
-            >
-              <option value="">All Departments</option>
-              {depts.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
+          {tab !== 'batch' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Department</label>
+              <select
+                value={filters.department}
+                onChange={(e) => setFilter('department', e.target.value)}
+                className="input text-xs font-bold text-slate-700"
+              >
+                <option value="">All Departments</option>
+                {depts.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Section */}
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Section</label>
-            <select
-              value={filters.section}
-              onChange={(e) => setFilter('section', e.target.value)}
-              className="input text-xs font-bold text-slate-700"
-            >
-              <option value="">All Sections</option>
-              {sections.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
+          {tab !== 'batch' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Section</label>
+              <select
+                value={filters.section}
+                onChange={(e) => setFilter('section', e.target.value)}
+                className="input text-xs font-bold text-slate-700"
+              >
+                <option value="">All Sections</option>
+                {sections.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
 
-          {/* Year — hidden for roster */}
-          {tab !== 'roster' && (
+          {/* Year — hidden for roster and batch */}
+          {tab !== 'roster' && tab !== 'batch' && (
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Year</label>
               <select
@@ -333,18 +440,20 @@ export default function ReportsPage() {
           )}
 
           {/* Session */}
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
-              Session{tab === 'roster' && <span className="text-red-500 ml-0.5">*</span>}
-            </label>
-            <select
-              value={filters.session}
-              onChange={(e) => setFilter('session', e.target.value)}
-              className="input text-xs font-bold text-slate-700"
-            >
-              {SESSIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
+          {tab !== 'batch' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                Session{tab === 'roster' && <span className="text-red-500 ml-0.5">*</span>}
+              </label>
+              <select
+                value={filters.session}
+                onChange={(e) => setFilter('session', e.target.value)}
+                className="input text-xs font-bold text-slate-700"
+              >
+                {SESSIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
         </div>
 
         {tab === 'roster' && !filters.session && (
@@ -384,28 +493,27 @@ export default function ReportsPage() {
               <span className="ml-2 text-slate-400 text-xs font-semibold">
                 ({tab === 'records' ? records.length
                   : tab === 'summary' ? summary.length
+                  : tab === 'batch' ? batchSummary.length
                   : roster.length} rows fetched)
               </span>
             </div>
 
-            {tab !== 'roster' && (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleExportExcel}
-                  disabled={exporting}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                >
-                  <span>📊</span> Export Excel
-                </button>
-                <button
-                  onClick={handleExportPDF}
-                  disabled={exporting}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                >
-                  <span>📄</span> Export PDF
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <button
+                onClick={handleExportExcel}
+                disabled={exporting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <span>📊</span> Export Excel
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={exporting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <span>📄</span> Export PDF
+              </button>
+            </div>
           </div>
 
           {tab === 'summary' && (
@@ -501,6 +609,48 @@ export default function ReportsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === 'batch' && (
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50 animate-fade-in">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left border-b border-slate-100 bg-slate-50/50">
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Training Batch</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Total Students</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Daily Avg Present</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Attendance %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {batchSummary.map((b) => (
+                    <tr key={b.batch} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4">
+                        <span className="px-3 py-1 rounded-xl bg-slate-900 text-white text-[11px] font-extrabold uppercase">
+                          Batch {b.batch}
+                        </span>
+                      </td>
+                      <td className="p-4 font-bold text-slate-600 text-center">{b.total_students}</td>
+                      <td className="p-4 font-bold text-slate-800 text-center">{b.present_count}</td>
+                      <td className="p-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${
+                          b.attendance_pct >= 75
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : b.attendance_pct >= 50
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            b.attendance_pct >= 75 ? 'bg-emerald-500' : b.attendance_pct >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                          }`} />
+                          {b.attendance_pct}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 

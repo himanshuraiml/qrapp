@@ -8,6 +8,7 @@ import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import SessionBarChart from '@/components/admin/SessionBarChart'
 import type { DashboardStats, SectionSummary, BatchSummary } from '@/types'
 import AboutApp from '@/components/AboutApp'
+import { exportBatchSummaryToExcel, exportBatchSummaryToPDF } from '@/lib/export'
 
 function KpiCard({
   label, value, sub, icon, gradient, trend,
@@ -85,7 +86,7 @@ const QUICK_ACTIONS = [
 
 const LABELS = {
   adminControlPanel: 'Admin Control Panel',
-  srmistTrichy: 'SRMIST Trichy',
+  srmistTrichy: 'SRMIST Tiruchirappalli Campus',
   analyticsSubtitle: 'Academic Attendance Management & Analytics',
   todaysRate: "Today's Rate",
   viewingDate: '📅 Viewing Date',
@@ -111,6 +112,29 @@ export default function AdminDashboard() {
   const [batches, setBatches] = useState<BatchSummary[]>([])
   const [depts, setDepts] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+
+  async function handleExportExcel() {
+    setExporting(true)
+    try {
+      await exportBatchSummaryToExcel(batches, date)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleExportPDF() {
+    setExporting(true)
+    try {
+      await exportBatchSummaryToPDF(batches, date)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   useEffect(() => {
     async function loadDepts() {
@@ -373,14 +397,30 @@ export default function AdminDashboard() {
 
       {/* ── Batch-wise Attendance ────────────────────────────────── */}
       <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 flex flex-col gap-4">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h3 className="text-sm font-extrabold text-neutral-800 font-heading">Batch-wise Attendance</h3>
             <p className="text-[11px] text-neutral-400 mt-0.5">Students present today per training batch</p>
           </div>
-          <span className="text-[10px] font-bold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-full">
-            {formatDate(date)}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting || batches.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            >
+              <span>📊</span> Excel
+            </button>
+            <button
+              onClick={handleExportPDF}
+              disabled={exporting || batches.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-white bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-500 hover:to-secondary-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            >
+              <span>📄</span> PDF
+            </button>
+            <span className="text-[10px] font-bold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1.5 rounded-full">
+              {formatDate(date)}
+            </span>
+          </div>
         </div>
 
         {loading ? (

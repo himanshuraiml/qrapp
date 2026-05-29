@@ -3,8 +3,8 @@ import './globals.css'
 import InstallPWA from '@/components/InstallPWA'
 
 export const metadata: Metadata = {
-  title: 'QR Attendance — SRMIST',
-  description: 'QR Code Based Attendance System for SRMIST Trichy',
+  title: 'QR Attendance — SRMIST Tiruchirappalli Campus',
+  description: 'QR Code Based Attendance System for SRMIST Tiruchirappalli Campus',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
