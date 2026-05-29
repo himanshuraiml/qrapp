@@ -275,3 +275,31 @@ BEGIN
   ORDER BY a.date DESC, a.department, a.section, a.session, a.student_name;
 END;
 $$;
+
+
+-- ─────────────────────────────────────────
+-- get_distinct_filters
+-- Returns unique student departments and sections
+-- ─────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_distinct_filters()
+RETURNS JSON
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_departments JSON;
+  v_sections    JSON;
+BEGIN
+  SELECT COALESCE(json_agg(DISTINCT department), '[]') INTO v_departments
+  FROM profiles
+  WHERE role = 'Student' AND department IS NOT NULL AND department != '';
+
+  SELECT COALESCE(json_agg(DISTINCT section), '[]') INTO v_sections
+  FROM profiles
+  WHERE role = 'Student' AND section IS NOT NULL AND section != '';
+
+  RETURN json_build_object(
+    'departments', v_departments,
+    'sections', v_sections
+  );
+END;
+$$;
+

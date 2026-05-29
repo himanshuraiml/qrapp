@@ -113,23 +113,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function loadDepts() {
-      let allDepts: any[] = []
-      let fromIndex = 0
-      const chunkSize = 1000
-      while (true) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('department')
-          .eq('role', 'Student')
-          .not('department', 'is', null)
-          .range(fromIndex, fromIndex + chunkSize - 1)
-        if (error || !data || data.length === 0) break
-        allDepts.push(...data)
-        if (data.length < chunkSize) break
-        fromIndex += chunkSize
+      const { data, error } = await supabase.rpc('get_distinct_filters')
+      if (!error && data && data.departments) {
+        setDepts(data.departments)
       }
-      const unique = [...new Set(allDepts.map((r: any) => r.department))].sort()
-      setDepts(unique)
     }
     loadDepts()
   }, [supabase])

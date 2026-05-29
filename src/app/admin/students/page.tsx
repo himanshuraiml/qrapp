@@ -26,17 +26,40 @@ export default function ManageStudentsPage() {
   const [modalError, setModalError] = useState('')
   const [modalSuccess, setModalSuccess] = useState(false)
 
-  // Get unique departments for filter dropdown
-  const uniqueDepts = Array.from(new Set(students.map(s => s.department).filter(Boolean))).sort() as string[]
+  const [depts, setDepts] = useState<string[]>([])
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [limit] = useState(50)
 
-  async function loadStudents(silent = false) {
+  useEffect(() => {
+    async function loadUniqueDepts() {
+      const { data, error } = await supabase.rpc('get_distinct_filters')
+      if (!error && data && data.departments) {
+        setDepts(data.departments)
+      }
+    }
+    loadUniqueDepts()
+  }, [supabase])
+
+  async function loadStudents(currentPage = page, silent = false) {
     if (!silent) setLoading(true)
     try {
-      const res = await fetch('/api/admin/students?t=' + Date.now(), { cache: 'no-store' })
+      const queryParams = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(limit),
+        search: search,
+        department: deptFilter,
+        year: yearFilter,
+        t: String(Date.now())
+      })
+      const res = await fetch(`/api/admin/students?${queryParams.toString()}`, { cache: 'no-store' })
       const json = await res.json()
       if (json.success && json.data) {
         setStudents(json.data)
-        sessionStorage.setItem('students_cache', JSON.stringify(json.data))
+        setTotalCount(json.count ?? 0)
+        
+        const cacheKey = `students_cache_${currentPage}_${search}_${deptFilter}_${yearFilter}`
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
       }
     } catch (e) {
       console.error(e)
@@ -46,17 +69,18 @@ export default function ManageStudentsPage() {
   }
 
   useEffect(() => {
-    // 1. Instant load from cache
-    const cached = sessionStorage.getItem('students_cache')
+    const cacheKey = `students_cache_${page}_${search}_${deptFilter}_${yearFilter}`
+    const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       try {
-        setStudents(JSON.parse(cached))
+        const { data, count } = JSON.parse(cached)
+        setStudents(data)
+        setTotalCount(count ?? 0)
         setLoading(false)
       } catch (e) {}
     }
-    // 2. Fetch in background (silent refresh)
-    loadStudents(!!cached)
-  }, [])
+    loadStudents(page, !!cached)
+  }, [page, search, deptFilter, yearFilter])
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
@@ -74,24 +98,7 @@ export default function ManageStudentsPage() {
       setFormError(json.error ?? 'Failed to create student')
     } else {
       setShowForm(false)
-      
-      // Local optimistic append
-      const newStudent: Profile = {
-        id: json.id,
-        name: form.name,
-        role: 'Student',
-        student_id: form.student_id.toUpperCase(),
-        department: form.department,
-        year: parseInt(form.year),
-        section: form.section,
-        status: 'Active',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      const updatedList = [newStudent, ...students]
-      setStudents(updatedList)
-      sessionStorage.setItem('students_cache', JSON.stringify(updatedList))
-      
+      loadStudents(1, false)
       setForm({ student_id: '', name: '', department: '', year: '1', section: '', password: '' })
     }
     setSaving(false)
@@ -103,28 +110,14 @@ export default function ManageStudentsPage() {
     // Local optimistic update
     const updatedList = students.map(s => s.id === student.id ? { ...s, status: newStatus } : s)
     setStudents(updatedList)
-    sessionStorage.setItem('students_cache', JSON.stringify(updatedList))
     
     const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', student.id)
     if (error) {
-      // Revert if database save fails
-      const revertedList = students.map(s => s.id === student.id ? { ...s, status: student.status } : s)
-      setStudents(revertedList)
-      sessionStorage.setItem('students_cache', JSON.stringify(revertedList))
+      loadStudents(page, true)
     }
   }
 
-  // Filter based on search query, department filter, and year filter
-  const filtered = students.filter((s) => {
-    const matchesSearch = 
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.student_id ?? '').toLowerCase().includes(search.toLowerCase())
-    
-    const matchesDept = deptFilter === 'all' || s.department === deptFilter
-    const matchesYear = yearFilter === 'all' || String(s.year) === yearFilter
-
-    return matchesSearch && matchesDept && matchesYear
-  })
+  const filtered = students
 
   return (
     <div className="space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -216,7 +209,7 @@ export default function ManageStudentsPage() {
               type="search"
               placeholder="Search by name, roll number, or department..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold"
             />
             <span className="absolute right-4 top-3 text-xs text-slate-400">🔍</span>
@@ -225,18 +218,18 @@ export default function ManageStudentsPage() {
           <div className="flex items-center gap-3">
             <select
               value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
+              onChange={(e) => { setDeptFilter(e.target.value); setPage(1) }}
               className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-36"
             >
               <option value="all">All Departments</option>
-              {uniqueDepts.map((d: string) => (
+              {depts.map((d: string) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
 
             <select
               value={yearFilter}
-              onChange={(e) => setYearFilter(e.target.value)}
+              onChange={(e) => { setYearFilter(e.target.value); setPage(1) }}
               className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-32"
             >
               <option value="all">All Years</option>
@@ -315,6 +308,61 @@ export default function ManageStudentsPage() {
               <div className="text-center py-12 space-y-2 bg-white">
                 <span className="text-3xl">📭</span>
                 <p className="text-xs font-bold text-slate-400">No student profiles match your search criteria</p>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalCount > limit && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
+                <span className="text-[11px] text-slate-400 font-semibold">
+                  Showing <span className="text-slate-700 font-bold">{(page - 1) * limit + 1}</span> to{' '}
+                  <span className="text-slate-700 font-bold">{Math.min(page * limit, totalCount)}</span> of{' '}
+                  <span className="text-slate-700 font-bold">{totalCount}</span> student profiles
+                </span>
+                
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    ◀ Prev
+                  </button>
+                  
+                  {(() => {
+                    const totalPages = Math.ceil(totalCount / limit)
+                    const pages = []
+                    let startPage = Math.max(1, page - 2)
+                    let endPage = Math.min(totalPages, page + 2)
+                    if (startPage === 1 && totalPages > 5) endPage = 5
+                    if (endPage === totalPages && totalPages > 5) startPage = Math.max(1, totalPages - 4)
+
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          onClick={() => setPage(i)}
+                          className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                            page === i
+                              ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
+                              : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          {i}
+                        </button>
+                      )
+                    }
+                    return pages
+                  })()}
+                  
+                  <button
+                    onClick={() => setPage(p => Math.min(Math.ceil(totalCount / limit), p + 1))}
+                    disabled={page >= Math.ceil(totalCount / limit)}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                  >
+                    Next ▶
+                  </button>
+                </div>
               </div>
             )}
           </div>

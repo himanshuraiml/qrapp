@@ -2,8 +2,15 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const search = searchParams.get('search') || ''
+    const department = searchParams.get('department') || 'all'
+    const year = searchParams.get('year') || 'all'
+
     // Verify caller is Admin
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -14,35 +21,44 @@ export async function GET() {
     if (callerProfile?.role !== 'Admin')
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
-    // Fetch all students using range-pagination to bypass the default Supabase Max Rows limit of 1000
     const admin = createAdminClient()
-    let allStudents: any[] = []
-    let fromIndex = 0
-    const chunkSize = 1000
+    
+    // Build query with exact count for pagination controls
+    let query = admin
+      .from('profiles')
+      .select('*', { count: 'exact' })
+      .eq('role', 'Student')
 
-    while (true) {
-      const { data, error } = await admin
-        .from('profiles')
-        .select('*')
-        .eq('role', 'Student')
-        .order('department')
-        .order('year')
-        .order('section')
-        .order('name')
-        .range(fromIndex, fromIndex + chunkSize - 1)
-
-      if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
-      if (!data || data.length === 0) break
-
-      allStudents.push(...data)
-      if (data.length < chunkSize) break
-      fromIndex += chunkSize
+    // Apply filters
+    if (search.trim()) {
+      query = query.or(`name.ilike.%${search}%,student_id.ilike.%${search}%`)
+    }
+    if (department !== 'all' && department.trim() !== '') {
+      query = query.eq('department', department)
+    }
+    if (year !== 'all' && year.trim() !== '') {
+      query = query.eq('year', parseInt(year))
     }
 
-    const data = allStudents
+    // Apply sorting (which uses composite index)
+    query = query
+      .order('department')
+      .order('year')
+      .order('section')
+      .order('name')
 
-    return NextResponse.json({ success: true, data })
+    // Apply range pagination
+    const fromIndex = (page - 1) * limit
+    const toIndex = fromIndex + limit - 1
+    query = query.range(fromIndex, toIndex)
+
+    const { data, count, error } = await query
+
+    if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+
+    return NextResponse.json({ success: true, data, count })
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })
   }
 }
+

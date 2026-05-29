@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE INDEX IF NOT EXISTS idx_profiles_role       ON profiles(role);
 CREATE INDEX IF NOT EXISTS idx_profiles_student_id ON profiles(student_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_dept       ON profiles(department, section, year);
+CREATE INDEX IF NOT EXISTS idx_profiles_sort_student ON profiles(role, department, year, section, name);
+CREATE INDEX IF NOT EXISTS idx_profiles_sort_faculty ON profiles(role, department, name);
 
 -- auto-update updated_at
 CREATE OR REPLACE FUNCTION _set_updated_at()
@@ -60,6 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_att_student     ON attendance(student_id);
 CREATE INDEX IF NOT EXISTS idx_att_dept        ON attendance(department, section, year);
 CREATE INDEX IF NOT EXISTS idx_att_session     ON attendance(session, date);
 CREATE INDEX IF NOT EXISTS idx_att_marked_by   ON attendance(marked_by);
+CREATE INDEX IF NOT EXISTS idx_attendance_report_sort ON attendance(date DESC, department, section, session, student_name);
 
 
 -- ─────────────────────────────────────────

@@ -26,6 +26,10 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
 
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const limit = 50
+
   const today = todayIST()
   const [filters, setFilters] = useState<ReportFilters>({
     dateFrom: today,
@@ -38,36 +42,22 @@ export default function ReportsPage() {
 
   function setFilter(key: keyof ReportFilters, value: string) {
     setFilters((f) => ({ ...f, [key]: value }))
+    setPage(1)
   }
 
   useEffect(() => {
     async function loadDeptsAndSections() {
-      let allProfiles: any[] = []
-      let fromIndex = 0
-      const chunkSize = 1000
-      while (true) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('department, section')
-          .eq('role', 'Student')
-          .range(fromIndex, fromIndex + chunkSize - 1)
-        if (error || !data || data.length === 0) break
-        allProfiles.push(...data)
-        if (data.length < chunkSize) break
-        fromIndex += chunkSize
+      const { data, error } = await supabase.rpc('get_distinct_filters')
+      if (!error && data) {
+        setDepts(data.departments ?? [])
+        setSections(data.sections ?? [])
       }
-      const depts = [...new Set(allProfiles.map((r: any) => r.department).filter(Boolean))].sort()
-      const sections = [...new Set(allProfiles.map((r: any) => r.section).filter(Boolean))].sort()
-      setDepts(depts as string[])
-      setSections(sections as string[])
     }
     loadDeptsAndSections()
   }, [supabase])
 
-  async function loadData(silent = false) {
-    if (!silent) setLoading(true)
-
-    const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
+  async function loadData(silent = false, fetchAll = false) {
+    if (!silent && !fetchAll) setLoading(true)
 
     try {
       if (tab === 'records') {
@@ -79,52 +69,84 @@ export default function ReportsPage() {
           p_year: filters.year ? parseInt(filters.year) : null,
           p_session: filters.session || null,
         }
-        let allRecords: any[] = []
-        let fromIndex = 0
-        const chunkSize = 1000
-        while (true) {
-          const { data, error } = await supabase
-            .rpc('get_attendance_report', rpcParams)
-            .range(fromIndex, fromIndex + chunkSize - 1)
-          if (error || !data || data.length === 0) break
-          allRecords.push(...data)
-          if (data.length < chunkSize) break
-          fromIndex += chunkSize
+        
+        if (fetchAll) {
+          let allRecords: any[] = []
+          let fromIndex = 0
+          const chunkSize = 1000
+          while (true) {
+            const { data, error } = await supabase
+              .rpc('get_attendance_report', rpcParams)
+              .range(fromIndex, fromIndex + chunkSize - 1)
+            if (error || !data || data.length === 0) break
+            allRecords.push(...data)
+            if (data.length < chunkSize) break
+            fromIndex += chunkSize
+          }
+          return allRecords
+        } else {
+          const fromIndex = (page - 1) * limit
+          const toIndex = fromIndex + limit - 1
+          const { data, error, count } = await supabase
+            .rpc('get_attendance_report', rpcParams, { count: 'exact' })
+            .range(fromIndex, toIndex)
+          
+          if (!error && data) {
+            setRecords(data)
+            setTotalCount(count ?? 0)
+            const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
+            sessionStorage.setItem(cacheKey, JSON.stringify({ data, count }))
+          }
         }
-        setRecords(allRecords)
-        sessionStorage.setItem(cacheKey, JSON.stringify(allRecords))
 
       } else if (tab === 'summary') {
-        const { data } = await supabase.rpc('get_section_summary', {
-          p_date: filters.dateFrom,
-          p_department: filters.department || null,
-        }).limit(5000)
+        const { data, count } = await supabase
+          .rpc('get_section_summary', {
+            p_date: filters.dateFrom,
+            p_department: filters.department || null,
+          }, { count: 'exact' })
         const res = data ?? []
         setSummary(res)
-        sessionStorage.setItem(cacheKey, JSON.stringify(res))
+        setTotalCount(count ?? res.length)
+        const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data: res, count: count ?? res.length }))
 
       } else {
-        // roster tab — paginate to bypass PostgREST 1000-row max_rows cap
         const rpcParams = {
           p_date: filters.dateFrom,
           p_session: filters.session || null,
           p_department: filters.department || null,
           p_section: filters.section || null,
         }
-        let allRoster: any[] = []
-        let fromIndex = 0
-        const chunkSize = 1000
-        while (true) {
-          const { data, error } = await supabase
-            .rpc('get_attendance_roster', rpcParams)
-            .range(fromIndex, fromIndex + chunkSize - 1)
-          if (error || !data || data.length === 0) break
-          allRoster.push(...data)
-          if (data.length < chunkSize) break
-          fromIndex += chunkSize
+        
+        if (fetchAll) {
+          let allRoster: any[] = []
+          let fromIndex = 0
+          const chunkSize = 1000
+          while (true) {
+            const { data, error } = await supabase
+              .rpc('get_attendance_roster', rpcParams)
+              .range(fromIndex, fromIndex + chunkSize - 1)
+            if (error || !data || data.length === 0) break
+            allRoster.push(...data)
+            if (data.length < chunkSize) break
+            fromIndex += chunkSize
+          }
+          return allRoster
+        } else {
+          const fromIndex = (page - 1) * limit
+          const toIndex = fromIndex + limit - 1
+          const { data, error, count } = await supabase
+            .rpc('get_attendance_roster', rpcParams, { count: 'exact' })
+            .range(fromIndex, toIndex)
+          
+          if (!error && data) {
+            setRoster(data)
+            setTotalCount(count ?? 0)
+            const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
+            sessionStorage.setItem(cacheKey, JSON.stringify({ data, count }))
+          }
         }
-        setRoster(allRoster)
-        sessionStorage.setItem(cacheKey, JSON.stringify(allRoster))
       }
     } catch (err) {
       console.error('Failed to generate report:', err)
@@ -133,25 +155,28 @@ export default function ReportsPage() {
     }
   }
 
-  // Load report data automatically whenever the tab or any filter changes
+  // Load report data automatically whenever the tab, page, or any filter changes
   useEffect(() => {
-    const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
+    const cacheKey = tab === 'summary'
+      ? `report_${tab}_${JSON.stringify(filters)}`
+      : `report_${tab}_${page}_${JSON.stringify(filters)}`
     
     // 1. Instant load from cache
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       try {
-        const parsed = JSON.parse(cached)
-        if (tab === 'records') setRecords(parsed)
-        else if (tab === 'summary') setSummary(parsed)
-        else setRoster(parsed)
+        const { data, count } = JSON.parse(cached)
+        if (tab === 'records') setRecords(data)
+        else if (tab === 'summary') setSummary(data)
+        else setRoster(data)
+        setTotalCount(count ?? 0)
         setLoading(false)
       } catch (e) {}
     }
     
     // 2. Silent background refresh
     loadData(!!cached)
-  }, [tab, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session])
+  }, [tab, page, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session])
 
   const filterTitle = [
     formatDate(filters.dateFrom),
@@ -163,22 +188,38 @@ export default function ReportsPage() {
 
   async function handleExportExcel() {
     setExporting(true)
-    if (tab === 'records') {
-      await exportAttendanceToExcel(records, filterTitle, `attendance_${filters.dateFrom}`)
-    } else if (tab === 'summary') {
-      await exportSectionSummaryToExcel(summary, filters.dateFrom)
+    try {
+      if (tab === 'records') {
+        const allRecords = await loadData(true, true)
+        if (allRecords) {
+          await exportAttendanceToExcel(allRecords, filterTitle, `attendance_${filters.dateFrom}`)
+        }
+      } else if (tab === 'summary') {
+        await exportSectionSummaryToExcel(summary, filters.dateFrom)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setExporting(false)
     }
-    setExporting(false)
   }
 
   async function handleExportPDF() {
     setExporting(true)
-    if (tab === 'records') {
-      await exportAttendanceToPDF(records, filterTitle, `attendance_${filters.dateFrom}`)
-    } else if (tab === 'summary') {
-      await exportSectionSummaryToPDF(summary, filters.dateFrom)
+    try {
+      if (tab === 'records') {
+        const allRecords = await loadData(true, true)
+        if (allRecords) {
+          await exportAttendanceToPDF(allRecords, filterTitle, `attendance_${filters.dateFrom}`)
+        }
+      } else if (tab === 'summary') {
+        await exportSectionSummaryToPDF(summary, filters.dateFrom)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setExporting(false)
     }
-    setExporting(false)
   }
 
   const hasResults =
@@ -209,7 +250,7 @@ export default function ReportsPage() {
           {TAB_META.map(({ id, label }) => (
             <button
               key={id}
-              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]) }}
+              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]); setPage(1); setTotalCount(0) }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300
                 ${tab === id
                   ? 'bg-white text-brand-600 shadow-sm'
@@ -405,16 +446,128 @@ export default function ReportsPage() {
                   ))}
                 </tbody>
               </table>
+              
+              {/* Pagination Controls */}
+              {totalCount > limit && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
+                  <span className="text-[11px] text-slate-400 font-semibold">
+                    Showing <span className="text-slate-700 font-bold">{(page - 1) * limit + 1}</span> to{' '}
+                    <span className="text-slate-700 font-bold">{Math.min(page * limit, totalCount)}</span> of{' '}
+                    <span className="text-slate-700 font-bold">{totalCount}</span> records
+                  </span>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                      ◀ Prev
+                    </button>
+                    
+                    {(() => {
+                      const totalPages = Math.ceil(totalCount / limit)
+                      const pages = []
+                      let startPage = Math.max(1, page - 2)
+                      let endPage = Math.min(totalPages, page + 2)
+                      if (startPage === 1 && totalPages > 5) endPage = 5
+                      if (endPage === totalPages && totalPages > 5) startPage = Math.max(1, totalPages - 4)
+
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setPage(i)}
+                            className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                              page === i
+                                ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
+                                : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        )
+                      }
+                      return pages
+                    })()}
+                    
+                    <button
+                      onClick={() => setPage(p => Math.min(Math.ceil(totalCount / limit), p + 1))}
+                      disabled={page >= Math.ceil(totalCount / limit)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                      Next ▶
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {tab === 'roster' && (
-            <AttendanceRosterTable
-              rows={roster}
-              loading={false}
-              date={filters.dateFrom}
-              session={filters.session || 'All Sessions'}
-            />
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50">
+              <AttendanceRosterTable
+                rows={roster}
+                loading={false}
+                date={filters.dateFrom}
+                session={filters.session || 'All Sessions'}
+              />
+              
+              {/* Pagination Controls */}
+              {totalCount > limit && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
+                  <span className="text-[11px] text-slate-400 font-semibold">
+                    Showing <span className="text-slate-700 font-bold">{(page - 1) * limit + 1}</span> to{' '}
+                    <span className="text-slate-700 font-bold">{Math.min(page * limit, totalCount)}</span> of{' '}
+                    <span className="text-slate-700 font-bold">{totalCount}</span> split roster records
+                  </span>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                      ◀ Prev
+                    </button>
+                    
+                    {(() => {
+                      const totalPages = Math.ceil(totalCount / limit)
+                      const pages = []
+                      let startPage = Math.max(1, page - 2)
+                      let endPage = Math.min(totalPages, page + 2)
+                      if (startPage === 1 && totalPages > 5) endPage = 5
+                      if (endPage === totalPages && totalPages > 5) startPage = Math.max(1, totalPages - 4)
+
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setPage(i)}
+                            className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                              page === i
+                                ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
+                                : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        )
+                      }
+                      return pages
+                    })()}
+                    
+                    <button
+                      onClick={() => setPage(p => Math.min(Math.ceil(totalCount / limit), p + 1))}
+                      disabled={page >= Math.ceil(totalCount / limit)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                      Next ▶
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
