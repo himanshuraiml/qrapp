@@ -292,7 +292,7 @@ export default function ReportsPage() {
 
         <div className="flex pt-4 border-t border-slate-100">
           <button
-            onClick={loadData}
+            onClick={() => loadData()}
             disabled={loading}
             className="btn-primary inline-flex items-center gap-1.5 text-xs py-2.5 font-bold shadow-md shadow-brand-500/10 active:scale-95"
           >
