@@ -74,7 +74,7 @@ export default function ReportsPage() {
           p_year: filters.year ? parseInt(filters.year) : null,
           p_session: filters.session || null,
         }
-        
+
         if (fetchAll) {
           let allRecords: any[] = []
           let fromIndex = 0
@@ -95,7 +95,7 @@ export default function ReportsPage() {
           const { data, error, count } = await supabase
             .rpc('get_attendance_report', rpcParams, { count: 'exact' })
             .range(fromIndex, toIndex)
-          
+
           if (!error && data) {
             setRecords(data)
             setTotalCount(count ?? 0)
@@ -118,90 +118,27 @@ export default function ReportsPage() {
 
       } else if (tab === 'batch') {
         if (!silent) setLoading(true)
-        const { data: activeStudents, error: profileError } = await supabase
-          .from('profiles')
-          .select('student_id, batch')
-          .eq('role', 'Student')
-          .eq('status', 'Active')
+        const { data: batchData, error } = await supabase.rpc('get_batch_summary_range', {
+          p_date_from: filters.dateFrom,
+          p_date_to: filters.dateTo
+        })
 
-        if (profileError || !activeStudents) {
+        if (error || !batchData) {
           setBatchSummary([])
           setTotalCount(0)
           return
         }
 
-        const studentToBatch = new Map<string, string>()
-        const batchTotalStudents = new Map<string, number>()
-        activeStudents.forEach(s => {
-          if (s.student_id && s.batch) {
-            studentToBatch.set(s.student_id, s.batch)
-            batchTotalStudents.set(s.batch, (batchTotalStudents.get(s.batch) || 0) + 1)
-          }
-        })
-
-        const { data: scans, error: scansError } = await supabase
-          .from('attendance')
-          .select('student_id, date, session')
-          .gte('date', filters.dateFrom)
-          .lte('date', filters.dateTo)
-
-        if (scansError || !scans) {
-          setBatchSummary([])
-          setTotalCount(0)
-          return
-        }
-
-        const uniqueScans = new Set<string>()
-        const batchPresentStudentDays = new Map<string, number>()
-        const sessionCounts = new Map<string, Record<string, number>>()
-
-        scans.forEach(scan => {
-          const batch = studentToBatch.get(scan.student_id)
-          if (batch) {
-            // Present Set
-            const key = `${scan.student_id}:${scan.date}`
-            if (!uniqueScans.has(key)) {
-              uniqueScans.add(key)
-              batchPresentStudentDays.set(batch, (batchPresentStudentDays.get(batch) || 0) + 1)
-            }
-
-            // Session counts
-            if (!sessionCounts.has(batch)) {
-              sessionCounts.set(batch, { FN1: 0, FN2: 0, AN1: 0, AN2: 0 })
-            }
-            const counts = sessionCounts.get(batch)!
-            if (scan.session in counts) {
-              counts[scan.session as any]++
-            }
-          }
-        })
-
-        const uniqueDates = new Set<string>()
-        scans.forEach(scan => uniqueDates.add(scan.date))
-        const numDays = uniqueDates.size || 1
-
-        const rows: BatchSummary[] = []
-        Array.from(batchTotalStudents.keys()).sort().forEach(batch => {
-          const total = batchTotalStudents.get(batch) || 0
-          const presentDays = batchPresentStudentDays.get(batch) || 0
-          const avgPresent = parseFloat((presentDays / numDays).toFixed(1))
-          const attendancePct = total > 0
-            ? parseFloat(((presentDays / (total * numDays)) * 100).toFixed(1))
-            : 0
-          
-          const counts = sessionCounts.get(batch) || { FN1: 0, FN2: 0, AN1: 0, AN2: 0 }
-
-          rows.push({
-            batch,
-            total_students: total,
-            present_count: avgPresent,
-            attendance_pct: attendancePct,
-            fn1_count: parseFloat((counts.FN1 / numDays).toFixed(1)),
-            fn2_count: parseFloat((counts.FN2 / numDays).toFixed(1)),
-            an1_count: parseFloat((counts.AN1 / numDays).toFixed(1)),
-            an2_count: parseFloat((counts.AN2 / numDays).toFixed(1)),
-          })
-        })
+        const rows: BatchSummary[] = batchData.map((b: any) => ({
+          batch: b.batch,
+          total_students: Number(b.total_students || 0),
+          present_count: Number(b.present_count || 0),
+          attendance_pct: Number(b.attendance_pct || 0),
+          fn1_count: Number(b.fn1_count || 0),
+          fn2_count: Number(b.fn2_count || 0),
+          an1_count: Number(b.an1_count || 0),
+          an2_count: Number(b.an2_count || 0),
+        }))
 
         setBatchSummary(rows)
         setTotalCount(rows.length)
@@ -216,7 +153,7 @@ export default function ReportsPage() {
           p_department: filters.department || null,
           p_section: filters.section || null,
         }
-        
+
         if (fetchAll) {
           let allRoster: any[] = []
           let fromIndex = 0
@@ -237,7 +174,7 @@ export default function ReportsPage() {
           const { data, error, count } = await supabase
             .rpc('get_attendance_roster', rpcParams, { count: 'exact' })
             .range(fromIndex, toIndex)
-          
+
           if (!error && data) {
             setRoster(data)
             setTotalCount(count ?? 0)
@@ -258,7 +195,7 @@ export default function ReportsPage() {
     const cacheKey = tab === 'summary' || tab === 'batch'
       ? `report_${tab}_${JSON.stringify(filters)}`
       : `report_${tab}_${page}_${JSON.stringify(filters)}`
-    
+
     // 1. Instant load from cache
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
@@ -270,9 +207,9 @@ export default function ReportsPage() {
         else setRoster(data)
         setTotalCount(count ?? 0)
         setLoading(false)
-      } catch (e) {}
+      } catch (e) { }
     }
-    
+
     // 2. Silent background refresh
     loadData(!!cached)
   }, [tab, page, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session])
@@ -494,8 +431,8 @@ export default function ReportsPage() {
             ) : (
               <span>
                 {tab === 'summary' ? '🔄 Refresh Summary' :
-                 tab === 'records' ? '🔄 Refresh Records' :
-                 '🔄 Refresh Roster'}
+                  tab === 'records' ? '🔄 Refresh Records' :
+                    '🔄 Refresh Roster'}
               </span>
             )}
           </button>
@@ -511,8 +448,8 @@ export default function ReportsPage() {
               <span className="ml-2 text-slate-400 text-xs font-semibold">
                 ({tab === 'records' ? records.length
                   : tab === 'summary' ? summary.length
-                  : tab === 'batch' ? batchSummary.length
-                  : roster.length} rows fetched)
+                    : tab === 'batch' ? batchSummary.length
+                      : roster.length} rows fetched)
               </span>
             </div>
 
@@ -572,7 +509,7 @@ export default function ReportsPage() {
                   ))}
                 </tbody>
               </table>
-              
+
               {/* Pagination Controls */}
               {totalCount > limit && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
@@ -581,7 +518,7 @@ export default function ReportsPage() {
                     <span className="text-slate-700 font-bold">{Math.min(page * limit, totalCount)}</span> of{' '}
                     <span className="text-slate-700 font-bold">{totalCount}</span> records
                   </span>
-                  
+
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -590,7 +527,7 @@ export default function ReportsPage() {
                     >
                       ◀ Prev
                     </button>
-                    
+
                     {(() => {
                       const totalPages = Math.ceil(totalCount / limit)
                       const pages = []
@@ -604,11 +541,10 @@ export default function ReportsPage() {
                           <button
                             key={i}
                             onClick={() => setPage(i)}
-                            className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                              page === i
+                            className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${page === i
                                 ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
                                 : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
-                            }`}
+                              }`}
                           >
                             {i}
                           </button>
@@ -616,7 +552,7 @@ export default function ReportsPage() {
                       }
                       return pages
                     })()}
-                    
+
                     <button
                       onClick={() => setPage(p => Math.min(Math.ceil(totalCount / limit), p + 1))}
                       disabled={page >= Math.ceil(totalCount / limit)}
@@ -660,16 +596,14 @@ export default function ReportsPage() {
                       <td className="p-4 font-bold text-slate-600 text-center">{b.total_students}</td>
                       <td className="p-4 font-bold text-slate-800 text-center">{b.present_count}</td>
                       <td className="p-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${
-                          b.attendance_pct >= 75
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${b.attendance_pct >= 75
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : b.attendance_pct >= 50
                               ? 'bg-amber-50 text-amber-700 border-amber-200'
                               : 'bg-red-50 text-red-600 border-red-200'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            b.attendance_pct >= 75 ? 'bg-emerald-500' : b.attendance_pct >= 50 ? 'bg-amber-500' : 'bg-red-500'
-                          }`} />
+                          }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${b.attendance_pct >= 75 ? 'bg-emerald-500' : b.attendance_pct >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                            }`} />
                           {b.attendance_pct}%
                         </span>
                       </td>
@@ -688,7 +622,7 @@ export default function ReportsPage() {
                 date={filters.dateFrom}
                 session={filters.session || 'All Sessions'}
               />
-              
+
               {/* Pagination Controls */}
               {totalCount > limit && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
@@ -697,7 +631,7 @@ export default function ReportsPage() {
                     <span className="text-slate-700 font-bold">{Math.min(page * limit, totalCount)}</span> of{' '}
                     <span className="text-slate-700 font-bold">{totalCount}</span> split roster records
                   </span>
-                  
+
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -706,7 +640,7 @@ export default function ReportsPage() {
                     >
                       ◀ Prev
                     </button>
-                    
+
                     {(() => {
                       const totalPages = Math.ceil(totalCount / limit)
                       const pages = []
@@ -720,11 +654,10 @@ export default function ReportsPage() {
                           <button
                             key={i}
                             onClick={() => setPage(i)}
-                            className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${
-                              page === i
+                            className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${page === i
                                 ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
                                 : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
-                            }`}
+                              }`}
                           >
                             {i}
                           </button>
@@ -732,7 +665,7 @@ export default function ReportsPage() {
                       }
                       return pages
                     })()}
-                    
+
                     <button
                       onClick={() => setPage(p => Math.min(Math.ceil(totalCount / limit), p + 1))}
                       disabled={page >= Math.ceil(totalCount / limit)}

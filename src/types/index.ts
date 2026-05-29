@@ -78,6 +78,7 @@ export interface QrPayload {
   department: string
   year: number
   section: string
+  batch?: string | null
   ts: number   // unix seconds — freshness check
 }
 

@@ -131,6 +131,7 @@ export default function ScanPage() {
         p_department: payload.department,
         p_section: payload.section,
         p_year: payload.year,
+        p_batch: payload.batch,
         p_session: null, // Determined automatically by DB
         p_marked_by: user.id,
         p_marked_by_name: profile?.name ?? 'Faculty',

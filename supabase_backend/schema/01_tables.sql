@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   department      TEXT        NOT NULL,
   section         TEXT        NOT NULL,
   year            INTEGER     NOT NULL CHECK (year BETWEEN 1 AND 4),
+  batch           TEXT,
   session         TEXT        NOT NULL CHECK (session IN ('FN1','FN2','AN1','AN2')),
   marked_by       UUID        NOT NULL REFERENCES auth.users(id),
   marked_by_name  TEXT        NOT NULL,
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS attendance (
 CREATE INDEX IF NOT EXISTS idx_att_date        ON attendance(date);
 CREATE INDEX IF NOT EXISTS idx_att_student     ON attendance(student_id);
 CREATE INDEX IF NOT EXISTS idx_att_dept        ON attendance(department, section, year);
+CREATE INDEX IF NOT EXISTS idx_att_batch       ON attendance(batch);
 CREATE INDEX IF NOT EXISTS idx_att_session     ON attendance(session, date);
 CREATE INDEX IF NOT EXISTS idx_att_marked_by   ON attendance(marked_by);
 CREATE INDEX IF NOT EXISTS idx_attendance_report_sort ON attendance(date DESC, department, section, session, student_name);

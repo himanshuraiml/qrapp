@@ -10,6 +10,7 @@ CREATE OR REPLACE FUNCTION mark_attendance_safe(
   p_department     TEXT,
   p_section        TEXT,
   p_year           INTEGER,
+  p_batch          TEXT, -- Added parameter
   p_session        TEXT,
   p_marked_by      UUID,
   p_marked_by_name TEXT,
@@ -78,10 +79,10 @@ BEGIN
 
   -- 5. Insert the record
   INSERT INTO attendance
-    (student_id, student_name, department, section, year,
+    (student_id, student_name, department, section, year, batch,
      session, marked_by, marked_by_name, date, timestamp)
   VALUES
-    (p_student_id, p_student_name, p_department, p_section, p_year,
+    (p_student_id, p_student_name, p_department, p_section, p_year, p_batch,
      v_target_session, p_marked_by, p_marked_by_name, p_date, p_timestamp)
   RETURNING id INTO v_new;
 
@@ -331,6 +332,65 @@ BEGIN
     AND p.status = 'Active'
     AND p.batch IS NOT NULL
     AND p.batch != ''
+  GROUP BY p.batch
+  ORDER BY p.batch;
+END;
+$$;
+
+
+-- ─────────────────────────────────────────
+-- get_batch_summary_range
+-- Per-batch detailed summaries over a date range.
+-- ─────────────────────────────────────────
+CREATE OR REPLACE FUNCTION get_batch_summary_range(
+  p_date_from DATE,
+  p_date_to   DATE
+)
+RETURNS TABLE (
+  batch           TEXT,
+  fn1_count       NUMERIC,
+  fn2_count       NUMERIC,
+  an1_count       NUMERIC,
+  an2_count       NUMERIC,
+  total_students  BIGINT,
+  present_count   NUMERIC,
+  attendance_pct  NUMERIC
+)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_days INTEGER;
+BEGIN
+  -- Count number of days in the range that have scans
+  SELECT COUNT(DISTINCT date) INTO v_days
+  FROM   attendance
+  WHERE  date >= p_date_from AND date <= p_date_to;
+  
+  IF v_days IS NULL OR v_days = 0 THEN
+    v_days := 1;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    p.batch,
+    ROUND(COUNT(CASE WHEN a.session='FN1' THEN 1 END)::NUMERIC / v_days, 1) as fn1_count,
+    ROUND(COUNT(CASE WHEN a.session='FN2' THEN 1 END)::NUMERIC / v_days, 1) as fn2_count,
+    ROUND(COUNT(CASE WHEN a.session='AN1' THEN 1 END)::NUMERIC / v_days, 1) as an1_count,
+    ROUND(COUNT(CASE WHEN a.session='AN2' THEN 1 END)::NUMERIC / v_days, 1) as an2_count,
+    COUNT(DISTINCT p.id) as total_students,
+    ROUND(COUNT(DISTINCT a.student_id || ':' || a.date)::NUMERIC / v_days, 1) as present_count,
+    CASE WHEN COUNT(DISTINCT p.id) > 0
+      THEN ROUND((COUNT(DISTINCT a.student_id || ':' || a.date)::NUMERIC / (COUNT(DISTINCT p.id) * v_days)) * 100, 1)
+      ELSE 0::NUMERIC
+    END as attendance_pct
+  FROM profiles p
+  LEFT JOIN attendance a
+    ON  a.student_id = p.student_id
+    AND a.date       >= p_date_from
+    AND a.date       <= p_date_to
+  WHERE p.role   = 'Student'
+    AND p.status = 'Active'
+    AND p.batch  IS NOT NULL
+    AND p.batch  != ''
   GROUP BY p.batch
   ORDER BY p.batch;
 END;

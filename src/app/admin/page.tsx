@@ -30,11 +30,10 @@ function KpiCard({
           {icon}
         </div>
         {trend && (
-          <span className={`text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 ${
-            trend.up !== false
+          <span className={`text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 ${trend.up !== false
               ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
               : 'bg-red-50 text-red-500 border border-red-100'
-          }`}>
+            }`}>
             {trend.up !== false ? '↑' : '↓'} {trend.label}
           </span>
         )}
@@ -149,87 +148,43 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (authLoading) return
-    
+
     const cacheKey = `dashboard_stats_${date}_${dept}`
-    
+
     async function load(silent = false) {
       if (!silent) setLoading(true)
       try {
         const [
           { data: statsData },
           { data: sumData },
-          { data: activeStudents },
-          { data: scans }
+          { data: batchData }
         ] = await Promise.all([
           supabase.rpc('get_dashboard_stats', { p_date: date }),
           supabase.rpc('get_section_summary', {
             p_date: date,
             p_department: dept || null,
           }),
-          supabase
-            .from('profiles')
-            .select('student_id, batch')
-            .eq('role', 'Student')
-            .eq('status', 'Active'),
-          supabase
-            .from('attendance')
-            .select('student_id, session')
-            .eq('date', date)
+          supabase.rpc('get_batch_summary_range', {
+            p_date_from: date,
+            p_date_to: date,
+          })
         ])
 
         if (statsData) setStats(statsData)
         if (sumData) setSummary(sumData ?? [])
 
         let calculatedBatches: BatchSummary[] = []
-        if (activeStudents) {
-          const studentToBatch = new Map<string, string>()
-          const batchTotalStudents = new Map<string, number>()
-          activeStudents.forEach(s => {
-            if (s.student_id && s.batch) {
-              studentToBatch.set(s.student_id, s.batch)
-              batchTotalStudents.set(s.batch, (batchTotalStudents.get(s.batch) || 0) + 1)
-            }
-          })
-
-          const batchPresentSet = new Map<string, Set<string>>()
-          const sessionCounts = new Map<string, Record<string, number>>()
-
-          const scanList = scans ?? []
-          scanList.forEach(scan => {
-            const batch = studentToBatch.get(scan.student_id)
-            if (batch) {
-              if (!batchPresentSet.has(batch)) {
-                batchPresentSet.set(batch, new Set<string>())
-              }
-              batchPresentSet.get(batch)!.add(scan.student_id)
-
-              if (!sessionCounts.has(batch)) {
-                sessionCounts.set(batch, { FN1: 0, FN2: 0, AN1: 0, AN2: 0 })
-              }
-              const counts = sessionCounts.get(batch)!
-              if (scan.session in counts) {
-                counts[scan.session as any]++
-              }
-            }
-          })
-
-          Array.from(batchTotalStudents.keys()).sort().forEach(batch => {
-            const total = batchTotalStudents.get(batch) || 0
-            const present = batchPresentSet.get(batch)?.size || 0
-            const pct = total > 0 ? parseFloat(((present / total) * 100).toFixed(1)) : 0
-            const counts = sessionCounts.get(batch) || { FN1: 0, FN2: 0, AN1: 0, AN2: 0 }
-
-            calculatedBatches.push({
-              batch,
-              total_students: total,
-              present_count: present,
-              attendance_pct: pct,
-              fn1_count: counts.FN1,
-              fn2_count: counts.FN2,
-              an1_count: counts.AN1,
-              an2_count: counts.AN2,
-            })
-          })
+        if (batchData) {
+          calculatedBatches = batchData.map((b: any) => ({
+            batch: b.batch,
+            total_students: Number(b.total_students || 0),
+            present_count: Number(b.present_count || 0),
+            attendance_pct: Number(b.attendance_pct || 0),
+            fn1_count: Number(b.fn1_count || 0),
+            fn2_count: Number(b.fn2_count || 0),
+            an1_count: Number(b.an1_count || 0),
+            an2_count: Number(b.an2_count || 0),
+          }))
         }
         setBatches(calculatedBatches)
 
@@ -250,7 +205,7 @@ export default function AdminDashboard() {
         setSummary(cachedSummary ?? [])
         setBatches(cachedBatches ?? [])
         setLoading(false)
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // 2. Refresh silently in background
@@ -362,8 +317,8 @@ export default function AdminDashboard() {
               icon={pct >= 75 ? '📈' : pct >= 50 ? '📊' : '⚠️'}
               gradient={
                 pct >= 75 ? 'bg-gradient-to-br from-emerald-50 to-green-50' :
-                pct >= 50 ? 'bg-gradient-to-br from-amber-50 to-yellow-50' :
-                'bg-gradient-to-br from-red-50 to-rose-50'
+                  pct >= 50 ? 'bg-gradient-to-br from-amber-50 to-yellow-50' :
+                    'bg-gradient-to-br from-red-50 to-rose-50'
               }
               trend={pct >= 75
                 ? { label: 'On target', up: true }
@@ -472,21 +427,19 @@ export default function AdminDashboard() {
             <div className="flex bg-neutral-100/80 p-0.5 rounded-xl border border-neutral-200/50">
               <button
                 onClick={() => setBatchView('table')}
-                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all duration-200 ${
-                  batchView === 'table'
+                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all duration-200 ${batchView === 'table'
                     ? 'bg-white text-primary-600 shadow-sm'
                     : 'text-neutral-500 hover:text-neutral-800'
-                }`}
+                  }`}
               >
                 Line Table
               </button>
               <button
                 onClick={() => setBatchView('grid')}
-                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all duration-200 ${
-                  batchView === 'grid'
+                className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all duration-200 ${batchView === 'grid'
                     ? 'bg-white text-primary-600 shadow-sm'
                     : 'text-neutral-500 hover:text-neutral-800'
-                }`}
+                  }`}
               >
                 Card Grid
               </button>
@@ -553,16 +506,14 @@ export default function AdminDashboard() {
                       <td className="px-5 py-4 text-center font-bold text-neutral-600">{b.total_students}</td>
                       <td className="px-5 py-4 text-center font-bold text-neutral-800">{b.present_count}</td>
                       <td className="px-5 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${
-                          p >= 75
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border ${p >= 75
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : p >= 50
                               ? 'bg-amber-50 text-amber-700 border-amber-200'
                               : 'bg-red-50 text-red-600 border-red-200'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            p >= 75 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-red-500'
-                          }`} />
+                          }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${p >= 75 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                            }`} />
                           {p}%
                         </span>
                       </td>
@@ -580,8 +531,8 @@ export default function AdminDashboard() {
               const tone = p >= 75
                 ? { text: 'text-emerald-600', bar: 'bg-emerald-500', ring: 'border-emerald-100' }
                 : p >= 50
-                ? { text: 'text-amber-500', bar: 'bg-amber-500', ring: 'border-amber-100' }
-                : { text: 'text-red-500', bar: 'bg-red-500', ring: 'border-red-100' }
+                  ? { text: 'text-amber-500', bar: 'bg-amber-500', ring: 'border-amber-100' }
+                  : { text: 'text-red-500', bar: 'bg-red-500', ring: 'border-red-100' }
               return (
                 <div key={b.batch} className={`rounded-2xl border ${tone.ring} bg-white p-3 flex flex-col gap-2.5 shadow-sm`}>
                   <div className="flex items-center justify-between">

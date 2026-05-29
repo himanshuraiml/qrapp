@@ -98,10 +98,11 @@ export default function StudentDashboard() {
         department: profile.department ?? '',
         year: profile.year ?? 1,
         section: profile.section ?? '',
+        batch: profile.batch ?? '',
         ts: 0,
       }
     : null,
-  [profile?.student_id, profile?.name, profile?.department, profile?.year, profile?.section])
+  [profile?.student_id, profile?.name, profile?.department, profile?.year, profile?.section, profile?.batch])
 
   const initials = useMemo(() => {
     if (!profile?.name) return 'ST'
