@@ -27,20 +27,13 @@ export default function ManageStudentsPage() {
   const [modalSuccess, setModalSuccess] = useState(false)
 
   // Get unique departments for filter dropdown
-  const uniqueDepts = Array.from(new Set(students.map(s => s.department).filter(Boolean))) as string[]
+  const uniqueDepts = Array.from(new Set(students.map(s => s.department).filter(Boolean))).sort() as string[]
 
   async function loadStudents() {
     setLoading(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'Student')
-      .order('department')
-      .order('year')
-      .order('section')
-      .order('name')
-      .limit(5000)
-    setStudents(data ?? [])
+    const res = await fetch('/api/admin/students')
+    const json = await res.json()
+    setStudents(json.data ?? [])
     setLoading(false)
   }
 
@@ -80,7 +73,7 @@ export default function ManageStudentsPage() {
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.student_id ?? '').toLowerCase().includes(search.toLowerCase())
     
-    const matchesDept = deptFilter === 'all' || s.department?.toLowerCase() === deptFilter.toLowerCase()
+    const matchesDept = deptFilter === 'all' || s.department === deptFilter
     const matchesYear = yearFilter === 'all' || String(s.year) === yearFilter
 
     return matchesSearch && matchesDept && matchesYear
@@ -189,7 +182,7 @@ export default function ManageStudentsPage() {
               className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-36"
             >
               <option value="all">All Departments</option>
-              {uniqueDepts.map(d => (
+              {uniqueDepts.map((d: string) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>

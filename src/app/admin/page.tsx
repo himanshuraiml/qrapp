@@ -117,6 +117,7 @@ export default function AdminDashboard() {
       .select('department')
       .eq('role', 'Student')
       .not('department', 'is', null)
+      .limit(5000)
       .then(({ data }) => {
         const unique = [...new Set((data ?? []).map((r: any) => r.department))].sort()
         setDepts(unique)

@@ -57,19 +57,26 @@ export default function LoginPage() {
       return
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .single()
+    // Fast path: role stored in JWT metadata (new accounts)
+    let role = data.user.user_metadata?.role as string | undefined
 
-    if (!profile?.role) {
+    // Fallback: DB query for accounts created before metadata was added
+    if (!role) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
+      role = profile?.role
+    }
+
+    if (!role) {
       setError('Account not configured. Contact admin.')
       setLoading(false)
       return
     }
 
-    router.push(`/${profile.role.toLowerCase()}`)
+    router.push(`/${role.toLowerCase()}`)
   }
 
   return (

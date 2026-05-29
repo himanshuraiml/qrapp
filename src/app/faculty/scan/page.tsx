@@ -24,6 +24,22 @@ export default function ScanPage() {
     setSessionMode(hour < 12 ? 'FN' : 'AN')
   }, [])
 
+  // Restart scanner when user returns from phone call or tab switch
+  useEffect(() => {
+    if (!active) return
+
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        processingRef.current = false
+        setActive(false)
+        setTimeout(() => setActive(true), 600)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [active])
+
   useEffect(() => {
     if (!active) return
 

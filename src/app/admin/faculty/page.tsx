@@ -58,6 +58,7 @@ export default function ManageFacultyPage() {
       .eq('role', 'Faculty')
       .order('department')
       .order('name')
+      .limit(1000)
     setFaculty(data ?? [])
     setLoading(false)
   }

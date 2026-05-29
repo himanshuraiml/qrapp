@@ -45,6 +45,7 @@ export default function ReportsPage() {
       .from('profiles')
       .select('department, section')
       .eq('role', 'Student')
+      .limit(5000)
       .then(({ data }) => {
         if (!data) return
         const depts = [...new Set(data.map((r: any) => r.department).filter(Boolean))].sort()
@@ -57,37 +58,46 @@ export default function ReportsPage() {
   async function loadData() {
     setLoading(true)
 
-    if (tab === 'records') {
-      const { data } = await supabase.rpc('get_attendance_report', {
-        p_date_from: filters.dateFrom || null,
-        p_date_to: filters.dateTo || null,
-        p_department: filters.department || null,
-        p_section: filters.section || null,
-        p_year: filters.year ? parseInt(filters.year) : null,
-        p_session: filters.session || null,
-      })
-      setRecords(data ?? [])
+    try {
+      if (tab === 'records') {
+        const { data } = await supabase.rpc('get_attendance_report', {
+          p_date_from: filters.dateFrom || null,
+          p_date_to: filters.dateTo || null,
+          p_department: filters.department || null,
+          p_section: filters.section || null,
+          p_year: filters.year ? parseInt(filters.year) : null,
+          p_session: filters.session || null,
+        }).limit(5000)
+        setRecords(data ?? [])
 
-    } else if (tab === 'summary') {
-      const { data } = await supabase.rpc('get_section_summary', {
-        p_date: filters.dateFrom,
-        p_department: filters.department || null,
-      })
-      setSummary(data ?? [])
+      } else if (tab === 'summary') {
+        const { data } = await supabase.rpc('get_section_summary', {
+          p_date: filters.dateFrom,
+          p_department: filters.department || null,
+        }).limit(5000)
+        setSummary(data ?? [])
 
-    } else {
-      // roster tab
-      const { data } = await supabase.rpc('get_attendance_roster', {
-        p_date: filters.dateFrom,
-        p_session: filters.session || null,
-        p_department: filters.department || null,
-        p_section: filters.section || null,
-      })
-      setRoster(data ?? [])
+      } else {
+        // roster tab
+        const { data } = await supabase.rpc('get_attendance_roster', {
+          p_date: filters.dateFrom,
+          p_session: filters.session || null,
+          p_department: filters.department || null,
+          p_section: filters.section || null,
+        }).limit(5000)
+        setRoster(data ?? [])
+      }
+    } catch (err) {
+      console.error('Failed to generate report:', err)
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
+
+  // Load report data automatically whenever the tab or any filter changes
+  useEffect(() => {
+    loadData()
+  }, [tab, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session])
 
   const filterTitle = [
     formatDate(filters.dateFrom),
@@ -260,7 +270,11 @@ export default function ReportsPage() {
                 <span>Generating...</span>
               </>
             ) : (
-              <span>Generate Roster Report</span>
+              <span>
+                {tab === 'summary' ? '🔄 Refresh Summary' :
+                 tab === 'records' ? '🔄 Refresh Records' :
+                 '🔄 Refresh Roster'}
+              </span>
             )}
           </button>
         </div>

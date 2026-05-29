@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       email,
       password,
       email_confirm: true,
+      user_metadata: { role: role ?? 'Faculty' },
     })
     if (authErr) return NextResponse.json({ success: false, error: authErr.message }, { status: 400 })
 
