@@ -102,7 +102,7 @@ const LABELS = {
 }
 
 export default function AdminDashboard() {
-  const { loading: authLoading } = useAuth()
+  const { loading: authLoading, profile } = useAuth()
   const supabase = createClient()
   const [date, setDate] = useState(todayIST())
   const [dept, setDept] = useState('')
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
   }, [supabase])
 
   useEffect(() => {
-    if (authLoading) return
+    if (authLoading || !profile) return
 
     const cacheKey = `dashboard_stats_${date}_${dept}`
 
@@ -188,7 +188,11 @@ export default function AdminDashboard() {
         }
         setBatches(calculatedBatches)
 
-        sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData, batches: calculatedBatches }))
+        // Only cache real results — never persist an empty/failed fetch, or a
+        // poisoned cache shows a blank dashboard on the next load.
+        if (statsData) {
+          sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData, batches: calculatedBatches }))
+        }
       } catch (err) {
         console.error(err)
       } finally {

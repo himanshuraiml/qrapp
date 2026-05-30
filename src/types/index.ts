@@ -99,3 +99,12 @@ export interface RosterRecord {
   section:     string
   present:     boolean
 }
+
+export interface BatchRosterRecord {
+  student_id:  string
+  name:        string
+  batch:       string
+  year:        number
+  present:     boolean
+}
+

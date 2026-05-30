@@ -1,5 +1,19 @@
-import type { AttendanceRecord, SectionSummary, RosterRecord, BatchSummary } from '@/types'
+import type { AttendanceRecord, SectionSummary, RosterRecord, BatchSummary, BatchRosterRecord } from '@/types'
 import { formatTime } from './utils'
+
+// Maps a large array in chunks, yielding to the event loop between chunks so
+// the browser can repaint (e.g. keep an "Exporting…" spinner alive) instead of
+// freezing the main thread on a huge synchronous .map(). Used by the attendance
+// exporters, which can hold tens of thousands of rows.
+async function mapInChunks<T, R>(items: T[], fn: (item: T) => R, chunkSize = 2000): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const end = Math.min(i + chunkSize, items.length)
+    for (let j = i; j < end; j++) out[j] = fn(items[j])
+    if (end < items.length) await new Promise((r) => setTimeout(r))
+  }
+  return out
+}
 
 // ─────────────────────────────────────────
 // Excel export (SheetJS)
@@ -11,7 +25,7 @@ export async function exportAttendanceToExcel(
 ) {
   const XLSX = await import('xlsx')
 
-  const rows = records.map((r) => ({
+  const rows = await mapInChunks(records, (r) => ({
     'Student ID':   r.student_id,
     'Name':         r.student_name,
     'Department':   r.department,
@@ -83,7 +97,7 @@ export async function exportAttendanceToPDF(
   autoTable(doc, {
     startY: 35,
     head: [['Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Session', 'Date', 'Time', 'Marked By']],
-    body: records.map((r) => [
+    body: await mapInChunks(records, (r) => [
       r.student_id, r.student_name, r.department, r.year, r.section,
       r.session, r.date, formatTime(r.timestamp), r.marked_by_name,
     ]),
@@ -201,6 +215,77 @@ export async function exportRosterToPDF(
 
   doc.save(`roster_${date}_${session}.pdf`)
 }
+
+// ─────────────────────────────────────────
+// Batch Roster export (attendance drill-down)
+// ─────────────────────────────────────────
+export async function exportBatchRosterToExcel(
+  rows: BatchRosterRecord[],
+  date: string,
+  session: string
+) {
+  const XLSX = await import('xlsx')
+
+  const data = rows.map((r) => ({
+    'Student ID': r.student_id,
+    Name:         r.name,
+    Batch:        `Batch ${r.batch}`,
+    Year:         r.year,
+    Status:       r.present ? 'Present' : 'Absent',
+  }))
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(data)
+  ws['!cols'] = [18, 28, 12, 6, 10].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, `Roster_${session}`)
+  XLSX.writeFile(wb, `batch_roster_${date}_${session}.xlsx`)
+}
+
+export async function exportBatchRosterToPDF(
+  rows: BatchRosterRecord[],
+  date: string,
+  session: string
+) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('Batch-wise Attendance Roster — SRMIST Tiruchirappalli Campus', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date: ${date}  |  Session: ${session}`, 14, 23)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
+
+  autoTable(doc, {
+    startY: 35,
+    head: [['Student ID', 'Name', 'Batch', 'Year', 'Status']],
+    body: rows.map((r) => [
+      r.student_id, r.name, `Batch ${r.batch}`, r.year,
+      r.present ? 'Present' : 'Absent',
+    ]),
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    columnStyles: {
+      4: {
+        fontStyle: 'bold',
+      },
+    },
+    didParseCell: (data: any) => {
+      if (data.column.index === 4 && data.section === 'body') {
+        data.cell.styles.textColor =
+          data.cell.raw === 'Present' ? [22, 163, 74] : [220, 38, 38]
+      }
+    },
+    alternateRowStyles: { fillColor: [238, 242, 255] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`batch_roster_${date}_${session}.pdf`)
+}
+
 
 // ─────────────────────────────────────────
 // Batch Summary export

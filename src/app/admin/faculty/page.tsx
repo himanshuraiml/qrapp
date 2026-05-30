@@ -54,14 +54,18 @@ export default function ManageFacultyPage() {
     if (!silent) setLoading(true)
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      // Only the columns the list + edit flow actually use — avoids pulling
+      // every profile column for the whole faculty roster.
+      .select('id, name, department, status, role')
       .eq('role', 'Faculty')
       .order('department')
       .order('name')
       .limit(1000)
     
-    if (!error && data) {
-      setFaculty(data)
+    if (!error && data && data.length) {
+      // Only id/name/department/status/role are read in this view; cast the
+      // narrowed row shape to Profile for the shared list state.
+      setFaculty(data as unknown as Profile[])
       sessionStorage.setItem('faculty_cache', JSON.stringify(data))
     }
     setLoading(false)

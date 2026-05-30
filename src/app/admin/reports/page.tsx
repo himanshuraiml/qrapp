@@ -12,12 +12,15 @@ import {
   exportRosterToPDF,
   exportBatchSummaryToExcel,
   exportBatchSummaryToPDF,
+  exportBatchRosterToExcel,
+  exportBatchRosterToPDF,
 } from '@/lib/export'
 import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import AttendanceRosterTable from '@/components/admin/AttendanceRosterTable'
-import type { AttendanceRecord, SectionSummary, ReportFilters, RosterRecord, BatchSummary } from '@/types'
+import BatchRosterTable from '@/components/admin/BatchRosterTable'
+import type { AttendanceRecord, SectionSummary, ReportFilters, RosterRecord, BatchSummary, BatchRosterRecord } from '@/types'
 
-type Tab = 'summary' | 'records' | 'roster' | 'batch'
+type Tab = 'summary' | 'records' | 'roster' | 'batch' | 'batch_roster'
 
 export default function ReportsPage() {
   const supabase = createClient()
@@ -26,8 +29,10 @@ export default function ReportsPage() {
   const [summary, setSummary] = useState<SectionSummary[]>([])
   const [roster, setRoster] = useState<RosterRecord[]>([])
   const [batchSummary, setBatchSummary] = useState<BatchSummary[]>([])
+  const [batchRoster, setBatchRoster] = useState<BatchRosterRecord[]>([])
   const [depts, setDepts] = useState<string[]>([])
   const [sections, setSections] = useState<string[]>([])
+  const [batchesList, setBatchesList] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
 
@@ -52,10 +57,28 @@ export default function ReportsPage() {
 
   useEffect(() => {
     async function loadDeptsAndSections() {
-      const { data, error } = await supabase.rpc('get_distinct_filters')
+      // Run the two independent option fetches in parallel rather than back-to-back.
+      const [
+        { data, error },
+        { data: profilesData, error: profilesErr },
+      ] = await Promise.all([
+        supabase.rpc('get_distinct_filters'),
+        supabase
+          .from('profiles')
+          .select('batch')
+          .eq('role', 'Student')
+          .not('batch', 'is', null)
+          .neq('batch', ''),
+      ])
+
       if (!error && data) {
         setDepts(data.departments ?? [])
         setSections(data.sections ?? [])
+      }
+
+      if (!profilesErr && profilesData) {
+        const uniqueBatches = Array.from(new Set(profilesData.map((p: any) => p.batch))).filter(Boolean).sort() as string[]
+        setBatchesList(uniqueBatches)
       }
     }
     loadDeptsAndSections()
@@ -113,8 +136,11 @@ export default function ReportsPage() {
         const res = data ?? []
         setSummary(res)
         setTotalCount(count ?? res.length)
-        const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
-        sessionStorage.setItem(cacheKey, JSON.stringify({ data: res, count: count ?? res.length }))
+        // Don't cache an empty/failed aggregate — a transient miss shouldn't stick.
+        if (res.length) {
+          const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
+          sessionStorage.setItem(cacheKey, JSON.stringify({ data: res, count: count ?? res.length }))
+        }
 
       } else if (tab === 'batch') {
         if (!silent) setLoading(true)
@@ -142,10 +168,48 @@ export default function ReportsPage() {
 
         setBatchSummary(rows)
         setTotalCount(rows.length)
-        const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
-        sessionStorage.setItem(cacheKey, JSON.stringify({ data: rows, count: rows.length }))
+        // Don't cache an empty/failed aggregate — a transient miss shouldn't stick.
+        if (rows.length) {
+          const cacheKey = `report_${tab}_${JSON.stringify(filters)}`
+          sessionStorage.setItem(cacheKey, JSON.stringify({ data: rows, count: rows.length }))
+        }
         return rows
 
+      } else if (tab === 'batch_roster') {
+        const rpcParams = {
+          p_date: filters.dateFrom,
+          p_session: filters.session || null,
+          p_batch: filters.section || null,
+        }
+
+        if (fetchAll) {
+          let allBatchRoster: any[] = []
+          let fromIndex = 0
+          const chunkSize = 1000
+          while (true) {
+            const { data, error } = await supabase
+              .rpc('get_batch_attendance_roster', rpcParams)
+              .range(fromIndex, fromIndex + chunkSize - 1)
+            if (error || !data || data.length === 0) break
+            allBatchRoster.push(...data)
+            if (data.length < chunkSize) break
+            fromIndex += chunkSize
+          }
+          return allBatchRoster
+        } else {
+          const fromIndex = (page - 1) * limit
+          const toIndex = fromIndex + limit - 1
+          const { data, error, count } = await supabase
+            .rpc('get_batch_attendance_roster', rpcParams, { count: 'exact' })
+            .range(fromIndex, toIndex)
+
+          if (!error && data) {
+            setBatchRoster(data)
+            setTotalCount(count ?? 0)
+            const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
+            sessionStorage.setItem(cacheKey, JSON.stringify({ data, count }))
+          }
+        }
       } else {
         const rpcParams = {
           p_date: filters.dateFrom,
@@ -183,6 +247,7 @@ export default function ReportsPage() {
           }
         }
       }
+
     } catch (err) {
       console.error('Failed to generate report:', err)
     } finally {
@@ -204,6 +269,7 @@ export default function ReportsPage() {
         if (tab === 'records') setRecords(data)
         else if (tab === 'summary') setSummary(data)
         else if (tab === 'batch') setBatchSummary(data)
+        else if (tab === 'batch_roster') setBatchRoster(data)
         else setRoster(data)
         setTotalCount(count ?? 0)
         setLoading(false)
@@ -213,6 +279,7 @@ export default function ReportsPage() {
     // 2. Silent background refresh
     loadData(!!cached)
   }, [tab, page, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session])
+
 
   const filterTitle = [
     formatDate(filters.dateFrom),
@@ -236,6 +303,11 @@ export default function ReportsPage() {
         const allRoster = await loadData(true, true)
         if (allRoster) {
           await exportRosterToExcel(allRoster, filters.dateFrom, filters.session || 'All Sessions')
+        }
+      } else if (tab === 'batch_roster') {
+        const allBatchRoster = await loadData(true, true)
+        if (allBatchRoster) {
+          await exportBatchRosterToExcel(allBatchRoster, filters.dateFrom, filters.session || 'All Sessions')
         }
       } else if (tab === 'batch') {
         const dateRangeText = filters.dateFrom === filters.dateTo
@@ -265,6 +337,11 @@ export default function ReportsPage() {
         if (allRoster) {
           await exportRosterToPDF(allRoster, filters.dateFrom, filters.session || 'All Sessions')
         }
+      } else if (tab === 'batch_roster') {
+        const allBatchRoster = await loadData(true, true)
+        if (allBatchRoster) {
+          await exportBatchRosterToPDF(allBatchRoster, filters.dateFrom, filters.session || 'All Sessions')
+        }
       } else if (tab === 'batch') {
         const dateRangeText = filters.dateFrom === filters.dateTo
           ? filters.dateFrom
@@ -282,6 +359,7 @@ export default function ReportsPage() {
     (tab === 'records' && records.length > 0) ||
     (tab === 'summary' && summary.length > 0) ||
     (tab === 'roster' && roster.length > 0) ||
+    (tab === 'batch_roster' && batchRoster.length > 0) ||
     (tab === 'batch' && batchSummary.length > 0)
 
   const TAB_META: { id: Tab; label: string }[] = [
@@ -289,7 +367,9 @@ export default function ReportsPage() {
     { id: 'records', label: 'Attendance Records' },
     { id: 'roster', label: '🗂 Roster (Present/Absent Split)' },
     { id: 'batch', label: '📊 Batch Summary' },
+    { id: 'batch_roster', label: '🗂 Batch Roster (Present/Absent Split)' },
   ]
+
 
   return (
     <div className="space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -308,7 +388,7 @@ export default function ReportsPage() {
           {TAB_META.map(({ id, label }) => (
             <button
               key={id}
-              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]); setBatchSummary([]); setPage(1); setTotalCount(0) }}
+              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]); setBatchSummary([]); setBatchRoster([]); setPage(1); setTotalCount(0) }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300
                 ${tab === id
                   ? 'bg-white text-brand-600 shadow-sm'
@@ -318,6 +398,7 @@ export default function ReportsPage() {
             </button>
           ))}
         </div>
+
       </div>
 
       {/* Filters Glass Panel */}
@@ -350,7 +431,7 @@ export default function ReportsPage() {
           )}
 
           {/* Department */}
-          {tab !== 'batch' && (
+          {tab !== 'batch' && tab !== 'batch_roster' && (
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Department</label>
               <select
@@ -364,8 +445,23 @@ export default function ReportsPage() {
             </div>
           )}
 
+          {/* Batch Filter dropdown for Batch Roster tab */}
+          {tab === 'batch_roster' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Batch</label>
+              <select
+                value={filters.section}
+                onChange={(e) => setFilter('section', e.target.value)}
+                className="input text-xs font-bold text-slate-700"
+              >
+                <option value="">All Batches</option>
+                {batchesList.map((b) => <option key={b} value={b}>Batch {b}</option>)}
+              </select>
+            </div>
+          )}
+
           {/* Section */}
-          {tab !== 'batch' && (
+          {tab !== 'batch' && tab !== 'batch_roster' && (
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Section</label>
               <select
@@ -378,6 +474,7 @@ export default function ReportsPage() {
               </select>
             </div>
           )}
+
 
           {/* Year — hidden for roster and batch */}
           {tab !== 'roster' && tab !== 'batch' && (
@@ -432,9 +529,12 @@ export default function ReportsPage() {
               <span>
                 {tab === 'summary' ? '🔄 Refresh Summary' :
                   tab === 'records' ? '🔄 Refresh Records' :
+                  tab === 'batch' ? '🔄 Refresh Batch Summary' :
+                  tab === 'batch_roster' ? '🔄 Refresh Batch Roster' :
                     '🔄 Refresh Roster'}
               </span>
             )}
+
           </button>
         </div>
       </div>
@@ -448,9 +548,11 @@ export default function ReportsPage() {
               <span className="ml-2 text-slate-400 text-xs font-semibold">
                 ({tab === 'records' ? records.length
                   : tab === 'summary' ? summary.length
-                    : tab === 'batch' ? batchSummary.length
-                      : roster.length} rows fetched)
+                  : tab === 'batch' ? batchSummary.length
+                  : tab === 'batch_roster' ? batchRoster.length
+                  : roster.length} rows fetched)
               </span>
+
             </div>
 
             <div className="flex gap-2">
@@ -678,6 +780,71 @@ export default function ReportsPage() {
               )}
             </div>
           )}
+
+          {tab === 'batch_roster' && (
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50">
+              <BatchRosterTable
+                rows={batchRoster}
+                loading={false}
+                date={filters.dateFrom}
+                session={filters.session || 'All Sessions'}
+              />
+
+              {/* Pagination Controls */}
+              {totalCount > limit && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 bg-slate-50/50">
+                  <span className="text-[11px] text-slate-400 font-semibold">
+                    Showing <span className="text-slate-700 font-bold">{(page - 1) * limit + 1}</span> to{' '}
+                    <span className="text-slate-700 font-bold">{Math.min(page * limit, totalCount)}</span> of{' '}
+                    <span className="text-slate-700 font-bold">{totalCount}</span> batch roster records
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                      ◀ Prev
+                    </button>
+
+                    {(() => {
+                      const totalPages = Math.ceil(totalCount / limit)
+                      const pages = []
+                      let startPage = Math.max(1, page - 2)
+                      let endPage = Math.min(totalPages, page + 2)
+                      if (startPage === 1 && totalPages > 5) endPage = 5
+                      if (endPage === totalPages && totalPages > 5) startPage = Math.max(1, totalPages - 4)
+
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setPage(i)}
+                            className={`w-8 h-8 rounded-xl text-xs font-bold transition-all active:scale-95 ${page === i
+                                ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20'
+                                : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                              }`}
+                          >
+                            {i}
+                          </button>
+                        )
+                      }
+                      return pages
+                    })()}
+
+                    <button
+                      onClick={() => setPage(p => Math.min(Math.ceil(totalCount / limit), p + 1))}
+                      disabled={page >= Math.ceil(totalCount / limit)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                    >
+                      Next ▶
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -692,6 +859,19 @@ export default function ReportsPage() {
           />
         </div>
       )}
+
+      {/* Batch Roster empty fallback */}
+      {tab === 'batch_roster' && !hasResults && !loading && (
+        <div className="card">
+          <BatchRosterTable
+            rows={[]}
+            loading={false}
+            date={filters.dateFrom}
+            session={filters.session || 'All Sessions'}
+          />
+        </div>
+      )}
     </div>
   )
 }
+
