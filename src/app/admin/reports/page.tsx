@@ -723,6 +723,7 @@ export default function ReportsPage() {
                 loading={false}
                 date={filters.dateFrom}
                 session={filters.session || 'All Sessions'}
+                showExport={false}
               />
 
               {/* Pagination Controls */}
@@ -788,6 +789,7 @@ export default function ReportsPage() {
                 loading={false}
                 date={filters.dateFrom}
                 session={filters.session || 'All Sessions'}
+                showExport={false}
               />
 
               {/* Pagination Controls */}
@@ -856,6 +858,7 @@ export default function ReportsPage() {
             loading={false}
             date={filters.dateFrom}
             session={filters.session || 'All Sessions'}
+            showExport={false}
           />
         </div>
       )}
@@ -868,6 +871,7 @@ export default function ReportsPage() {
             loading={false}
             date={filters.dateFrom}
             session={filters.session || 'All Sessions'}
+            showExport={false}
           />
         </div>
       )}

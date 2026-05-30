@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import BulkStudentUpload from '@/components/admin/BulkStudentUpload'
 import type { Profile } from '@/types'
 
 export default function ManageStudentsPage() {
@@ -374,7 +375,7 @@ export default function ManageStudentsPage() {
           <p className="text-xs text-slate-400 font-medium">Add, activate, or audit SRMIST Tiruchirappalli classroom students</p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 items-start">
           <button
             onClick={() => setShowForm(true)}
             className="btn-primary inline-flex items-center gap-1.5 text-xs py-2.5 font-bold"
@@ -383,6 +384,9 @@ export default function ManageStudentsPage() {
           </button>
         </div>
       </div>
+
+      {/* Bulk Excel upload tool (button + drawer; drawer spans full width) */}
+      <BulkStudentUpload onComplete={() => loadStudents(1, false)} />
 
       {/* Form Drawer (Glass Card) */}
       {showForm && (
@@ -531,7 +535,7 @@ export default function ManageStudentsPage() {
                     <td className="p-4 text-center">
                       {s.batch ? (
                         <span className="px-2 py-0.5 rounded bg-slate-900 text-white text-[10px] font-extrabold uppercase">
-                          Batch {s.batch}
+                          {s.batch}
                         </span>
                       ) : (
                         <span className="text-slate-300 font-medium">—</span>

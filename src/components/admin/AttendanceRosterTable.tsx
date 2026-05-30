@@ -10,9 +10,10 @@ interface Props {
   loading: boolean
   date: string
   session: string
+  showExport?: boolean
 }
 
-export default function AttendanceRosterTable({ rows, loading, date, session }: Props) {
+export default function AttendanceRosterTable({ rows, loading, date, session, showExport = true }: Props) {
   const [exporting, setExporting] = useState(false)
   // Track which dept+section groups are collapsed
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -96,22 +97,24 @@ export default function AttendanceRosterTable({ rows, loading, date, session }: 
         </div>
 
         {/* Export buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={handleExcel}
-            disabled={exporting}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <span>📊</span> Export Excel
-          </button>
-          <button
-            onClick={handlePDF}
-            disabled={exporting}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            <span>📄</span> Export PDF
-          </button>
-        </div>
+        {showExport && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleExcel}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            >
+              <span>📊</span> Export Excel
+            </button>
+            <button
+              onClick={handlePDF}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+            >
+              <span>📄</span> Export PDF
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Roster classroom groups accordions */}

@@ -16,6 +16,54 @@ async function mapInChunks<T, R>(items: T[], fn: (item: T) => R, chunkSize = 200
 }
 
 // ─────────────────────────────────────────
+// Bulk student upload template
+// The header row here is the single source of truth — the upload parser in
+// BulkStudentUpload matches on these exact (case-insensitive) names, so the
+// template and the parser can never drift apart.
+// ─────────────────────────────────────────
+export const STUDENT_TEMPLATE_HEADERS = [
+  'Register No', 'Name', 'Department', 'Year', 'Section', 'Batch', 'Password',
+] as const
+
+export async function downloadStudentTemplate() {
+  const XLSX = await import('xlsx')
+
+  const example = [
+    { 'Register No': 'RA2311003010001', Name: 'John Doe',  Department: 'CSE', Year: 1, Section: 'A', Batch: 'A', Password: '' },
+    { 'Register No': 'RA2311003010002', Name: 'Jane Smith', Department: 'IT',  Year: 2, Section: 'B', Batch: 'C', Password: '' },
+  ]
+  const ws = XLSX.utils.json_to_sheet(example, { header: [...STUDENT_TEMPLATE_HEADERS] })
+  ws['!cols'] = [20, 24, 14, 6, 8, 8, 16].map((w) => ({ wch: w }))
+
+  const notes = [
+    ['QR Attendance — Bulk Student Upload Template'],
+    [''],
+    ['Required columns (do NOT rename, remove, or reorder the header row in the Students sheet):'],
+    ['  Register No  — roll / register number; must be unique (e.g. RA2311003010001)'],
+    ['  Name         — student full name'],
+    ['  Department   — e.g. CSE, IT, AIML'],
+    ['  Year         — must be 1, 2, 3 or 4'],
+    ['  Section      — e.g. A, B, C'],
+    [''],
+    ['Optional columns:'],
+    ['  Batch        — training batch A–P (leave blank if not applicable)'],
+    ['  Password     — leave blank to default the password to the Register No'],
+    [''],
+    ['Notes:'],
+    ['  • Delete the two example rows in the "Students" sheet before uploading.'],
+    ['  • Existing register numbers are skipped, never overwritten.'],
+    ['  • The login email is generated automatically as <registerno>@student.local'],
+  ]
+  const wsNotes = XLSX.utils.aoa_to_sheet(notes)
+  wsNotes['!cols'] = [{ wch: 90 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Students')
+  XLSX.utils.book_append_sheet(wb, wsNotes, 'Instructions')
+  XLSX.writeFile(wb, 'student_upload_template.xlsx')
+}
+
+// ─────────────────────────────────────────
 // Excel export (SheetJS)
 // ─────────────────────────────────────────
 export async function exportAttendanceToExcel(
