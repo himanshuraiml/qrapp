@@ -29,10 +29,13 @@ export function AuthProvider({
   children,
 }: AuthProviderProps) {
   const supabase = createClient()
-  // Seed from the server-validated profile — there is never a null-session
-  // window on refresh, so we can start with loading already finished.
+  // Seed from the server-validated profile. `loading` stays true until the
+  // server session has been handed to the browser client (setSession below),
+  // so pages wait for an authenticated client before firing RPCs — but it is
+  // ALWAYS cleared in the seed effect's finally, so the UI can never hang even
+  // if the profile is null or setSession fails.
   const [profile, setProfile] = useState<Profile | null>(initialProfile)
-  const [loading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -54,12 +57,23 @@ export function AuthProvider({
   useEffect(() => {
     if (seeded.current) return
     seeded.current = true
-    if (initialAccessToken && initialRefreshToken) {
-      supabase.auth.setSession({
-        access_token: initialAccessToken,
-        refresh_token: initialRefreshToken,
-      }).catch(() => {})
-    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (initialAccessToken && initialRefreshToken) {
+          await supabase.auth.setSession({
+            access_token: initialAccessToken,
+            refresh_token: initialRefreshToken,
+          })
+        }
+      } catch {
+        // ignore — fall through; pages fetch with whatever session exists
+      } finally {
+        // Always clear loading so the UI never hangs, even on null tokens/profile.
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
   }, [supabase, initialAccessToken, initialRefreshToken])
 
   // React only to later auth changes (token refresh, sign-out from another tab).

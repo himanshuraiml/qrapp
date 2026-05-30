@@ -102,7 +102,7 @@ const LABELS = {
 }
 
 export default function AdminDashboard() {
-  const { loading: authLoading, profile } = useAuth()
+  const { loading: authLoading } = useAuth()
   const supabase = createClient()
   const [date, setDate] = useState(todayIST())
   const [dept, setDept] = useState('')
@@ -137,6 +137,7 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
+    if (authLoading) return
     async function loadDepts() {
       const { data, error } = await supabase.rpc('get_distinct_filters')
       if (!error && data && data.departments) {
@@ -144,10 +145,12 @@ export default function AdminDashboard() {
       }
     }
     loadDepts()
-  }, [supabase])
+  }, [supabase, authLoading])
 
   useEffect(() => {
-    if (authLoading || !profile) return
+    // Gate on session readiness (authLoading), NOT on profile — a null/duplicate
+    // profile must never leave the dashboard stuck on skeletons.
+    if (authLoading) return
 
     const cacheKey = `dashboard_stats_${date}_${dept}`
 

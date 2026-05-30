@@ -1,0 +1,47 @@
+{
+  // ── Memory safety for installs/builds ──────────────────────────────
+  // The IDE (Antigravity / VS Code family) was ballooning to 50+ GB during
+  // `npm install` because its file watcher + TypeScript server tried to index
+  // every file as node_modules was being created. These excludes stop the IDE
+  // from watching/indexing the big generated dirs. After editing this file,
+  // RELOAD THE WINDOW (Cmd+Shift+P → "Developer: Reload Window") so the watcher
+  // picks up the excludes before running an install.
+
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.cache/**": true
+  },
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/package-lock.json": true
+  },
+
+  "files.exclude": {
+    "**/.next": true
+  },
+
+  // Cap the TypeScript language server so it can never run away (MB).
+  "typescript.tsserver.maxTsServerMemory": 3072,
+
+  // Don't let the TS server watch/scan node_modules directories.
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEvents",
+    "watchDirectory": "useFsEvents",
+    "excludeDirectories": ["**/node_modules", "**/.next", "**/dist", "**/build"]
+  },
+
+  // Stop auto-import indexing from crawling every package in node_modules.
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+
+  // Reduce extra file-system churn the IDE reacts to.
+  "files.hotExit": "onExitAndWindowClose"
+}
