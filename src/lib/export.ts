@@ -1,4 +1,4 @@
-import type { AttendanceRecord, SectionSummary, RosterRecord, BatchSummary, BatchRosterRecord } from '@/types'
+import type { AttendanceRecord, SectionSummary, RosterRecord, RosterMultiRecord, BatchSummary, BatchRosterRecord, BatchRosterMultiRecord } from '@/types'
 import { formatTime } from './utils'
 
 // Maps a large array in chunks, yielding to the event loop between chunks so
@@ -265,6 +265,83 @@ export async function exportRosterToPDF(
 }
 
 // ─────────────────────────────────────────
+// Roster Multi-Session export (All Sessions mode)
+// ─────────────────────────────────────────
+const ROSTER_SESSION_KEYS: Array<{ key: keyof RosterMultiRecord; label: string }> = [
+  { key: 'fn1_present', label: 'FN1' },
+  { key: 'fn2_present', label: 'FN2' },
+  { key: 'an1_present', label: 'AN1' },
+  { key: 'an2_present', label: 'AN2' },
+]
+
+function activeRosterSessions(rows: RosterMultiRecord[]) {
+  return ROSTER_SESSION_KEYS.filter(({ key }) => rows.some((r) => r[key] === true))
+}
+
+export async function exportRosterMultiToExcel(rows: RosterMultiRecord[], date: string) {
+  const XLSX = await import('xlsx')
+  const sessions = activeRosterSessions(rows)
+
+  const data = rows.map((r) => {
+    const base: Record<string, string | number> = {
+      'Student ID': r.student_id,
+      Name:         r.name,
+      Department:   r.department,
+      Year:         r.year,
+      Section:      r.section,
+    }
+    sessions.forEach(({ key, label }) => {
+      base[label] = r[key] ? 'Present' : 'Absent'
+    })
+    return base
+  })
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(data)
+  ws['!cols'] = [18, 28, 16, 6, 10, ...sessions.map(() => 10)].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, 'Roster_All_Sessions')
+  XLSX.writeFile(wb, `roster_${date}_all_sessions.xlsx`)
+}
+
+export async function exportRosterMultiToPDF(rows: RosterMultiRecord[], date: string) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const sessions = activeRosterSessions(rows)
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('Attendance Roster (All Sessions) — SRMIST Tiruchirappalli Campus', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date: ${date}  |  Sessions: ${sessions.map((s) => s.label).join(', ')}`, 14, 23)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
+
+  autoTable(doc, {
+    startY: 35,
+    head: [['Student ID', 'Name', 'Department', 'Year', 'Section', ...sessions.map((s) => s.label)]],
+    body: rows.map((r) => [
+      r.student_id, r.name, r.department, r.year, r.section,
+      ...sessions.map(({ key }) => r[key] ? 'Present' : 'Absent'),
+    ]),
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    didParseCell: (data: any) => {
+      if (data.column.index >= 5 && data.section === 'body') {
+        data.cell.styles.textColor =
+          data.cell.raw === 'Present' ? [22, 163, 74] : [220, 38, 38]
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+    alternateRowStyles: { fillColor: [238, 242, 255] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`roster_${date}_all_sessions.pdf`)
+}
+
+// ─────────────────────────────────────────
 // Batch Roster export (attendance drill-down)
 // ─────────────────────────────────────────
 export async function exportBatchRosterToExcel(
@@ -400,4 +477,87 @@ export async function exportBatchSummaryToPDF(
   })
 
   doc.save(`batch_summary_${dateRangeText.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`)
+}
+
+
+// ─────────────────────────────────────────
+// Batch Roster Multi-Session export (All Sessions mode)
+// ─────────────────────────────────────────
+const SESSION_KEYS: Array<{ key: keyof BatchRosterMultiRecord; label: string }> = [
+  { key: 'fn1_present', label: 'FN1' },
+  { key: 'fn2_present', label: 'FN2' },
+  { key: 'an1_present', label: 'AN1' },
+  { key: 'an2_present', label: 'AN2' },
+]
+
+function activeSessions(rows: BatchRosterMultiRecord[]) {
+  return SESSION_KEYS.filter(({ key }) => rows.some((r) => r[key] === true))
+}
+
+export async function exportBatchRosterMultiToExcel(
+  rows: BatchRosterMultiRecord[],
+  date: string
+) {
+  const XLSX = await import('xlsx')
+  const sessions = activeSessions(rows)
+
+  const data = rows.map((r) => {
+    const base: Record<string, string | number> = {
+      'Student ID': r.student_id,
+      Name: r.name,
+      Batch: `Batch ${r.batch}`,
+      Year: r.year,
+    }
+    sessions.forEach(({ key, label }) => {
+      base[label] = r[key] ? 'Present' : 'Absent'
+    })
+    return base
+  })
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(data)
+  ws['!cols'] = [18, 28, 12, 6, ...sessions.map(() => 10)].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, 'Batch_Roster_All_Sessions')
+  XLSX.writeFile(wb, `batch_roster_${date}_all_sessions.xlsx`)
+}
+
+export async function exportBatchRosterMultiToPDF(
+  rows: BatchRosterMultiRecord[],
+  date: string
+) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const sessions = activeSessions(rows)
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('Batch-wise Attendance Roster (All Sessions) — SRMIST Tiruchirappalli Campus', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date: ${date}  |  Sessions: ${sessions.map((s) => s.label).join(', ')}`, 14, 23)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
+
+  autoTable(doc, {
+    startY: 35,
+    head: [['Student ID', 'Name', 'Batch', 'Year', ...sessions.map((s) => s.label)]],
+    body: rows.map((r) => [
+      r.student_id, r.name, `Batch ${r.batch}`, r.year,
+      ...sessions.map(({ key }) => r[key] ? 'Present' : 'Absent'),
+    ]),
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    didParseCell: (data: any) => {
+      if (data.column.index >= 4 && data.section === 'body') {
+        data.cell.styles.textColor =
+          data.cell.raw === 'Present' ? [22, 163, 74] : [220, 38, 38]
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+    alternateRowStyles: { fillColor: [238, 242, 255] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`batch_roster_${date}_all_sessions.pdf`)
 }

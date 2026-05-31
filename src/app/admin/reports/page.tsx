@@ -14,11 +14,15 @@ import {
   exportBatchSummaryToPDF,
   exportBatchRosterToExcel,
   exportBatchRosterToPDF,
+  exportBatchRosterMultiToExcel,
+  exportBatchRosterMultiToPDF,
+  exportRosterMultiToExcel,
+  exportRosterMultiToPDF,
 } from '@/lib/export'
 import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import AttendanceRosterTable from '@/components/admin/AttendanceRosterTable'
 import BatchRosterTable from '@/components/admin/BatchRosterTable'
-import type { AttendanceRecord, SectionSummary, ReportFilters, RosterRecord, BatchSummary, BatchRosterRecord } from '@/types'
+import type { AttendanceRecord, SectionSummary, ReportFilters, RosterRecord, RosterMultiRecord, BatchSummary, BatchRosterRecord, BatchRosterMultiRecord } from '@/types'
 
 type Tab = 'summary' | 'records' | 'roster' | 'batch' | 'batch_roster'
 
@@ -28,8 +32,10 @@ export default function ReportsPage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [summary, setSummary] = useState<SectionSummary[]>([])
   const [roster, setRoster] = useState<RosterRecord[]>([])
+  const [rosterMulti, setRosterMulti] = useState<RosterMultiRecord[]>([])
   const [batchSummary, setBatchSummary] = useState<BatchSummary[]>([])
   const [batchRoster, setBatchRoster] = useState<BatchRosterRecord[]>([])
+  const [batchRosterMulti, setBatchRosterMulti] = useState<BatchRosterMultiRecord[]>([])
   const [depts, setDepts] = useState<string[]>([])
   const [sections, setSections] = useState<string[]>([])
   const [batchesList, setBatchesList] = useState<string[]>([])
@@ -176,74 +182,158 @@ export default function ReportsPage() {
         return rows
 
       } else if (tab === 'batch_roster') {
-        const rpcParams = {
-          p_date: filters.dateFrom,
-          p_session: filters.session || null,
-          p_batch: filters.section || null,
-        }
+        const isAllSessions = !filters.session
 
-        if (fetchAll) {
-          let allBatchRoster: any[] = []
-          let fromIndex = 0
-          const chunkSize = 1000
-          while (true) {
-            const { data, error } = await supabase
-              .rpc('get_batch_attendance_roster', rpcParams)
-              .range(fromIndex, fromIndex + chunkSize - 1)
-            if (error || !data || data.length === 0) break
-            allBatchRoster.push(...data)
-            if (data.length < chunkSize) break
-            fromIndex += chunkSize
+        if (isAllSessions) {
+          // Multi-session mode: one row per student, per-session boolean columns
+          const rpcParams = {
+            p_date:  filters.dateFrom,
+            p_batch: filters.section || null,
           }
-          return allBatchRoster
-        } else {
-          const fromIndex = (page - 1) * limit
-          const toIndex = fromIndex + limit - 1
-          const { data, error, count } = await supabase
-            .rpc('get_batch_attendance_roster', rpcParams, { count: 'exact' })
-            .range(fromIndex, toIndex)
 
-          if (!error && data) {
-            setBatchRoster(data)
-            setTotalCount(count ?? 0)
-            const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
-            sessionStorage.setItem(cacheKey, JSON.stringify({ data, count }))
+          if (fetchAll) {
+            let all: any[] = []
+            let fromIndex = 0
+            const chunkSize = 1000
+            while (true) {
+              const { data, error } = await supabase
+                .rpc('get_batch_attendance_roster_multi', rpcParams)
+                .range(fromIndex, fromIndex + chunkSize - 1)
+              if (error || !data || data.length === 0) break
+              all.push(...data)
+              if (data.length < chunkSize) break
+              fromIndex += chunkSize
+            }
+            return all
+          } else {
+            const fromIndex = (page - 1) * limit
+            const toIndex = fromIndex + limit - 1
+            const { data, error, count } = await supabase
+              .rpc('get_batch_attendance_roster_multi', rpcParams, { count: 'exact' })
+              .range(fromIndex, toIndex)
+
+            if (!error && data) {
+              setBatchRosterMulti(data)
+              setBatchRoster([])
+              setTotalCount(count ?? 0)
+              const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
+              sessionStorage.setItem(cacheKey, JSON.stringify({ data, count, multi: true }))
+            }
+          }
+        } else {
+          // Single-session mode: one row per student with a single present/absent status
+          const rpcParams = {
+            p_date:    filters.dateFrom,
+            p_session: filters.session,
+            p_batch:   filters.section || null,
+          }
+
+          if (fetchAll) {
+            let allBatchRoster: any[] = []
+            let fromIndex = 0
+            const chunkSize = 1000
+            while (true) {
+              const { data, error } = await supabase
+                .rpc('get_batch_attendance_roster', rpcParams)
+                .range(fromIndex, fromIndex + chunkSize - 1)
+              if (error || !data || data.length === 0) break
+              allBatchRoster.push(...data)
+              if (data.length < chunkSize) break
+              fromIndex += chunkSize
+            }
+            return allBatchRoster
+          } else {
+            const fromIndex = (page - 1) * limit
+            const toIndex = fromIndex + limit - 1
+            const { data, error, count } = await supabase
+              .rpc('get_batch_attendance_roster', rpcParams, { count: 'exact' })
+              .range(fromIndex, toIndex)
+
+            if (!error && data) {
+              setBatchRoster(data)
+              setBatchRosterMulti([])
+              setTotalCount(count ?? 0)
+              const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
+              sessionStorage.setItem(cacheKey, JSON.stringify({ data, count, multi: false }))
+            }
           }
         }
       } else {
-        const rpcParams = {
-          p_date: filters.dateFrom,
-          p_session: filters.session || null,
-          p_department: filters.department || null,
-          p_section: filters.section || null,
-        }
+        // tab === 'roster'
+        const isAllSessions = !filters.session
 
-        if (fetchAll) {
-          let allRoster: any[] = []
-          let fromIndex = 0
-          const chunkSize = 1000
-          while (true) {
-            const { data, error } = await supabase
-              .rpc('get_attendance_roster', rpcParams)
-              .range(fromIndex, fromIndex + chunkSize - 1)
-            if (error || !data || data.length === 0) break
-            allRoster.push(...data)
-            if (data.length < chunkSize) break
-            fromIndex += chunkSize
+        if (isAllSessions) {
+          const rpcParams = {
+            p_date:       filters.dateFrom,
+            p_department: filters.department || null,
+            p_section:    filters.section || null,
           }
-          return allRoster
-        } else {
-          const fromIndex = (page - 1) * limit
-          const toIndex = fromIndex + limit - 1
-          const { data, error, count } = await supabase
-            .rpc('get_attendance_roster', rpcParams, { count: 'exact' })
-            .range(fromIndex, toIndex)
 
-          if (!error && data) {
-            setRoster(data)
-            setTotalCount(count ?? 0)
-            const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
-            sessionStorage.setItem(cacheKey, JSON.stringify({ data, count }))
+          if (fetchAll) {
+            let all: any[] = []
+            let fromIndex = 0
+            const chunkSize = 1000
+            while (true) {
+              const { data, error } = await supabase
+                .rpc('get_attendance_roster_multi', rpcParams)
+                .range(fromIndex, fromIndex + chunkSize - 1)
+              if (error || !data || data.length === 0) break
+              all.push(...data)
+              if (data.length < chunkSize) break
+              fromIndex += chunkSize
+            }
+            return all
+          } else {
+            const fromIndex = (page - 1) * limit
+            const toIndex = fromIndex + limit - 1
+            const { data, error, count } = await supabase
+              .rpc('get_attendance_roster_multi', rpcParams, { count: 'exact' })
+              .range(fromIndex, toIndex)
+
+            if (!error && data) {
+              setRosterMulti(data)
+              setRoster([])
+              setTotalCount(count ?? 0)
+              const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
+              sessionStorage.setItem(cacheKey, JSON.stringify({ data, count, multi: true }))
+            }
+          }
+        } else {
+          const rpcParams = {
+            p_date:       filters.dateFrom,
+            p_session:    filters.session,
+            p_department: filters.department || null,
+            p_section:    filters.section || null,
+          }
+
+          if (fetchAll) {
+            let allRoster: any[] = []
+            let fromIndex = 0
+            const chunkSize = 1000
+            while (true) {
+              const { data, error } = await supabase
+                .rpc('get_attendance_roster', rpcParams)
+                .range(fromIndex, fromIndex + chunkSize - 1)
+              if (error || !data || data.length === 0) break
+              allRoster.push(...data)
+              if (data.length < chunkSize) break
+              fromIndex += chunkSize
+            }
+            return allRoster
+          } else {
+            const fromIndex = (page - 1) * limit
+            const toIndex = fromIndex + limit - 1
+            const { data, error, count } = await supabase
+              .rpc('get_attendance_roster', rpcParams, { count: 'exact' })
+              .range(fromIndex, toIndex)
+
+            if (!error && data) {
+              setRoster(data)
+              setRosterMulti([])
+              setTotalCount(count ?? 0)
+              const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
+              sessionStorage.setItem(cacheKey, JSON.stringify({ data, count, multi: false }))
+            }
           }
         }
       }
@@ -265,12 +355,18 @@ export default function ReportsPage() {
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       try {
-        const { data, count } = JSON.parse(cached)
+        const { data, count, multi } = JSON.parse(cached)
         if (tab === 'records') setRecords(data)
         else if (tab === 'summary') setSummary(data)
         else if (tab === 'batch') setBatchSummary(data)
-        else if (tab === 'batch_roster') setBatchRoster(data)
-        else setRoster(data)
+        else if (tab === 'batch_roster') {
+          if (multi) { setBatchRosterMulti(data); setBatchRoster([]) }
+          else { setBatchRoster(data); setBatchRosterMulti([]) }
+        }
+        else if (tab === 'roster') {
+          if (multi) { setRosterMulti(data); setRoster([]) }
+          else { setRoster(data); setRosterMulti([]) }
+        }
         setTotalCount(count ?? 0)
         setLoading(false)
       } catch (e) { }
@@ -302,12 +398,20 @@ export default function ReportsPage() {
       } else if (tab === 'roster') {
         const allRoster = await loadData(true, true)
         if (allRoster) {
-          await exportRosterToExcel(allRoster, filters.dateFrom, filters.session || 'All Sessions')
+          if (!filters.session) {
+            await exportRosterMultiToExcel(allRoster, filters.dateFrom)
+          } else {
+            await exportRosterToExcel(allRoster, filters.dateFrom, filters.session)
+          }
         }
       } else if (tab === 'batch_roster') {
         const allBatchRoster = await loadData(true, true)
         if (allBatchRoster) {
-          await exportBatchRosterToExcel(allBatchRoster, filters.dateFrom, filters.session || 'All Sessions')
+          if (!filters.session) {
+            await exportBatchRosterMultiToExcel(allBatchRoster, filters.dateFrom)
+          } else {
+            await exportBatchRosterToExcel(allBatchRoster, filters.dateFrom, filters.session)
+          }
         }
       } else if (tab === 'batch') {
         const dateRangeText = filters.dateFrom === filters.dateTo
@@ -335,12 +439,20 @@ export default function ReportsPage() {
       } else if (tab === 'roster') {
         const allRoster = await loadData(true, true)
         if (allRoster) {
-          await exportRosterToPDF(allRoster, filters.dateFrom, filters.session || 'All Sessions')
+          if (!filters.session) {
+            await exportRosterMultiToPDF(allRoster, filters.dateFrom)
+          } else {
+            await exportRosterToPDF(allRoster, filters.dateFrom, filters.session)
+          }
         }
       } else if (tab === 'batch_roster') {
         const allBatchRoster = await loadData(true, true)
         if (allBatchRoster) {
-          await exportBatchRosterToPDF(allBatchRoster, filters.dateFrom, filters.session || 'All Sessions')
+          if (!filters.session) {
+            await exportBatchRosterMultiToPDF(allBatchRoster, filters.dateFrom)
+          } else {
+            await exportBatchRosterToPDF(allBatchRoster, filters.dateFrom, filters.session)
+          }
         }
       } else if (tab === 'batch') {
         const dateRangeText = filters.dateFrom === filters.dateTo
@@ -358,8 +470,8 @@ export default function ReportsPage() {
   const hasResults =
     (tab === 'records' && records.length > 0) ||
     (tab === 'summary' && summary.length > 0) ||
-    (tab === 'roster' && roster.length > 0) ||
-    (tab === 'batch_roster' && batchRoster.length > 0) ||
+    (tab === 'roster' && (roster.length > 0 || rosterMulti.length > 0)) ||
+    (tab === 'batch_roster' && (batchRoster.length > 0 || batchRosterMulti.length > 0)) ||
     (tab === 'batch' && batchSummary.length > 0)
 
   const TAB_META: { id: Tab; label: string }[] = [
@@ -388,7 +500,7 @@ export default function ReportsPage() {
           {TAB_META.map(({ id, label }) => (
             <button
               key={id}
-              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]); setBatchSummary([]); setBatchRoster([]); setPage(1); setTotalCount(0) }}
+              onClick={() => { setTab(id); setRecords([]); setSummary([]); setRoster([]); setRosterMulti([]); setBatchSummary([]); setBatchRoster([]); setBatchRosterMulti([]); setPage(1); setTotalCount(0) }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300
                 ${tab === id
                   ? 'bg-white text-brand-600 shadow-sm'
@@ -720,6 +832,7 @@ export default function ReportsPage() {
             <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50">
               <AttendanceRosterTable
                 rows={roster}
+                multiRows={rosterMulti}
                 loading={false}
                 date={filters.dateFrom}
                 session={filters.session || 'All Sessions'}
@@ -786,6 +899,7 @@ export default function ReportsPage() {
             <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/50">
               <BatchRosterTable
                 rows={batchRoster}
+                multiRows={batchRosterMulti}
                 loading={false}
                 date={filters.dateFrom}
                 session={filters.session || 'All Sessions'}
@@ -855,6 +969,7 @@ export default function ReportsPage() {
         <div className="card">
           <AttendanceRosterTable
             rows={[]}
+            multiRows={[]}
             loading={false}
             date={filters.dateFrom}
             session={filters.session || 'All Sessions'}
@@ -868,6 +983,7 @@ export default function ReportsPage() {
         <div className="card">
           <BatchRosterTable
             rows={[]}
+            multiRows={[]}
             loading={false}
             date={filters.dateFrom}
             session={filters.session || 'All Sessions'}

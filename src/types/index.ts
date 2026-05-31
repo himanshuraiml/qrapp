@@ -100,11 +100,34 @@ export interface RosterRecord {
   present:     boolean
 }
 
+export interface RosterMultiRecord {
+  student_id:   string
+  name:         string
+  department:   string
+  year:         number
+  section:      string
+  fn1_present:  boolean
+  fn2_present:  boolean
+  an1_present:  boolean
+  an2_present:  boolean
+}
+
 export interface BatchRosterRecord {
   student_id:  string
   name:        string
   batch:       string
   year:        number
   present:     boolean
+}
+
+export interface BatchRosterMultiRecord {
+  student_id:   string
+  name:         string
+  batch:        string
+  year:         number
+  fn1_present:  boolean
+  fn2_present:  boolean
+  an1_present:  boolean
+  an2_present:  boolean
 }
 
