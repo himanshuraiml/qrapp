@@ -131,3 +131,19 @@ export interface BatchRosterMultiRecord {
   an2_present:  boolean
 }
 
+export interface StudentAttendanceStats {
+  present_count: number
+  total_conducted: number
+  absent_count: number
+  attendance_pct: number
+}
+
+export interface StudentAttendanceHistoryRecord {
+  date: string
+  session: string
+  present: boolean
+  marked_by_name: string | null
+  timestamp: string | null
+}
+
+

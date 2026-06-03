@@ -3,16 +3,32 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { todayIST, formatDate } from '@/lib/utils'
+import { todayIST, formatDate, formatTime, sessionColor } from '@/lib/utils'
 import QrDisplay from '@/components/student/QrDisplay'
 import AboutApp from '@/components/AboutApp'
-import type { AttendanceRecord, QrPayload } from '@/types'
+import type { AttendanceRecord, QrPayload, StudentAttendanceStats, StudentAttendanceHistoryRecord } from '@/types'
 
 export default function StudentDashboard() {
   const { profile, loading: authLoading } = useAuth()
   const supabase = createClient()
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Attendance stats states
+  const [stats, setStats] = useState<StudentAttendanceStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
+
+  // Attendance history states
+  const [history, setHistory] = useState<StudentAttendanceHistoryRecord[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+
+  // Filters for detailed history view
+  const [histDateFrom, setHistDateFrom] = useState('')
+  const [histDateTo, setHistDateTo] = useState('')
+  const [histSession, setHistSession] = useState('')
+  const [histStatus, setHistStatus] = useState('') // '', 'present', 'absent'
+  const [histSearch, setHistSearch] = useState('')
 
   const fetchRecords = useCallback(async () => {
     if (!profile?.student_id) return
@@ -37,17 +53,56 @@ export default function StudentDashboard() {
     }
   }, [profile?.student_id, supabase])
 
+  const fetchStats = useCallback(async () => {
+    if (!profile?.student_id) return
+    setStatsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .rpc('get_student_attendance_stats', { p_student_id: profile.student_id })
+      if (error) {
+        console.error('Failed to fetch attendance stats:', error)
+      } else {
+        setStats(data as StudentAttendanceStats)
+      }
+    } catch (err) {
+      console.error('Error fetching stats:', err)
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [profile?.student_id, supabase])
+
+  const fetchHistory = useCallback(async () => {
+    if (!profile?.student_id) return
+    setHistoryLoading(true)
+    try {
+      const { data, error } = await supabase
+        .rpc('get_student_attendance_history', { p_student_id: profile.student_id })
+      if (error) {
+        console.error('Failed to fetch attendance history:', error)
+      } else {
+        setHistory((data as StudentAttendanceHistoryRecord[]) ?? [])
+      }
+    } catch (err) {
+      console.error('Error fetching history:', err)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [profile?.student_id, supabase])
+
   // Initial fetch
   useEffect(() => {
     if (authLoading) return
     if (!profile?.student_id) {
       setLoading(false)
+      setStatsLoading(false)
       return
     }
     fetchRecords()
-  }, [authLoading, profile?.student_id, fetchRecords])
+    fetchStats()
+    fetchHistory()
+  }, [authLoading, profile?.student_id, fetchRecords, fetchStats, fetchHistory])
 
-  // Real-time subscription
+  // Real-time subscription (listening to any change in attendance)
   useEffect(() => {
     if (authLoading || !profile?.student_id) return
 
@@ -56,20 +111,15 @@ export default function StudentDashboard() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'attendance',
           filter: `student_id=eq.${profile.student_id}`,
         },
-        (payload) => {
-          const newRecord = payload.new as AttendanceRecord
-          setRecords((prev) => {
-            if (prev.some((r) => r.id === newRecord.id)) return prev
-            return [newRecord, ...prev].sort((a, b) => {
-              if (a.date !== b.date) return b.date.localeCompare(a.date)
-              return b.session.localeCompare(a.session)
-            })
-          })
+        () => {
+          fetchRecords()
+          fetchStats()
+          fetchHistory()
         }
       )
       .subscribe()
@@ -77,7 +127,8 @@ export default function StudentDashboard() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [profile?.student_id, authLoading, supabase])
+  }, [profile?.student_id, authLoading, supabase, fetchRecords, fetchStats, fetchHistory])
+
 
   const today = todayIST()
   const todayRecords = records.filter((r: AttendanceRecord) => r.date === today)
@@ -91,18 +142,47 @@ export default function StudentDashboard() {
     return acc
   }, {})
 
+  const filteredHistory = useMemo(() => {
+    return history.filter((item) => {
+      // Date filters
+      if (histDateFrom && item.date < histDateFrom) return false
+      if (histDateTo && item.date > histDateTo) return false
+
+      // Session filter
+      if (histSession && item.session !== histSession) return false
+
+      // Status filter
+      if (histStatus) {
+        const isPresent = item.present
+        if (histStatus === 'present' && !isPresent) return false
+        if (histStatus === 'absent' && isPresent) return false
+      }
+
+      // Search filter (searches date or marked_by_name)
+      if (histSearch) {
+        const query = histSearch.toLowerCase()
+        const matchDate = formatDate(item.date).toLowerCase().includes(query) || item.date.includes(query)
+        const matchFaculty = item.marked_by_name?.toLowerCase().includes(query) ?? false
+        if (!matchDate && !matchFaculty) return false
+      }
+
+      return true
+    })
+  }, [history, histDateFrom, histDateTo, histSession, histStatus, histSearch])
+
+
   const qrPayload: QrPayload | null = useMemo(() => profile?.student_id
     ? {
-        student_id: profile.student_id,
-        name: profile.name,
-        department: profile.department ?? '',
-        year: profile.year ?? 1,
-        section: profile.section ?? '',
-        batch: profile.batch ?? '',
-        ts: 0,
-      }
+      student_id: profile.student_id,
+      name: profile.name,
+      department: profile.department ?? '',
+      year: profile.year ?? 1,
+      section: profile.section ?? '',
+      batch: profile.batch ?? '',
+      ts: 0,
+    }
     : null,
-  [profile?.student_id, profile?.name, profile?.department, profile?.year, profile?.section, profile?.batch])
+    [profile?.student_id, profile?.name, profile?.department, profile?.year, profile?.section, profile?.batch])
 
   const initials = useMemo(() => {
     if (!profile?.name) return 'ST'
@@ -121,7 +201,7 @@ export default function StudentDashboard() {
       <div className="card-premium relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-white/10 shadow-2xl p-6 sm:p-8 rounded-[2rem]">
         <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-brand-500/10 rounded-full blur-[80px] pointer-events-none"></div>
         <div className="absolute bottom-[-50%] left-[-10%] w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[70px] pointer-events-none"></div>
-        
+
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start md:items-center justify-between gap-6">
           {/* Left Side: Avatar + Info */}
           <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 text-center sm:text-left">
@@ -129,15 +209,15 @@ export default function StudentDashboard() {
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-brand-600/20 to-indigo-600/30 border-2 border-white/15 flex items-center justify-center text-white text-2xl sm:text-3xl font-extrabold shadow-inner shadow-brand-500/20 transition-all duration-300 hover:scale-105 select-none">
               {initials}
             </div>
-            
+
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/25 text-brand-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                 <span>🎓</span> Student Profile
               </div>
-              
+
               <div className="space-y-1">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-heading leading-tight">{profile?.name}</h1>
-                
+
                 {/* Responsive Badges */}
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
                   <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
@@ -158,13 +238,91 @@ export default function StudentDashboard() {
               </div>
             </div>
           </div>
-          
+
           {/* Right Side: Roll Number ID Card */}
           <div className="w-full sm:w-auto text-center sm:text-right flex flex-col items-center sm:items-end justify-center gap-1">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SRMIST ROLL NO</span>
             <div className="inline-block bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl font-mono text-xs sm:text-sm text-brand-300 select-all shadow-inner tracking-wider font-bold">
               {profile?.student_id}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Premium Statistics Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 animate-fade-in">
+        {/* Overall Percentage Card */}
+        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-start justify-between">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Attendance Rate</span>
+            <span className="text-xl">📈</span>
+          </div>
+          <div className="mt-4 space-y-1">
+            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+              {statsLoading ? '—' : `${stats?.attendance_pct ?? 0}%`}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className={`w-2 h-2 rounded-full ${statsLoading ? 'bg-slate-300 animate-pulse' :
+                  (stats?.attendance_pct ?? 0) >= 75 ? 'bg-emerald-500' :
+                    (stats?.attendance_pct ?? 0) >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                }`} />
+              <span className="text-[10px] font-bold text-slate-400">
+                {statsLoading ? 'Calculating...' :
+                  (stats?.attendance_pct ?? 0) >= 75 ? 'Excellent Standing' :
+                    (stats?.attendance_pct ?? 0) >= 50 ? 'Good Standing' : 'Below Target'}
+              </span>
+            </div>
+            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-3">
+              <div
+                className={`h-full rounded-full transition-all duration-1000 ${statsLoading ? 'w-1/3 animate-pulse bg-slate-200' :
+                    (stats?.attendance_pct ?? 0) >= 75 ? 'bg-emerald-500' :
+                      (stats?.attendance_pct ?? 0) >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                  }`}
+                style={{ width: statsLoading ? undefined : `${stats?.attendance_pct ?? 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Sessions Scanned Card */}
+        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-start justify-between">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading font-heading">Sessions Scanned</span>
+            <span className="text-xl">📁</span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+              {statsLoading ? '—' : stats?.total_conducted ?? 0}
+            </p>
+            <p className="text-[10px] font-bold text-slate-400 mt-1">Conducted sessions</p>
+          </div>
+        </div>
+
+        {/* Present Sessions Card */}
+        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-start justify-between">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Present</span>
+            <span className="text-xl text-emerald-500">✓</span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+              {statsLoading ? '—' : stats?.present_count ?? 0}
+            </p>
+            <p className="text-[10px] font-bold text-slate-400 mt-1">Scans verified</p>
+          </div>
+        </div>
+
+        {/* Absent Sessions Card */}
+        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-start justify-between">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Absent</span>
+            <span className="text-xl text-red-500">✕</span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+              {statsLoading ? '—' : stats?.absent_count ?? 0}
+            </p>
+            <p className="text-[10px] font-bold text-slate-400 mt-1">Sessions missed</p>
           </div>
         </div>
       </div>
@@ -220,18 +378,26 @@ export default function StudentDashboard() {
                 <h3 className="text-sm font-extrabold text-slate-800 font-heading">Recent Attendance Logs</h3>
                 <p className="text-xs text-slate-400">List of your recent verified scans</p>
               </div>
-              <button
-                onClick={() => fetchRecords()}
-                className="text-xs text-brand-600 hover:text-brand-700 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 transition-all duration-300"
-                disabled={loading}
-              >
-                {loading ? (
-                  <span className="w-3.5 h-3.5 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <span>🔄</span>
-                )}
-                <span>Refresh Logs</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHistoryOpen(true)}
+                  className="text-xs text-brand-600 hover:text-brand-700 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 transition-all duration-300 border border-brand-200/50 shadow-sm"
+                >
+                  <span>📅</span> History
+                </button>
+                <button
+                  onClick={() => fetchRecords()}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/50 shadow-sm transition-all duration-300"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span className="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span>🔄</span>
+                  )}
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
 
             {loading ? (
@@ -270,6 +436,168 @@ export default function StudentDashboard() {
       </div>
 
       <AboutApp />
+
+      {/* Attendance History Drawer / Modal */}
+      {historyOpen && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6 animate-fade-in animate-duration-200">
+          <div className="w-full max-w-3xl bg-white rounded-[2rem] border border-slate-100 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-800 font-heading">Complete Attendance History</h3>
+                <p className="text-xs text-slate-400">Total {filteredHistory.length} sessions matching filters</p>
+              </div>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Filters Row */}
+            <div className="p-6 bg-slate-50/50 border-b border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">From Date</label>
+                <input
+                  type="date"
+                  value={histDateFrom}
+                  onChange={(e) => setHistDateFrom(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">To Date</label>
+                <input
+                  type="date"
+                  value={histDateTo}
+                  onChange={(e) => setHistDateTo(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Session</label>
+                <select
+                  value={histSession}
+                  onChange={(e) => setHistSession(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold text-slate-700"
+                >
+                  <option value="">All Sessions</option>
+                  <option value="FN1">FN1</option>
+                  <option value="FN2">FN2</option>
+                  <option value="AN1">AN1</option>
+                  <option value="AN2">AN2</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                <select
+                  value={histStatus}
+                  onChange={(e) => setHistStatus(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold text-slate-700"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="present">🟢 Present</option>
+                  <option value="absent">🔴 Absent</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Quick Search */}
+            <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-white">
+              <input
+                type="text"
+                placeholder="Search by faculty name or date..."
+                value={histSearch}
+                onChange={(e) => setHistSearch(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              />
+            </div>
+
+            {/* History Records Table / Scroll List */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {historyLoading ? (
+                <div className="py-12 flex flex-col items-center justify-center space-y-2">
+                  <span className="w-8 h-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
+                  <span className="text-xs text-slate-400 font-medium">Loading history logs...</span>
+                </div>
+              ) : filteredHistory.length === 0 ? (
+                <div className="text-center py-12 space-y-2">
+                  <span className="text-3xl">📭</span>
+                  <p className="text-xs font-bold text-slate-400">No matching attendance logs found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/20">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50">
+                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Session</th>
+                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Marked Time</th>
+                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Verified By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {filteredHistory.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4 font-semibold text-slate-700">{formatDate(item.date)}</td>
+                          <td className="p-4">
+                            <span className={`badge ${sessionColor(item.session)} text-[10px]`}>
+                              {item.session}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            {item.present ? (
+                              <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold animate-fade-in">
+                                🟢 Present
+                              </span>
+                            ) : (
+                              <span className="badge bg-red-50 text-red-700 border border-red-100 text-[10px] font-bold animate-fade-in">
+                                🔴 Absent
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 font-semibold text-slate-400">
+                            {item.timestamp ? formatTime(item.timestamp) : '—'}
+                          </td>
+                          <td className="p-4 font-semibold text-slate-500">
+                            {item.marked_by_name || (item.present ? 'Faculty' : '—')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end gap-3">
+              {(histDateFrom || histDateTo || histSession || histStatus || histSearch) && (
+                <button
+                  onClick={() => {
+                    setHistDateFrom('')
+                    setHistDateTo('')
+                    setHistSession('')
+                    setHistStatus('')
+                    setHistSearch('')
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  Clear Filters
+                </button>
+              )}
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="btn-primary px-5 py-2 text-xs font-bold"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -27,11 +27,8 @@ export default function AttendanceRosterTable({ rows, multiRows, loading, date, 
 
   const isMulti = session === 'All Sessions' || session === ''
 
-  // Only show session columns that had at least one present student
-  const activeCols = useMemo(
-    () => SESSION_COLS.filter(({ key }) => multiRows.some((r) => r[key] === true)),
-    [multiRows]
-  )
+  // Show all standard session columns to avoid layout shift and pagination hiding issues
+  const activeCols = SESSION_COLS
 
   // Group single-session rows by dept+section
   const singleGroups = useMemo(() => {
