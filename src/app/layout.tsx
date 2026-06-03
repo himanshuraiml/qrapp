@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: 'QR Attendance — SRMIST Tiruchirappalli Campus',
   description: 'QR Code Based Attendance System for SRMIST Tiruchirappalli Campus',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icon.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

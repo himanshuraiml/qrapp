@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Rounded background with brand gradient -->
+  <rect width="32" height="32" rx="8" fill="url(#bg-grad)"/>
+  
+  <!-- QR Finder Pattern: Top-Left -->
+  <path d="M4 4h6v6H4V4zm1 1v4h4V5H5zm1 1h2v2H6V6z" fill="#ffffff"/>
+  
+  <!-- QR Finder Pattern: Top-Right -->
+  <path d="M22 4h6v6h-6V4zm1 1v4h4V5h-4zm1 1h2v2h-2V6z" fill="#ffffff"/>
+  
+  <!-- QR Finder Pattern: Bottom-Left -->
+  <path d="M4 22h6v6H4v-6zm1 1v4h4v-4H5zm1 1h2v2H6v-2z" fill="#ffffff"/>
+  
+  <!-- Timing patterns & static pixels -->
+  <path d="M12 4h2v2h-2zm4 0h2v2h-2zm2 0h2v2h-2zm-6 3h2v2h-2zm4 0h2v2h-2zm6 0h2v2h-2zm-12 3h2v2h-2zm4 0h2v2h-2zm6 0h2v2h-2zm-10 3h2v2h-2zm4 0h2v2h-2zm2 0h2v2h-2zm4 0h2v2h-2zm6 0h2v2h-2zm-16 4h2v2h-2zm4 0h2v2h-2zm4 0h2v2h-2zm6 0h2v2h-2zm2 0h2v2h-2zm-16 4h2v2h-2zm8 0h2v2h-2zm4 0h2v2h-2zm6 0h2v2h-2zm-14 4h2v2h-2zm4 0h2v2h-2zm4 0h2v2h-2zm2 0h2v2h-2zm4 0h2v2h-2z" fill="#ffffff"/>
+  
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366f1"/>
+      <stop stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+</svg>
