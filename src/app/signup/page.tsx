@@ -91,13 +91,12 @@ export default function SignupPage() {
 
       <div className="w-full max-w-lg relative z-10 animate-slide-up">
         {/* Branding */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 shadow-xl shadow-brand-500/20 mb-3 transform hover:scale-105 transition-all duration-300">
-            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-          </div>
+        <div className="text-center mb-6 flex flex-col items-center">
+          <img
+            src="https://www.facultyplus.com/wp-content/uploads/2024/01/cropped-srm-trp-logo.png"
+            alt="SRMIST Logo"
+            className="h-16 w-auto object-contain mb-3 bg-white/10 backdrop-blur-sm p-2 rounded-2xl border border-white/10 hover:scale-105 transition-transform duration-300"
+          />
           <h1 className="text-3xl font-extrabold text-white tracking-tight font-heading">Join QR Attendance</h1>
           <p className="text-brand-300 text-xs font-semibold mt-1 tracking-widest uppercase">Create Your Account</p>
         </div>

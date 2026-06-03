@@ -87,13 +87,12 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative z-10 animate-slide-up">
         {/* Logo / Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 shadow-xl shadow-brand-500/20 mb-4 transform hover:scale-105 transition-all duration-300">
-            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
-          </div>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img
+            src="https://www.facultyplus.com/wp-content/uploads/2024/01/cropped-srm-trp-logo.png"
+            alt="SRMIST Logo"
+            className="h-20 w-auto object-contain mb-4 filter drop-shadow-md hover:scale-105 transition-transform duration-300"
+          />
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight font-heading">{LABELS.title}</h1>
           <p className="text-brand-600 text-xs font-semibold mt-1 tracking-widest uppercase">{LABELS.subtitle}</p>
         </div>

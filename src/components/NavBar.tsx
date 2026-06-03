@@ -76,9 +76,11 @@ export default function NavBar({ role }: { role: UserRole }) {
           {/* Logo + role badge */}
           <div className="flex items-center gap-3">
             <Link href={`/${role.toLowerCase()}`} className="flex items-center gap-2">
-              <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold', ROLE_COLORS[role])}>
-                QR
-              </div>
+              <img
+                src="https://www.facultyplus.com/wp-content/uploads/2024/01/cropped-srm-trp-logo.png"
+                alt="SRMIST Logo"
+                className="h-7 w-auto object-contain filter drop-shadow-sm hover:scale-105 transition-transform duration-300"
+              />
               <span className="font-semibold text-slate-800 text-sm hidden sm:block">QR Attendance</span>
             </Link>
             <span className={cn('badge text-white text-xs hidden sm:inline-flex', ROLE_COLORS[role])}>
