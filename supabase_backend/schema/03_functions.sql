@@ -48,11 +48,11 @@ BEGIN
   ORDER BY timestamp DESC
   LIMIT 1;
 
-  -- 3. If there is a previous scan, check the 1-hour gap rule
+  -- 3. If there is a previous scan, check the 1.5-hour gap rule
   IF v_last_id IS NOT NULL THEN
     v_gap_minutes := EXTRACT(EPOCH FROM (p_timestamp - v_last_timestamp)) / 60;
-    
-    IF v_gap_minutes < 60 THEN
+
+    IF v_gap_minutes < 90 THEN
       RETURN json_build_object(
         'success', FALSE,
         'message', 'Already marked (' || v_last_session || ' marked ' || ROUND(v_gap_minutes)::TEXT || 'm ago)',
