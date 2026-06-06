@@ -112,7 +112,7 @@ export default function AdminDashboard() {
   const [depts, setDepts] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [batchView, setBatchView] = useState<'grid' | 'table'>('table')
+  const [batchView, setBatchView] = useState<'grid' | 'table'>('grid')
 
   async function handleExportExcel() {
     setExporting(true)
