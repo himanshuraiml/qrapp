@@ -1,12 +1,23 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { todayIST, isQrFresh } from '@/lib/utils'
 import type { QrPayload } from '@/types'
 
 type ScanResult = { type: 'success' | 'error' | 'duplicate'; message: string; studentName?: string; studentId?: string; session?: string }
+
+interface OfflineScan {
+  student_id: string
+  name: string
+  department: string
+  section: string
+  year: number
+  batch: string | null
+  timestamp: string // ISO timestamp of scan
+  date: string // YYYY-MM-DD
+}
 
 export default function ScanPage() {
   const router = useRouter()
@@ -29,11 +40,60 @@ export default function ScanPage() {
   }>>([])
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Get active session mode on mount
+  // Haptic feedback & Offline queue states
+  const [hapticsEnabled, setHapticsEnabled] = useState(true)
+  const [offlineQueue, setOfflineQueue] = useState<OfflineScan[]>([])
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  const offlineQueueRef = useRef(offlineQueue)
+  const isSyncingRef = useRef(isSyncing)
+
+  useEffect(() => {
+    offlineQueueRef.current = offlineQueue
+  }, [offlineQueue])
+
+  useEffect(() => {
+    isSyncingRef.current = isSyncing
+  }, [isSyncing])
+
+  // Get active session mode and load settings/queue on mount
   useEffect(() => {
     const hour = new Date().getHours()
     setSessionMode(hour < 12 ? 'FN' : 'AN')
+
+    if (typeof window !== 'undefined') {
+      const savedHaptics = localStorage.getItem('scan_haptics_enabled')
+      if (savedHaptics !== null) {
+        setHapticsEnabled(savedHaptics === 'true')
+      }
+      const savedQueue = localStorage.getItem('offline_scans_queue')
+      if (savedQueue) {
+        try {
+          setOfflineQueue(JSON.parse(savedQueue))
+        } catch (e) {
+          console.error("Failed to parse offline scans queue", e)
+        }
+      }
+    }
   }, [])
+
+  const toggleHaptics = () => {
+    setHapticsEnabled((prev) => {
+      const newVal = !prev
+      localStorage.setItem('scan_haptics_enabled', String(newVal))
+      return newVal
+    })
+  }
+
+  const triggerHaptic = (pattern: number[]) => {
+    if (hapticsEnabled && typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(pattern)
+      } catch (e) {
+        console.warn("Haptic feedback error:", e)
+      }
+    }
+  }
 
   // Restart scanner when user returns from phone call or tab switch
   useEffect(() => {
@@ -162,6 +222,124 @@ export default function ScanPage() {
     processingRef.current = false
   }
 
+  const syncOfflineScans = useCallback(async () => {
+    if (isSyncingRef.current || offlineQueueRef.current.length === 0) return
+    setIsSyncing(true)
+
+    if (!navigator.onLine) {
+      setIsSyncing(false)
+      alert('You are still offline. Please connect to the internet first.')
+      return
+    }
+
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        setIsSyncing(false)
+        alert('Your session has expired. Please log out and log in again to sync.')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles').select('name').eq('id', user.id).single()
+      const facultyName = profile?.name ?? 'Faculty'
+
+      let successCount = 0
+      let duplicateCount = 0
+      let failureCount = 0
+      let remainingQueue = [...offlineQueueRef.current]
+      const processedScans = []
+
+      for (const scan of offlineQueueRef.current) {
+        try {
+          const { data, error: rpcError } = await supabase.rpc('mark_attendance_safe', {
+            p_student_id: scan.student_id,
+            p_student_name: scan.name,
+            p_department: scan.department,
+            p_section: scan.section,
+            p_year: scan.year,
+            p_batch: scan.batch,
+            p_session: null,
+            p_marked_by: user.id,
+            p_marked_by_name: facultyName,
+            p_date: scan.date,
+            p_timestamp: scan.timestamp,
+          })
+
+          if (rpcError) {
+            if (rpcError.message?.includes('fetch') || rpcError.message?.includes('network') || rpcError.message?.includes('Failed to fetch')) {
+              throw new Error('Network error during sync')
+            }
+            failureCount++
+            remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
+            continue
+          }
+
+          if (data?.success) {
+            successCount++
+            const sessionLabel = data.session || (sessionMode + '1')
+            processedScans.push({
+              id: scan.student_id,
+              name: scan.name,
+              session: sessionLabel,
+              type: 'success' as const,
+              message: 'Marked Present (Synced)'
+            })
+          } else {
+            duplicateCount++
+            processedScans.push({
+              id: scan.student_id,
+              name: scan.name,
+              session: sessionMode + '1',
+              type: 'duplicate' as const,
+              message: data?.message ?? 'Already Verified'
+            })
+          }
+
+          remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
+        } catch (e) {
+          console.error("Error syncing scan for student:", scan.student_id, e)
+          break
+        }
+      }
+
+      setOfflineQueue(remainingQueue)
+      localStorage.setItem('offline_scans_queue', JSON.stringify(remainingQueue))
+
+      if (successCount > 0) {
+        setScanCount(c => c + successCount)
+      }
+
+      processedScans.forEach(scan => {
+        addToRecentScans(scan.id, scan.name, scan.session, scan.type, scan.message)
+      })
+
+      let alertMsg = `Sync complete! `
+      if (successCount > 0) alertMsg += `${successCount} present marked. `
+      if (duplicateCount > 0) alertMsg += `${duplicateCount} already verified. `
+      if (failureCount > 0) alertMsg += `${failureCount} failed. `
+      if (remainingQueue.length > 0) alertMsg += `${remainingQueue.length} scans remaining in queue due to connection issues.`
+      
+      alert(alertMsg)
+    } catch (e) {
+      console.error("Sync failed", e)
+      alert('An unexpected error occurred during sync.')
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [supabase, sessionMode])
+
+  // Auto-sync when system returns online
+  useEffect(() => {
+    const handleOnline = () => {
+      if (offlineQueueRef.current.length > 0) {
+        syncOfflineScans()
+      }
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [syncOfflineScans])
+
   async function handleQrCode(text: string) {
     if (processingRef.current) return
     processingRef.current = true
@@ -177,6 +355,7 @@ export default function ScanPage() {
       } catch {
         const errResult: ScanResult = { type: 'error', message: 'Could not read QR code. Re-align code.' }
         setResult(errResult)
+        triggerHaptic([400])
         addToRecentScans('N/A', 'Malformed Code', 'N/A', 'error', 'Could not read QR code')
         scheduleClear(1200)
         return
@@ -185,6 +364,7 @@ export default function ScanPage() {
       if (!payload.student_id || !payload.ts) {
         const errResult: ScanResult = { type: 'error', message: 'Invalid academic QR code structure' }
         setResult(errResult)
+        triggerHaptic([400])
         addToRecentScans('N/A', payload.name || 'Unknown Student', 'N/A', 'error', 'Invalid code structure')
         scheduleClear(1200)
         return
@@ -193,50 +373,126 @@ export default function ScanPage() {
       if (!isQrFresh(payload.ts)) {
         const errResult: ScanResult = { type: 'error', message: 'QR code expired. Ask student to tap refresh on dashboard.' }
         setResult(errResult)
+        triggerHaptic([400])
         addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'QR code expired')
         scheduleClear(1200)
         return
       }
 
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError || !user) {
-        const errResult: ScanResult = { type: 'error', message: 'Session expired. Please log out and log in again.' }
-        setResult(errResult)
-        addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Session expired')
+      let userProfile: { name: string; id: string } | null = null
+      let dbResult: any = null
+      let networkErrorOccurred = false
+
+      try {
+        if (!navigator.onLine) {
+          throw new TypeError('Failed to fetch (offline)')
+        }
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError) throw userError
+        if (!user) {
+          const errResult: ScanResult = { type: 'error', message: 'Session expired. Please log out and log in again.' }
+          setResult(errResult)
+          triggerHaptic([400])
+          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Session expired')
+          scheduleClear(1200)
+          return
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles').select('name').eq('id', user.id).single()
+
+        userProfile = { name: profile?.name ?? 'Faculty', id: user.id }
+
+        const today = todayIST()
+        const { data, error: rpcError } = await supabase.rpc('mark_attendance_safe', {
+          p_student_id: payload.student_id,
+          p_student_name: payload.name,
+          p_department: payload.department,
+          p_section: payload.section,
+          p_year: payload.year,
+          p_batch: payload.batch,
+          p_session: null,
+          p_marked_by: user.id,
+          p_marked_by_name: userProfile.name,
+          p_date: today,
+          p_timestamp: new Date().toISOString(),
+        })
+
+        if (rpcError) {
+          if (rpcError.message?.includes('fetch') || rpcError.message?.includes('network') || rpcError.message?.includes('Failed to fetch')) {
+            throw new TypeError('Failed to fetch (RPC network)')
+          }
+          const errResult: ScanResult = { type: 'error', message: `Database error: ${rpcError.message}` }
+          setResult(errResult)
+          triggerHaptic([400])
+          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', rpcError.message)
+          scheduleClear(1200)
+          return
+        }
+        dbResult = data
+      } catch (err: any) {
+        if (err instanceof TypeError || err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Failed to fetch') || err.status === 0 || !navigator.onLine) {
+          networkErrorOccurred = true
+        } else {
+          const errMsg = err?.message ?? 'An unexpected error occurred'
+          setResult({ type: 'error', message: errMsg })
+          triggerHaptic([400])
+          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', errMsg)
+          scheduleClear(1200)
+          return
+        }
+      }
+
+      // Handle offline fallback queueing
+      if (networkErrorOccurred) {
+        const isAlreadyOffline = offlineQueueRef.current.some(x => x.student_id === payload.student_id)
+        if (isAlreadyOffline) {
+          setResult({
+            type: 'duplicate',
+            message: 'Already queued offline for sync',
+            studentName: payload.name,
+            studentId: payload.student_id
+          })
+          triggerHaptic([400])
+          addToRecentScans(payload.student_id, payload.name, sessionMode + '1', 'duplicate', 'Already in offline queue')
+          scheduleClear(1200)
+          return
+        }
+
+        const newScan: OfflineScan = {
+          student_id: payload.student_id,
+          name: payload.name,
+          department: payload.department,
+          section: payload.section,
+          year: payload.year,
+          batch: payload.batch || null,
+          timestamp: new Date().toISOString(),
+          date: todayIST()
+        }
+
+        const updatedQueue = [...offlineQueueRef.current, newScan]
+        setOfflineQueue(updatedQueue)
+        localStorage.setItem('offline_scans_queue', JSON.stringify(updatedQueue))
+
+        triggerHaptic([100, 50, 100])
+
+        setResult({
+          type: 'success',
+          message: 'Saved Offline (Pending Sync)',
+          studentName: payload.name,
+          studentId: payload.student_id,
+          session: sessionMode + '1'
+        })
+        addToRecentScans(payload.student_id, payload.name, sessionMode + '1', 'success', 'Queued Offline')
         scheduleClear(1200)
         return
       }
 
-      const { data: profile } = await supabase
-        .from('profiles').select('name').eq('id', user.id).single()
-
-      const today = todayIST()
-
-      const { data, error: rpcError } = await supabase.rpc('mark_attendance_safe', {
-        p_student_id: payload.student_id,
-        p_student_name: payload.name,
-        p_department: payload.department,
-        p_section: payload.section,
-        p_year: payload.year,
-        p_batch: payload.batch,
-        p_session: null,
-        p_marked_by: user.id,
-        p_marked_by_name: profile?.name ?? 'Faculty',
-        p_date: today,
-        p_timestamp: new Date().toISOString(),
-      })
-
-      if (rpcError) {
-        const errResult: ScanResult = { type: 'error', message: `Database error: ${rpcError.message}` }
-        setResult(errResult)
-        addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', rpcError.message)
-        scheduleClear(1200)
-        return
-      }
-
-      if (data?.success) {
+      // Handle online response
+      if (dbResult?.success) {
         setScanCount((c) => c + 1)
-        const sess = data.session || (sessionMode + '1')
+        const sess = dbResult.session || (sessionMode + '1')
         setResult({
           type: 'success',
           message: `Scanned Successfully`,
@@ -244,22 +500,25 @@ export default function ScanPage() {
           studentId: payload.student_id,
           session: sess,
         })
+        triggerHaptic([100, 50, 100])
         addToRecentScans(payload.student_id, payload.name, sess, 'success', 'Marked Present')
         scheduleClear(1200)
       } else {
-        const msg = data?.message ?? `Attendance already verified`
+        const msg = dbResult?.message ?? `Attendance already verified`
         setResult({
           type: 'duplicate',
           message: msg,
           studentName: payload.name,
           studentId: payload.student_id,
         })
+        triggerHaptic([400])
         addToRecentScans(payload.student_id, payload.name, (sessionMode + '1'), 'duplicate', msg)
         scheduleClear(1200)
       }
     } catch (err: any) {
       const errMsg = err?.message ?? 'An unexpected error occurred'
       setResult({ type: 'error', message: errMsg })
+      triggerHaptic([400])
       addToRecentScans('N/A', 'Error', 'N/A', 'error', errMsg)
       scheduleClear(1200)
     }
@@ -267,17 +526,62 @@ export default function ScanPage() {
 
   return (
     <div className="space-y-6 max-w-lg mx-auto px-4 pb-12">
-      <div className="flex items-center gap-4 bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm">
-        <button onClick={() => router.back()} className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
-          <span className="text-slate-600 font-bold text-sm">←</span>
-        </button>
-        <div>
-          <h1 className="text-base font-extrabold text-slate-800 font-heading">QR Scanner</h1>
-          <p className="text-xs text-slate-500 font-medium">
-            Active: <span className="font-bold text-brand-600">Auto-Session Selection ({sessionMode})</span>
-          </p>
+      <div className="flex items-center justify-between gap-4 bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.back()} className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
+            <span className="text-slate-600 font-bold text-sm">←</span>
+          </button>
+          <div>
+            <h1 className="text-base font-extrabold text-slate-800 font-heading">QR Scanner</h1>
+            <p className="text-xs text-slate-500 font-medium">
+              Active: <span className="font-bold text-brand-600">Auto ({sessionMode})</span>
+            </p>
+          </div>
         </div>
+
+        {/* Haptic Feedback Toggle */}
+        <button 
+          onClick={toggleHaptics} 
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl border transition-all text-xs font-bold ${
+            hapticsEnabled 
+              ? 'bg-brand-50 border-brand-200 text-brand-700 shadow-sm shadow-brand-500/5' 
+              : 'bg-slate-50 border-slate-200 text-slate-400'
+          }`}
+          title="Toggle vibration feedback"
+        >
+          <span>{hapticsEnabled ? '📳 Haptics On' : '📴 Haptics Off'}</span>
+        </button>
       </div>
+
+      {/* Offline Queue Sync Card */}
+      {offlineQueue.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200/60 p-4 rounded-3xl shadow-sm flex items-center justify-between gap-4 animate-slide-up">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-lg animate-pulse flex-shrink-0">
+              ☁️
+            </div>
+            <div>
+              <p className="text-xs font-extrabold text-amber-800">
+                {offlineQueue.length} Pending Scan{offlineQueue.length > 1 ? 's' : ''} Offline
+              </p>
+              <p className="text-[10px] text-amber-600 font-medium mt-0.5">
+                Saved locally. Sync when connection is restored.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={syncOfflineScans}
+            disabled={isSyncing}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition-all flex-shrink-0 ${
+              isSyncing
+                ? 'bg-amber-100/50 border-amber-200 text-amber-400 cursor-not-allowed'
+                : 'bg-amber-600 hover:bg-amber-700 border-amber-700 text-white shadow-sm active:scale-95'
+            }`}
+          >
+            {isSyncing ? 'Syncing...' : 'Sync Now'}
+          </button>
+        </div>
+      )}
 
       <div className="card overflow-hidden p-0 rounded-[2rem] bg-slate-950 border border-white/5 relative">
         {active && (
