@@ -68,6 +68,14 @@ export interface SessionSettings {
   morning_end: string
   afternoon_start: string
   afternoon_end: string
+  fn1_start: string
+  fn1_end: string
+  fn2_start: string
+  fn2_end: string
+  an1_start: string
+  an1_end: string
+  an2_start: string
+  an2_end: string
   enabled: boolean
   updated_at: string
 }

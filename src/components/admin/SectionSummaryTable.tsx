@@ -161,10 +161,10 @@ export default function SectionSummaryTable({ rows, loading, date, showExport = 
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white/60 backdrop-blur-md">
-        <table className="w-full text-xs min-w-[480px]">
-          <thead>
-            <tr className="text-left border-b border-slate-100 bg-slate-50/70">
+      <div className="overflow-x-auto max-h-[480px] overflow-y-auto rounded-2xl border border-slate-100 bg-white/60 backdrop-blur-md relative">
+        <table className="w-full text-xs min-w-[480px] border-collapse">
+          <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur-md shadow-[0_1px_0_0_rgba(226,232,240,0.8)]">
+            <tr className="text-left">
               {/* Department */}
               <th className="px-5 py-3.5 font-extrabold text-slate-500 uppercase tracking-widest">
                 Department

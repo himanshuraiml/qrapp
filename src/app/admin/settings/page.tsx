@@ -25,10 +25,18 @@ export default function SettingsPage() {
     if (!settings) return
     setSaving(true)
     await supabase.from('session_settings').update({
-      morning_start:   settings.morning_start,
-      morning_end:     settings.morning_end,
-      afternoon_start: settings.afternoon_start,
-      afternoon_end:   settings.afternoon_end,
+      morning_start:   settings.fn1_start,
+      morning_end:     settings.fn2_end,
+      afternoon_start: settings.an1_start,
+      afternoon_end:   settings.an2_end,
+      fn1_start:       settings.fn1_start,
+      fn1_end:         settings.fn1_end,
+      fn2_start:       settings.fn2_start,
+      fn2_end:         settings.fn2_end,
+      an1_start:       settings.an1_start,
+      an1_end:         settings.an1_end,
+      an2_start:       settings.an2_start,
+      an2_end:         settings.an2_end,
       enabled:         settings.enabled,
     }).eq('id', 1)
     setSaving(false)
@@ -43,7 +51,7 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold text-slate-900">Session Settings</h1>
 
       <div className="card">
-        <form onSubmit={handleSave} className="space-y-5">
+        <form onSubmit={handleSave} className="space-y-6">
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <div>
               <p className="font-medium text-slate-800">Enforce session hours</p>
@@ -60,30 +68,77 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">FN Start</label>
-              <input type="time" className="input" value={settings?.morning_start ?? ''}
-                onChange={(e) => setField('morning_start', e.target.value)} />
+          <div className="space-y-4">
+            {/* FN1 Session */}
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Forenoon 1 (FN1)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Start Time</label>
+                  <input type="time" className="input" value={settings?.fn1_start ?? ''}
+                    onChange={(e) => setField('fn1_start', e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">End Time</label>
+                  <input type="time" className="input" value={settings?.fn1_end ?? ''}
+                    onChange={(e) => setField('fn1_end', e.target.value)} />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">FN End</label>
-              <input type="time" className="input" value={settings?.morning_end ?? ''}
-                onChange={(e) => setField('morning_end', e.target.value)} />
+
+            {/* FN2 Session */}
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Forenoon 2 (FN2)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Start Time</label>
+                  <input type="time" className="input" value={settings?.fn2_start ?? ''}
+                    onChange={(e) => setField('fn2_start', e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">End Time</label>
+                  <input type="time" className="input" value={settings?.fn2_end ?? ''}
+                    onChange={(e) => setField('fn2_end', e.target.value)} />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">AN Start</label>
-              <input type="time" className="input" value={settings?.afternoon_start ?? ''}
-                onChange={(e) => setField('afternoon_start', e.target.value)} />
+
+            {/* AN1 Session */}
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Afternoon 1 (AN1)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Start Time</label>
+                  <input type="time" className="input" value={settings?.an1_start ?? ''}
+                    onChange={(e) => setField('an1_start', e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">End Time</label>
+                  <input type="time" className="input" value={settings?.an1_end ?? ''}
+                    onChange={(e) => setField('an1_end', e.target.value)} />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">AN End</label>
-              <input type="time" className="input" value={settings?.afternoon_end ?? ''}
-                onChange={(e) => setField('afternoon_end', e.target.value)} />
+
+            {/* AN2 Session */}
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Afternoon 2 (AN2)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Start Time</label>
+                  <input type="time" className="input" value={settings?.an2_start ?? ''}
+                    onChange={(e) => setField('an2_start', e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">End Time</label>
+                  <input type="time" className="input" value={settings?.an2_end ?? ''}
+                    onChange={(e) => setField('an2_end', e.target.value)} />
+                </div>
+              </div>
             </div>
           </div>
 
-          <button type="submit" disabled={saving} className="btn-primary w-full">
+          <button type="submit" disabled={saving} className="btn-primary w-full py-3 text-xs font-bold uppercase tracking-wider">
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Settings'}
           </button>
         </form>

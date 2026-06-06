@@ -337,66 +337,101 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Chart + Section Table ────────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start">
 
-        {/* Session Chart — 2/5 width on xl */}
-        <div className="xl:col-span-2 bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 flex flex-col gap-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-sm font-extrabold text-neutral-800 font-heading">{LABELS.sessionScanBreakdown}</h3>
-              <p className="text-[11px] text-neutral-400 mt-0.5">{LABELS.scansPerSlot}</p>
-            </div>
-            <span className="text-[10px] font-bold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-full">
-              {formatDate(date)}
-            </span>
-          </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-4 text-[10px] font-bold">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-primary-600 inline-block" /> {LABELS.fnSessions}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-secondary-600 inline-block" /> {LABELS.anSessions}
-            </span>
-          </div>
-
-          <div className="flex-1 min-h-[220px]">
-            {loading ? (
-              <div className="h-56 bg-neutral-50 rounded-2xl animate-pulse" />
-            ) : (
-              stats && <SessionBarChart bySession={stats.by_session} />
-            )}
-          </div>
-
-          {/* Quick session totals — dot-notation access avoids prototype-pollution lint */}
-          {!loading && stats && (() => {
-            const by = stats.by_session
-            const fnRows = [
-              { key: 'FN1', val: by.FN1 ?? 0 },
-              { key: 'FN2', val: by.FN2 ?? 0 },
-            ]
-            const anRows = [
-              { key: 'AN1', val: by.AN1 ?? 0 },
-              { key: 'AN2', val: by.AN2 ?? 0 },
-            ]
-            return (
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-neutral-100">
-                {fnRows.map(({ key, val }) => (
-                  <div key={key} className="flex items-center justify-between text-[10px] font-bold text-neutral-500">
-                    <span>{key}</span>
-                    <span className="text-primary-600">{val}</span>
-                  </div>
-                ))}
-                {anRows.map(({ key, val }) => (
-                  <div key={key} className="flex items-center justify-between text-[10px] font-bold text-neutral-500">
-                    <span>{key}</span>
-                    <span className="text-secondary-600">{val}</span>
-                  </div>
-                ))}
+        {/* Left Column: Session Chart + Quick Actions — 2/5 width on xl */}
+        <div className="xl:col-span-2 flex flex-col gap-6">
+          {/* Session Chart Card */}
+          <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 flex flex-col gap-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-extrabold text-neutral-800 font-heading">{LABELS.sessionScanBreakdown}</h3>
+                <p className="text-[11px] text-neutral-400 mt-0.5">{LABELS.scansPerSlot}</p>
               </div>
-            )
-          })()}
+              <span className="text-[10px] font-bold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-full">
+                {formatDate(date)}
+              </span>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 text-[10px] font-bold">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-primary-600 inline-block" /> {LABELS.fnSessions}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-secondary-600 inline-block" /> {LABELS.anSessions}
+              </span>
+            </div>
+
+            <div className="flex-1 min-h-[220px]">
+              {loading ? (
+                <div className="h-56 bg-neutral-50 rounded-2xl animate-pulse" />
+              ) : (
+                stats && <SessionBarChart bySession={stats.by_session} />
+              )}
+            </div>
+
+            {/* Quick session totals */}
+            {!loading && stats && (() => {
+              const by = stats.by_session
+              const fnRows = [
+                { key: 'FN1', val: by.FN1 ?? 0 },
+                { key: 'FN2', val: by.FN2 ?? 0 },
+              ]
+              const anRows = [
+                { key: 'AN1', val: by.AN1 ?? 0 },
+                { key: 'AN2', val: by.AN2 ?? 0 },
+              ]
+              return (
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-neutral-100">
+                  {fnRows.map(({ key, val }) => (
+                    <div key={key} className="flex items-center justify-between text-[10px] font-bold text-neutral-500">
+                      <span>{key}</span>
+                      <span className="text-primary-600">{val}</span>
+                    </div>
+                  ))}
+                  {anRows.map(({ key, val }) => (
+                    <div key={key} className="flex items-center justify-between text-[10px] font-bold text-neutral-500">
+                      <span>{key}</span>
+                      <span className="text-secondary-600">{val}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* Quick Actions Card */}
+          <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-6 flex flex-col gap-4">
+            <div>
+              <h3 className="text-sm font-extrabold text-neutral-800 font-heading">{LABELS.quickManagementActions}</h3>
+              <p className="text-[11px] text-neutral-400 mt-0.5">{LABELS.jumpToSection}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {QUICK_ACTIONS.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="group relative bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-4 flex flex-col gap-3 overflow-hidden hover:border-primary-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(37,99,235,0.1)] transition-all duration-300"
+                >
+                  {/* Gradient sweep on hover */}
+                  <div className={`absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-500 bg-gradient-to-br ${item.gradient} pointer-events-none`} />
+
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg text-white bg-gradient-to-br ${item.gradient} shadow-lg ${item.shadow} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
+                    {item.icon}
+                  </div>
+                  <div className="relative z-10">
+                    <p className="text-xs font-extrabold text-neutral-800 font-heading group-hover:text-primary-600 transition-colors">{item.label}</p>
+                    <p className="text-[9px] text-neutral-400 font-medium mt-0.5 leading-relaxed">{item.desc}</p>
+                  </div>
+                  <div className="relative z-10 mt-auto flex items-center gap-1 text-[9px] font-bold text-neutral-400 group-hover:text-primary-500 transition-colors">
+                    {LABELS.open} <span className="group-hover:translate-x-0.5 transition-transform">&#8594;</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Section Summary Table — 3/5 width on xl */}
@@ -568,38 +603,6 @@ export default function AdminDashboard() {
             })}
           </div>
         )}
-      </div>
-
-      {/* ── Quick Actions ────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">{LABELS.quickManagementActions}</h3>
-          <span className="text-[10px] text-neutral-400 font-medium">{LABELS.jumpToSection}</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {QUICK_ACTIONS.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="group relative bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-5 flex flex-col gap-3 overflow-hidden hover:border-primary-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(37,99,235,0.1)] transition-all duration-300"
-            >
-              {/* Gradient sweep on hover */}
-              <div className={`absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-500 bg-gradient-to-br ${item.gradient} pointer-events-none`} />
-
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl text-white bg-gradient-to-br ${item.gradient} shadow-lg ${item.shadow} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
-                {item.icon}
-              </div>
-              <div className="relative z-10">
-                <p className="text-sm font-extrabold text-neutral-800 font-heading group-hover:text-primary-600 transition-colors">{item.label}</p>
-                <p className="text-[10px] text-neutral-400 font-medium mt-0.5 leading-relaxed">{item.desc}</p>
-              </div>
-              <div className="relative z-10 mt-auto flex items-center gap-1 text-[10px] font-bold text-neutral-400 group-hover:text-primary-500 transition-colors">
-                {LABELS.open} <span className="group-hover:translate-x-0.5 transition-transform">&#8594;</span>
-              </div>
-            </a>
-          ))}
-        </div>
       </div>
 
       <AboutApp />

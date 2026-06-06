@@ -74,10 +74,18 @@ CREATE INDEX IF NOT EXISTS idx_attendance_report_sort ON attendance(date DESC, d
 -- ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS session_settings (
   id               INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  morning_start    TIME    NOT NULL DEFAULT '08:00',
-  morning_end      TIME    NOT NULL DEFAULT '12:00',
-  afternoon_start  TIME    NOT NULL DEFAULT '13:00',
-  afternoon_end    TIME    NOT NULL DEFAULT '17:00',
+  morning_start    TIME    NOT NULL DEFAULT '08:00', -- Deprecated
+  morning_end      TIME    NOT NULL DEFAULT '12:00', -- Deprecated
+  afternoon_start  TIME    NOT NULL DEFAULT '13:00', -- Deprecated
+  afternoon_end    TIME    NOT NULL DEFAULT '17:00', -- Deprecated
+  fn1_start        TIME    NOT NULL DEFAULT '08:00',
+  fn1_end          TIME    NOT NULL DEFAULT '11:00',
+  fn2_start        TIME    NOT NULL DEFAULT '11:00',
+  fn2_end          TIME    NOT NULL DEFAULT '13:00',
+  an1_start        TIME    NOT NULL DEFAULT '13:00',
+  an1_end          TIME    NOT NULL DEFAULT '15:00',
+  an2_start        TIME    NOT NULL DEFAULT '15:00',
+  an2_end          TIME    NOT NULL DEFAULT '17:00',
   enabled          BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
