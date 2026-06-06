@@ -5,7 +5,7 @@ import { studentEmail } from '@/lib/utils'
 
 export async function POST(request: Request) {
   try {
-    const { student_id, name, department, year, section, password } = await request.json()
+    const { student_id, name, department, year, section, batch, password } = await request.json()
 
     // Verify caller is Admin
     const supabase = await createClient()
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
       department,
       year:       parseInt(year),
       section,
+      batch:      batch ? String(batch).trim().toUpperCase() : null,
       status:     'Active',
     })
     if (profileErr) {

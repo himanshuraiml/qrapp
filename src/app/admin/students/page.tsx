@@ -17,7 +17,7 @@ export default function ManageStudentsPage() {
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
-    student_id: '', name: '', department: '', year: '1', section: '', password: '',
+    student_id: '', name: '', department: '', year: '1', section: '', batch: '', password: '',
   })
 
   // State for password reset modal
@@ -132,7 +132,7 @@ export default function ManageStudentsPage() {
     const res = await fetch('/api/admin/create-student', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, batch: form.batch || null }),
     })
     const json = await res.json()
 
@@ -141,7 +141,7 @@ export default function ManageStudentsPage() {
     } else {
       setShowForm(false)
       loadStudents(1, false)
-      setForm({ student_id: '', name: '', department: '', year: '1', section: '', password: '' })
+      setForm({ student_id: '', name: '', department: '', year: '1', section: '', batch: '', password: '' })
     }
     setSaving(false)
   }
@@ -424,6 +424,16 @@ export default function ManageStudentsPage() {
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Section</label>
               <input required className="input" placeholder="A"
                 value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Training Batch <span className="normal-case font-medium text-slate-300">(optional)</span></label>
+              <input list="create-batches-list" className="input uppercase" placeholder="e.g. A, B, C"
+                value={form.batch} onChange={(e) => setForm({ ...form, batch: e.target.value })} />
+              <datalist id="create-batches-list">
+                {['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P'].map(b => (
+                  <option key={b} value={b}>{`Batch ${b}`}</option>
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Initial Password</label>
