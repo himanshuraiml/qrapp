@@ -29,19 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        {/* Unregister any previously-installed service workers so stale caches
-            don't affect users who visited before the SW was disabled. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  registrations.forEach(function(r) { r.unregister(); });
-                });
-              }
-            `,
-          }}
-        />
       </head>
       <body>
         {children}

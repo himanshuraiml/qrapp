@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { QrPayload } from '@/types'
 
-const QR_TTL = 300 // seconds before auto-refresh
+const QR_TTL = 30 // seconds before auto-refresh
 
 interface Props {
   basePayload: QrPayload
@@ -80,7 +80,7 @@ export default function QrDisplay({ basePayload }: Props) {
   }, [QRCode, generateQr])
 
   const pct = (countdown / QR_TTL) * 100
-  const strokeColor = countdown > 30 ? '#2563eb' : countdown > 10 ? '#f59e0b' : '#ef4444'
+  const strokeColor = countdown > 15 ? '#2563eb' : countdown > 5 ? '#f59e0b' : '#ef4444'
 
   return (
     <div className="card-premium flex flex-col items-center gap-6 py-8 relative overflow-hidden group">

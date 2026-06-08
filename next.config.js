@@ -1,6 +1,25 @@
 const withPWA = require('@ducanh2912/next-pwa').default({
   dest: 'public',
-  disable: true, // SW disabled — causes stale-cache issues on Vercel; re-enable when cache strategy is ready
+  disable: process.env.NODE_ENV === 'development',
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: false,
+  reloadOnOnline: true,
+  workboxOptions: {
+    skipWaiting: true,
+    clientsClaim: true,
+    runtimeCaching: [
+      {
+        // Never cache Supabase — attendance data must always be live
+        urlPattern: /supabase\.co/,
+        handler: 'NetworkOnly',
+      },
+      {
+        // Never cache internal API routes
+        urlPattern: /^\/api\//,
+        handler: 'NetworkOnly',
+      },
+    ],
+  },
 })
 
 /** @type {import('next').NextConfig} */
