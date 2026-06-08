@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "Admin Dashboard — SRMIST QR Attendance",
+  "entry": "admin-dashboard-2.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "primary": true,
+  "createdAt": "2026-06-08T08:52:38.792Z",
+  "updatedAt": "2026-06-08T08:52:38.806Z",
+  "sourceSkillId": "agent-browser",
+  "metadata": {
+    "identifier": "admin-dashboard",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}

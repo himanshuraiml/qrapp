@@ -302,7 +302,8 @@ CREATE OR REPLACE FUNCTION get_attendance_report(
   p_department TEXT    DEFAULT NULL,
   p_section    TEXT    DEFAULT NULL,
   p_year       INTEGER DEFAULT NULL,
-  p_session    TEXT    DEFAULT NULL
+  p_session    TEXT    DEFAULT NULL,
+  p_batch      TEXT    DEFAULT NULL
 )
 RETURNS TABLE (
   id             UUID,
@@ -314,7 +315,8 @@ RETURNS TABLE (
   session        TEXT,
   date           DATE,
   marked_by_name TEXT,
-  "timestamp"    TIMESTAMPTZ
+  "timestamp"    TIMESTAMPTZ,
+  batch          TEXT
 )
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -322,7 +324,7 @@ BEGIN
   SELECT
     a.id, a.student_id, a.student_name,
     a.department, a.section, a.year,
-    a.session, a.date, a.marked_by_name, a."timestamp"
+    a.session, a.date, a.marked_by_name, a."timestamp", a.batch
   FROM attendance a
   WHERE
     (p_date_from  IS NULL OR a.date       >= p_date_from)
@@ -331,6 +333,7 @@ BEGIN
     AND (p_section    IS NULL OR a.section     = p_section)
     AND (p_year       IS NULL OR a.year        = p_year)
     AND (p_session    IS NULL OR a.session     = p_session)
+    AND (p_batch      IS NULL OR a.batch       = p_batch)
   ORDER BY a.date DESC, a.department, a.section, a.session, a.student_name;
 END;
 $$;

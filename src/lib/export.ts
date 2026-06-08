@@ -79,6 +79,7 @@ export async function exportAttendanceToExcel(
     'Department':   r.department,
     'Year':         r.year,
     'Section':      r.section,
+    'Batch':        r.batch || '—',
     'Session':      r.session,
     'Date':         r.date,
     'Time (IST)':   formatTime(r.timestamp),
@@ -89,7 +90,7 @@ export async function exportAttendanceToExcel(
   const ws = XLSX.utils.json_to_sheet(rows)
 
   // Column widths
-  ws['!cols'] = [14, 24, 14, 6, 10, 8, 12, 12, 24].map((w) => ({ wch: w }))
+  ws['!cols'] = [14, 24, 14, 6, 10, 10, 8, 12, 12, 24].map((w) => ({ wch: w }))
 
   XLSX.utils.book_append_sheet(wb, ws, 'Attendance')
   XLSX.writeFile(wb, `${filename}.xlsx`)
@@ -144,9 +145,9 @@ export async function exportAttendanceToPDF(
 
   autoTable(doc, {
     startY: 35,
-    head: [['Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Session', 'Date', 'Time', 'Marked By']],
+    head: [['Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Batch', 'Session', 'Date', 'Time', 'Marked By']],
     body: await mapInChunks(records, (r) => [
-      r.student_id, r.student_name, r.department, r.year, r.section,
+      r.student_id, r.student_name, r.department, r.year, r.section, r.batch || '—',
       r.session, r.date, formatTime(r.timestamp), r.marked_by_name,
     ]),
     styles: { fontSize: 7.5, cellPadding: 2 },

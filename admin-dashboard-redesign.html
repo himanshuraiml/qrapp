@@ -1,0 +1,1902 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — Redesigned Portal</title>
+  
+  <!-- Modern Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ── BASE & VARIABLES ────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Curated Harmony Color Palette (Light mode with premium slate & royal blues) */
+      --bg:             #f8fafc;
+      --bg-gradient:    radial-gradient(120% 120% at 50% 10%, #f8fafc 40%, #eef2ff 100%);
+      --surface:        rgba(255, 255, 255, 0.85);
+      --surface-opaque: #ffffff;
+      --surface-dim:    #f1f5f9;
+      --fg:             #0f172a;
+      --fg-muted:       #475569;
+      --border:         rgba(226, 232, 240, 0.8);
+      --border-focus:   #a5b4fc;
+      --primary:        #3b82f6;
+      --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      --secondary:      #6366f1;
+      --secondary-gradient: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+      --success:        #10b981;
+      --success-gradient: linear-gradient(135deg, #10b981 0%, #047857 100%);
+      --warning:        #f59e0b;
+      --danger:         #ef4444;
+      --danger-gradient: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      
+      --font-display:   'Outfit', system-ui, sans-serif;
+      --font-body:      'Inter', system-ui, sans-serif;
+      --font-mono:      'JetBrains Mono', ui-monospace, monospace;
+      
+      --radius-xl:      20px;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      8px;
+      
+      --shadow-sm:      0 1px 3px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md:      0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      --shadow-lg:      0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+      --shadow-premium: 0 20px 25px -5px rgba(99, 102, 241, 0.05), 0 8px 10px -6px rgba(99, 102, 241, 0.05);
+      
+      --glass-blur:     12px;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-gradient);
+      color: var(--fg);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── LAYOUT CONTAINER ────────────────────────────── */
+    .container {
+      max-w: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      width: 100%;
+    }
+
+    /* ── STICKY TOP NAVIGATION ────────────────────────── */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border-bottom: 1px solid var(--border);
+      transition: all 0.3s ease;
+    }
+
+    .navbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    }
+
+    .brand-logo svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .brand-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 16px;
+      color: var(--fg);
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-sub {
+      font-size: 10px;
+      color: var(--fg-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    /* Desktop menu links */
+    .nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 100%;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-decoration: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .nav-link:hover {
+      color: var(--fg);
+      background: var(--surface-dim);
+    }
+
+    .nav-link.active {
+      color: var(--secondary);
+      background: rgba(99, 102, 241, 0.08);
+    }
+
+    .nav-link svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Right navbar actions */
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      color: #047857;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 100px;
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+      animation: pulse-success 2s infinite;
+    }
+
+    @keyframes pulse-success {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 4px 4px 12px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      background: var(--surface-opaque);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .user-profile:hover {
+      border-color: var(--border-focus);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .user-info {
+      text-align: right;
+    }
+
+    .user-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--fg);
+      line-height: 1.2;
+    }
+
+    .user-role {
+      font-size: 10px;
+      color: var(--fg-muted);
+      font-weight: 500;
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+      border-radius: 50%;
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+    }
+
+    .menu-toggle {
+      display: none;
+      width: 40px;
+      height: 40px;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface-opaque);
+      cursor: pointer;
+      color: var(--fg-muted);
+      transition: all 0.2s ease;
+    }
+
+    .menu-toggle:hover {
+      background: var(--surface-dim);
+      color: var(--fg);
+    }
+
+    /* ── MOBILE MENU DRAWER ───────────────────────────── */
+    .mobile-menu {
+      display: none;
+      position: absolute;
+      top: 72px;
+      left: 0;
+      right: 0;
+      background: var(--surface-opaque);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      padding: 16px 24px;
+      z-index: 999;
+      transform: translateY(-10px);
+      opacity: 0;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+      pointer-events: none;
+    }
+
+    .mobile-menu.open {
+      display: block;
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-menu-links {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mobile-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .mobile-nav-link:hover, .mobile-nav-link.active {
+      background: var(--bg);
+      color: var(--secondary);
+    }
+
+    .mobile-nav-link.active {
+      font-weight: 700;
+    }
+
+    /* ── PAGE CONTENT AREA ────────────────────────────── */
+    .page-main {
+      padding: 40px 0;
+    }
+
+    .dashboard-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      gap: 20px;
+    }
+
+    .header-title-group h1 {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--fg);
+      letter-spacing: -0.02em;
+    }
+
+    .header-title-group p {
+      font-size: 13.5px;
+      color: var(--fg-muted);
+      margin-top: 4px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .date-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-opaque);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .date-selector label {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .date-selector input {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--fg);
+      border: none;
+      background: transparent;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* ── RATE GRADIENT BANNER ─────────────────────────── */
+    .hero-banner {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -15px rgba(49, 46, 129, 0.3);
+      margin-bottom: 32px;
+      color: #fff;
+    }
+
+    .hero-banner::before {
+      content: '';
+      position: absolute;
+      width: 350px;
+      height: 350px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%);
+      top: -100px;
+      right: -50px;
+      pointer-events: none;
+    }
+
+    .hero-banner::after {
+      content: '';
+      position: absolute;
+      width: 250px;
+      height: 250px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+      bottom: -80px;
+      left: 10%;
+      pointer-events: none;
+    }
+
+    .hero-left {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      z-index: 1;
+    }
+
+    .progress-radial {
+      width: 80px;
+      height: 80px;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .progress-radial svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+
+    .radial-track {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 6;
+    }
+
+    .radial-fill {
+      fill: none;
+      stroke: #34d399;
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s ease-in-out;
+    }
+
+    .radial-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .hero-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hero-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 4px;
+    }
+
+    .hero-val {
+      font-family: var(--font-display);
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+    }
+
+    .hero-desc {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 6px;
+    }
+
+    .hero-right-stats {
+      display: flex;
+      gap: 48px;
+      z-index: 1;
+    }
+
+    .stats-item {
+      text-align: right;
+    }
+
+    .stats-num {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stats-lbl {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+
+    /* ── KPI METRICS GRID ─────────────────────────────── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .metric-card {
+      background: var(--surface);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: default;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .metric-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-premium), var(--shadow-lg);
+      border-color: var(--border-focus);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .trend-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 100px;
+      font-family: var(--font-body);
+    }
+
+    .trend-good { background: rgba(16, 185, 129, 0.12); color: #065f46; }
+    .trend-neutral { background: var(--surface-dim); color: var(--fg-muted); }
+    .trend-alert { background: rgba(245, 158, 11, 0.12); color: #78350f; }
+
+    .card-details {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--fg-muted);
+      font-family: var(--font-mono);
+    }
+
+    .metric-val {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--fg);
+      line-height: 1.1;
+      margin-top: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--fg-muted);
+      margin-top: 6px;
+    }
+
+    /* ── DASHBOARD GRID SECTION ──────────────────────── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 2.2fr 3.8fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .grid-left {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Standard Glassmorphism Card styling */
+    .g-card {
+      background: var(--surface);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .g-card:hover {
+      box-shadow: var(--shadow-lg);
+      border-color: rgba(226, 232, 240, 1);
+    }
+
+    .g-card-head {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .g-card-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--fg);
+    }
+
+    .g-card-sub {
+      font-size: 12px;
+      color: var(--fg-muted);
+      margin-top: 2px;
+    }
+
+    .g-card-badge {
+      font-size: 9px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--secondary);
+      background: rgba(99, 102, 241, 0.08);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    /* ── SESSION CHART WIDGET ────────────────────────── */
+    .chart-container {
+      padding: 24px;
+    }
+
+    .chart-labels {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .chart-lbl-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chart-lbl-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+    }
+
+    .chart-canvas {
+      display: flex;
+      gap: 16px;
+      height: 140px;
+      position: relative;
+      padding-bottom: 24px;
+      margin-bottom: 16px;
+    }
+
+    .chart-grid-line {
+      position: absolute;
+      bottom: 24px;
+      left: 0;
+      right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .chart-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      position: relative;
+      z-index: 2;
+    }
+
+    .chart-column-space {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .chart-bar-num {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .chart-bar-fill {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      min-height: 4px;
+      transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .chart-col-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      padding-top: 6px;
+    }
+
+    .chart-footer {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .chart-foot-cell {
+      text-align: center;
+    }
+
+    .chart-foot-cell span {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chart-foot-cell h4 {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 800;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── QUICK ACTIONS WIDGET ────────────────────────── */
+    .quick-actions-box {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .qa-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: var(--surface-opaque);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .qa-btn:hover {
+      background: var(--bg);
+      border-color: var(--secondary);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .qa-btn-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .qa-btn-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--fg);
+    }
+
+    .qa-btn-desc {
+      font-size: 10px;
+      color: var(--fg-muted);
+      margin-top: 2px;
+    }
+
+    /* ── TABLES & LISTS WIDGETS ──────────────────────── */
+    .sec-table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .search-filter-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .select-dropdown {
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fg);
+      background: var(--surface-opaque);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .select-dropdown:hover {
+      border-color: var(--border-focus);
+    }
+
+    .select-dropdown:focus {
+      border-color: var(--secondary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    }
+
+    .table-view-scroll {
+      overflow-x: auto;
+    }
+
+    .dashboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .dashboard-table thead tr {
+      background: var(--surface-dim);
+    }
+
+    .dashboard-table th {
+      padding: 12px 18px;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--fg-muted);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      font-family: var(--font-mono);
+    }
+
+    .dashboard-table th.align-r { text-align: right; }
+    .dashboard-table th.align-c { text-align: center; }
+
+    .dashboard-table td {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      color: var(--fg);
+    }
+
+    .dashboard-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .dashboard-table tbody tr {
+      transition: background 0.15s ease;
+    }
+
+    .dashboard-table tbody tr:hover td {
+      background: rgba(248, 250, 252, 0.7);
+    }
+
+    .dashboard-table td.align-r { text-align: right; }
+    .dashboard-table td.align-c { text-align: center; }
+    .dashboard-table td.font-mono {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .chip-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 5px;
+    }
+
+    .progress-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 110px;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 5px;
+      background: var(--surface-dim);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .percentage-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      width: 36px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .attendance-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .attendance-badge::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+
+    .badge-success { background: rgba(16, 185, 129, 0.1); color: #047857; }
+    .badge-success::before { background: var(--success); }
+
+    .badge-warning { background: rgba(245, 158, 11, 0.1); color: #78350f; }
+    .badge-warning::before { background: var(--warning); }
+
+    .badge-danger { background: rgba(239, 68, 68, 0.1); color: #b91c1c; }
+    .badge-danger::before { background: var(--danger); }
+
+    /* ── BATCH SECTION CARD GRID ──────────────────────── */
+    .batch-section-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .segmented-control {
+      display: flex;
+      background: var(--surface-dim);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .segment-btn {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--fg-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .segment-btn.active {
+      background: var(--surface-opaque);
+      color: var(--secondary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-action-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      background: var(--surface-opaque);
+      color: var(--fg);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-action-outline:hover {
+      background: var(--bg);
+      border-color: var(--border-strong);
+    }
+
+    .btn-action-outline.filled {
+      background: var(--secondary);
+      border-color: var(--secondary);
+      color: #fff;
+    }
+
+    .btn-action-outline.filled:hover {
+      background: #4338ca;
+      border-color: #4338ca;
+    }
+
+    .btn-action-outline svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .batch-cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .batch-kpi-card {
+      background: var(--surface-opaque);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+
+    .batch-kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--border-focus);
+    }
+
+    .bk-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .bk-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--fg-muted);
+    }
+
+    .bk-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--fg);
+      color: #fff;
+      width: 24px;
+      height: 24px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .bk-count-row {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .bk-present {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--fg);
+      line-height: 1;
+    }
+
+    .bk-total {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--fg-muted);
+    }
+
+    .bk-pct {
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .bk-sub-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+    }
+
+    .bk-sub-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--fg-muted);
+    }
+
+    .bk-sub-val {
+      font-weight: 700;
+    }
+
+    /* ── RESPONSIVE STYLING ──────────────────────────── */
+    @media (max-width: 1024px) {
+      .navbar-inner {
+        height: 64px;
+      }
+      .mobile-menu {
+        top: 64px;
+      }
+      .nav-menu {
+        display: none; /* Hide topbar links, show hamburger menu toggle */
+      }
+      .menu-toggle {
+        display: flex;
+      }
+      .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      .hero-banner {
+        padding: 24px;
+      }
+      .hero-right-stats {
+        display: none; /* Hide stats on mobile hero */
+      }
+    }
+
+    @media (max-width: 640px) {
+      .navbar-inner {
+        padding: 0 16px;
+      }
+      .page-main {
+        padding: 24px 0;
+      }
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+      .header-actions {
+        width: 100%;
+      }
+      .date-selector {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .metric-card {
+        padding: 16px;
+      }
+      .batch-cards-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── TOP NAVIGATION BAR (NO SIDEBARS) ── -->
+  <header class="navbar">
+    <div class="container navbar-inner">
+      
+      <!-- Brand Logo / Identity -->
+      <a href="#" class="nav-brand">
+        <div class="brand-logo">
+          <!-- Integrated Logo SVG -->
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".95"/>
+            <rect x="12" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".95"/>
+            <rect x="2" y="12" width="6" height="6" rx="1.5" fill="white" opacity=".95"/>
+            <rect x="12" y="12" width="3" height="3" rx=".8" fill="white" opacity=".7"/>
+            <rect x="17" y="12" width="1.5" height="1.5" rx=".4" fill="white" opacity=".7"/>
+            <rect x="12" y="17" width="1.5" height="1.5" rx=".4" fill="white" opacity=".7"/>
+            <rect x="15" y="15" width="1.5" height="3.5" rx=".4" fill="white" opacity=".7"/>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <span class="brand-title">QR Attendance</span>
+          <span class="brand-sub">SRMIST Admin Portal</span>
+        </div>
+      </a>
+
+      <!-- Horizontal Menu (Visible on Desktop/Laptop) -->
+      <nav class="nav-menu">
+        <a href="#" class="nav-link active">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8.854-1.146a.5.5 0 010 .707l-3 3a.5.5 0 01-.707-.707l3-3a.5.5 0 01.707 0z"/></svg>
+          Dashboard
+        </a>
+        <a href="/admin/reports" class="nav-link">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 4a.5.5 0 000 1h6a.5.5 0 000-1H5zm-.5 2.5A.5.5 0 015 6h6a.5.5 0 010 1H5a.5.5 0 01-.5-.5zM5 8a.5.5 0 000 1h6a.5.5 0 000-1H5z"/><path fill-rule="evenodd" d="M2 2a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V2zm10-1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V2a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          Reports
+        </a>
+        <a href="/admin/students" class="nav-link">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          Students
+        </a>
+        <a href="/admin/faculty" class="nav-link">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 100-6 3 3 0 000 6z"/></svg>
+          Faculty
+        </a>
+        <a href="/admin/settings" class="nav-link">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16a1.873 1.873 0 00-2.693 1.116l-.094.318z"/></svg>
+          Settings
+        </a>
+      </nav>
+
+      <!-- Right Actions (Badge, Profile & Hamburger Menu Icon for Mobile) -->
+      <div class="nav-actions">
+        <span class="live-badge"><span class="live-dot"></span> Live</span>
+        
+        <!-- User avatar widget -->
+        <div class="user-profile">
+          <div class="user-info">
+            <div class="user-name">Administrator</div>
+            <div class="user-role">Super Admin</div>
+          </div>
+          <div class="user-avatar">AD</div>
+        </div>
+
+        <!-- Hamburger Icon Toggle (Visible on Tablet/Mobile) -->
+        <button class="menu-toggle" id="menuToggle" aria-label="Toggle Navigation">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ── MOBILE MENU DRAWER ── -->
+  <div class="mobile-menu" id="mobileMenu">
+    <nav class="mobile-menu-links">
+      <a href="#" class="mobile-nav-link active">Dashboard</a>
+      <a href="/admin/reports" class="mobile-nav-link">Reports &amp; Logs</a>
+      <a href="/admin/students" class="mobile-nav-link">Students</a>
+      <a href="/admin/faculty" class="mobile-nav-link">Faculty</a>
+      <a href="/admin/settings" class="mobile-nav-link">Session Settings</a>
+    </nav>
+  </div>
+
+  <!-- ── MAIN WRAPPER ── -->
+  <main class="page-main container">
+    
+    <!-- Dashboard header section -->
+    <div class="dashboard-header">
+      <div class="header-title-group">
+        <h1>Overview Dashboard</h1>
+        <p>Monitor real-time student check-ins, batch stats, and class performance</p>
+      </div>
+      <div class="header-actions">
+        <div class="date-selector">
+          <label for="datePicker">Selected Date</label>
+          <input type="date" id="datePicker" value="2026-06-08">
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero attendance rate progress banner -->
+    <section class="hero-banner">
+      <div class="hero-left">
+        <!-- Radial progress ring -->
+        <div class="progress-radial">
+          <svg viewBox="0 0 66 66">
+            <circle cx="33" cy="33" r="26" class="radial-track"/>
+            <circle cx="33" cy="33" r="26" class="radial-fill" id="ringFill"
+              stroke-dasharray="163.4" stroke-dashoffset="43.1"/>
+          </svg>
+          <div class="radial-text" id="ringText">73.6%</div>
+        </div>
+        <div class="hero-info">
+          <span class="hero-tag">Attendance Performance</span>
+          <h2 class="hero-val" id="rateValue">73.6%</h2>
+          <p class="hero-desc" id="rateSub">Today (June 8, 2026) · 3 batches below target threshold (75%)</p>
+        </div>
+      </div>
+      <div class="hero-right-stats">
+        <div class="stats-item">
+          <div class="stats-num">847</div>
+          <div class="stats-lbl">Total Enrolled</div>
+        </div>
+        <div class="stats-item">
+          <div class="stats-num">623</div>
+          <div class="stats-lbl">Present Students</div>
+        </div>
+        <div class="stats-item">
+          <div class="stats-num">1,084</div>
+          <div class="stats-lbl">Total Scans</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI Metric Cards Grid -->
+    <section class="metrics-grid">
+      
+      <!-- Card 1 -->
+      <div class="metric-card">
+        <div class="card-top">
+          <div class="card-icon-wrap" style="background: rgba(59, 130, 246, 0.1);">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--primary)"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          </div>
+          <span class="trend-indicator trend-neutral">Active</span>
+        </div>
+        <div class="card-details">
+          <span class="metric-lbl">Total Students</span>
+          <span class="metric-val">847</span>
+          <p class="metric-sub">Distributed across 8 training batches</p>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="metric-card">
+        <div class="card-top">
+          <div class="card-icon-wrap" style="background: rgba(99, 102, 241, 0.1);">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--secondary)"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7z"/></svg>
+          </div>
+          <span class="trend-indicator trend-neutral">12 Super Admin/Staff</span>
+        </div>
+        <div class="card-details">
+          <span class="metric-lbl">Faculty Members</span>
+          <span class="metric-val">12</span>
+          <p class="metric-sub">Authorized scanner devices active</p>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="metric-card">
+        <div class="card-top">
+          <div class="card-icon-wrap" style="background: rgba(16, 185, 129, 0.1);">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--success)"><path d="M10.97 4.97a.75.75 0 011.07 1.05l-3.99 4.99a.75.75 0 01-1.08.02L4.324 8.384a.75.75 0 111.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 01.02-.022z"/></svg>
+          </div>
+          <span class="trend-indicator trend-good">↑ 1,084 scans</span>
+        </div>
+        <div class="card-details">
+          <span class="metric-lbl">Present Today</span>
+          <span class="metric-val">623</span>
+          <p class="metric-sub">Logged at least one session check-in</p>
+        </div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="metric-card">
+        <div class="card-top">
+          <div class="card-icon-wrap" style="background: rgba(239, 68, 68, 0.15)">
+            <!-- Warning/Alert icon -->
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="var(--danger)"><path d="M8.982 1.566a1.13 1.13 0 00-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 01-1.1 0L7.1 5.995A.905.905 0 018 5zm.002 6a1 1 0 110 2 1 1 0 010-2z"/></svg>
+          </div>
+          <span class="trend-indicator trend-alert">Below Target 75%</span>
+        </div>
+        <div class="card-details">
+          <span class="metric-lbl">Attendance Rate</span>
+          <span class="metric-val" style="color: var(--danger);">73.6%</span>
+          <p class="metric-sub">Gap: −1.4 pts from threshold</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Main Content Grid -->
+    <div class="dashboard-grid">
+      
+      <!-- Grid Left: Session scan breakdown + Quick Actions -->
+      <div class="grid-left">
+        
+        <!-- Session Scan breakdown chart -->
+        <article class="g-card">
+          <div class="g-card-head">
+            <div>
+              <h3 class="g-card-title">Session Scan Breakdown</h3>
+              <p class="g-card-sub">Daily check-in distribution per slot</p>
+            </div>
+            <span class="g-card-badge">FN &amp; AN slots</span>
+          </div>
+          
+          <div class="chart-container">
+            <!-- Legend indicators -->
+            <div class="chart-labels">
+              <span class="chart-lbl-item">
+                <span class="chart-lbl-dot" style="background: var(--primary);"></span> FN slots
+              </span>
+              <span class="chart-lbl-item">
+                <span class="chart-lbl-dot" style="background: var(--secondary);"></span> AN slots
+              </span>
+            </div>
+
+            <!-- SVG-supported Bar Canvas -->
+            <div class="chart-canvas" id="chartBody">
+              <div class="chart-grid-line"></div>
+              <!-- Injected by JavaScript -->
+            </div>
+
+            <!-- Footer data grid -->
+            <div class="chart-footer">
+              <div class="chart-foot-cell">
+                <span>FN1</span>
+                <h4 style="color: var(--primary)">312</h4>
+              </div>
+              <div class="chart-foot-cell">
+                <span>FN2</span>
+                <h4 style="color: var(--primary)">289</h4>
+              </div>
+              <div class="chart-foot-cell">
+                <span>AN1</span>
+                <h4 style="color: var(--secondary)">298</h4>
+              </div>
+              <div class="chart-foot-cell">
+                <span>AN2</span>
+                <h4 style="color: var(--secondary)">185</h4>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Quick actions menu -->
+        <article class="g-card">
+          <div class="g-card-head">
+            <div>
+              <h3 class="g-card-title">Quick Tasks</h3>
+              <p class="g-card-sub">Direct access to portal utilities</p>
+            </div>
+          </div>
+          <div class="quick-actions-box">
+            
+            <a href="/admin/students" class="qa-btn">
+              <div class="qa-btn-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--primary);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 01.5.5v3h3a.5.5 0 010 1h-3v3a.5.5 0 01-1 0v-3h-3a.5.5 0 010-1h3v-3A.5.5 0 018 4z"/><path fill-rule="evenodd" d="M8 0a8 8 0 100 16A8 8 0 008 0z" clip-rule="evenodd"/></svg>
+              </div>
+              <div>
+                <span class="qa-btn-title">Add Student</span>
+                <p class="qa-btn-desc">Create new profile</p>
+              </div>
+            </a>
+
+            <a href="/admin/students" class="qa-btn">
+              <div class="qa-btn-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--secondary);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5z"/></svg>
+              </div>
+              <div>
+                <span class="qa-btn-title">Bulk Import</span>
+                <p class="qa-btn-desc">CSV / Excel roster</p>
+              </div>
+            </a>
+
+            <a href="/admin/reports" class="qa-btn">
+              <div class="qa-btn-icon" style="background: rgba(6, 182, 212, 0.1); color: var(--tertiary);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M5 4a.5.5 0 000 1h6a.5.5 0 000-1H5zM5 8a.5.5 0 000 1h6a.5.5 0 000-1H5z"/></svg>
+              </div>
+              <div>
+                <span class="qa-btn-title">View Reports</span>
+                <p class="qa-btn-desc">Export logs &amp; lists</p>
+              </div>
+            </a>
+
+            <a href="/admin/settings" class="qa-btn">
+              <div class="qa-btn-icon" style="background: var(--surface-dim); color: var(--fg-muted);">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M9.405 1.02c.252-1.36 2.338-1.36 2.59 0l.295 1.59a1.873 1.873 0 002.693 1.115l1.458-.805c1.185-.654 2.62.78 1.966 1.966l-.805 1.458a1.873 1.873 0 001.115 2.693l1.59.295c1.36.252 1.36 2.338 0 2.59l-1.59.295a1.873 1.873 0 00-1.115 2.693l.805 1.458c.654 1.185-.78 2.62-1.966 1.966l-1.458-.805a1.873 1.873 0 00-2.693 1.115l-.295 1.59c-.252 1.36-2.338 1.36-2.59 0l-.295-1.59a1.873 1.873 0 00-2.693-1.115l-1.458.805c-1.185.654-2.62-.78-1.966-1.966l.805-1.458a1.873 1.873 0 00-1.115-2.693l-1.59-.295c-1.36-.252-1.36-2.338 0-2.59l1.59-.295a1.873 1.873 0 001.115-2.693l-.805-1.458c-.654-1.185.78-2.62 1.966-1.966l1.458.805a1.873 1.873 0 002.693-1.115l.295-1.59z"/></svg>
+              </div>
+              <div>
+                <span class="qa-btn-title">Settings</span>
+                <p class="qa-btn-desc">Configure windows</p>
+              </div>
+            </a>
+
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Grid Right: Section-wise classroom attendance table -->
+      <article class="g-card">
+        <div class="sec-table-header">
+          <div>
+            <h3 class="g-card-title">Section-wise Attendance</h3>
+            <p class="g-card-sub">Classroom enrollment and present stats</p>
+          </div>
+          <div class="search-filter-box">
+            <select class="select-dropdown" id="deptFilter" aria-label="Filter by department">
+              <option value="">All Departments</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="MECH">MECH</option>
+              <option value="CIVIL">CIVIL</option>
+              <option value="IT">IT</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-view-scroll">
+          <table class="dashboard-table">
+            <thead>
+              <tr>
+                <th>Class Section</th>
+                <th>Dept</th>
+                <th class="align-r">Enrolled</th>
+                <th class="align-r">Present</th>
+                <th>Attendance Rate</th>
+                <th class="align-c">Status</th>
+              </tr>
+            </thead>
+            <tbody id="sectionTbody">
+              <!-- Injected by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- Spacer -->
+    <div style="height: 32px;"></div>
+
+    <!-- Batch-wise Attendance Section -->
+    <section class="g-card">
+      <div class="batch-section-header">
+        <div>
+          <h3 class="g-card-title">Batch-wise Breakdown</h3>
+          <p class="g-card-sub">Review training slot presence percentages across batches A-H</p>
+        </div>
+        <div class="search-filter-box">
+          <div class="segmented-control">
+            <button class="segment-btn active" id="crdBtn" onclick="setBatchView('cards')">Card View</button>
+            <button class="segment-btn" id="tblBtn" onclick="setBatchView('table')">Table View</button>
+          </div>
+          <button class="btn-action-outline">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5zm-3 0A1.5 1.5 0 019.5 3V1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V4.5h-2z"/></svg>
+            Excel
+          </button>
+          <button class="btn-action-outline filled">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/></svg>
+            PDF Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Cards Display container -->
+      <div id="batchCards" class="batch-cards-container">
+        <!-- Injected by JavaScript -->
+      </div>
+
+      <!-- Table Display container (Hidden by default) -->
+      <div id="batchTableWrap" style="display: none;">
+        <div class="table-view-scroll">
+          <table class="dashboard-table">
+            <thead>
+              <tr>
+                <th>Batch ID</th>
+                <th class="align-c" style="color: var(--primary)">FN1 Scans</th>
+                <th class="align-c" style="color: var(--primary)">FN2 Scans</th>
+                <th class="align-c" style="color: var(--secondary)">AN1 Scans</th>
+                <th class="align-c" style="color: var(--secondary)">AN2 Scans</th>
+                <th class="align-r">Total Enrolled</th>
+                <th class="align-r">Total Present</th>
+                <th>Rate %</th>
+              </tr>
+            </thead>
+            <tbody id="batchTbody">
+              <!-- Injected by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Script logic for mock dashboard rendering -->
+  <script>
+    // ── DATA DEFINITION ────────────────────────────────────────────────────────
+    const sessions = [
+      { key: 'FN1', color: '#3b82f6', val: 312 },
+      { key: 'FN2', color: '#60a5fa', val: 289 },
+      { key: 'AN1', color: '#6366f1', val: 298 },
+      { key: 'AN2', color: '#a5b4fc', val: 185 },
+    ];
+
+    const sections = [
+      { s: 'A1', dept: 'CSE',   total: 65, present: 54 },
+      { s: 'A2', dept: 'CSE',   total: 63, present: 49 },
+      { s: 'B1', dept: 'ECE',   total: 58, present: 47 },
+      { s: 'B2', dept: 'ECE',   total: 60, present: 38 },
+      { s: 'C1', dept: 'MECH',  total: 55, present: 43 },
+      { s: 'C2', dept: 'MECH',  total: 52, present: 41 },
+      { s: 'D1', dept: 'CIVIL', total: 48, present: 35 },
+      { s: 'E1', dept: 'IT',    total: 62, present: 55 },
+      { s: 'E2', dept: 'IT',    total: 60, present: 50 },
+      { s: 'F1', dept: 'CSE',   total: 54, present: 48 },
+      { s: 'G1', dept: 'ECE',   total: 50, present: 40 },
+      { s: 'H1', dept: 'MECH',  total: 60, present: 44 },
+    ];
+
+    const batches = [
+      { b: 'A', total: 80, present: 68, fn1: 58, fn2: 52, an1: 55, an2: 38 },
+      { b: 'B', total: 72, present: 54, fn1: 44, fn2: 38, an1: 40, an2: 25 },
+      { b: 'C', total: 85, present: 71, fn1: 62, fn2: 58, an1: 57, an2: 40 },
+      { b: 'D', total: 65, present: 48, fn1: 38, fn2: 30, an1: 35, an2: 22 },
+      { b: 'E', total: 90, present: 82, fn1: 72, fn2: 68, an1: 70, an2: 52 },
+      { b: 'F', total: 55, present: 39, fn1: 30, fn2: 24, an1: 28, an2: 18 },
+      { b: 'G', total: 88, present: 76, fn1: 68, fn2: 62, an1: 64, an2: 44 },
+      { b: 'H', total: 60, present: 45, fn1: 36, fn2: 30, an1: 32, an2: 20 },
+    ];
+
+    const deptColors = {
+      CSE:   ['rgba(59, 130, 246, 0.1)', '#1e3a8a'], 
+      ECE:   ['rgba(99, 102, 241, 0.1)', '#312e81'],
+      MECH:  ['rgba(16, 185, 129, 0.1)', '#064e3b'], 
+      CIVIL: ['rgba(245, 158, 11, 0.1)', '#78350f'], 
+      IT:    ['rgba(6, 182, 212, 0.1)', '#083344']
+    };
+
+    // Helper functions for thresholds
+    function getTone(pct) {
+      if (pct >= 75) {
+        return { 
+          fill: '#10b981', 
+          text: '#047857', 
+          border: 'rgba(16, 185, 129, 0.2)', 
+          badgeClass: 'badge-success', 
+          label: 'Good' 
+        };
+      }
+      if (pct >= 50) {
+        return { 
+          fill: '#f59e0b', 
+          text: '#d97706', 
+          border: 'rgba(245, 158, 11, 0.2)', 
+          badgeClass: 'badge-warning', 
+          label: 'At Risk' 
+        };
+      }
+      return { 
+        fill: '#ef4444', 
+        text: '#b91c1c', 
+        border: 'rgba(239, 68, 68, 0.2)', 
+        badgeClass: 'badge-danger', 
+        label: 'Critical' 
+      };
+    }
+
+    // ── RENDER CHART FUNCTION ──────────────────────────────────────────────────
+    function renderChart() {
+      const el = document.getElementById('chartBody');
+      const maxVal = Math.max(...sessions.map(s => s.val)) * 1.08;
+      const chartHeight = 116; // maximum height in px
+
+      const bars = sessions.map(s => {
+        const h = Math.max(Math.round((s.val / maxVal) * chartHeight), 6);
+        return `
+          <div class="chart-column">
+            <div class="chart-column-space">
+              <span class="chart-bar-num" style="color: ${s.color}">${s.val}</span>
+              <div class="chart-bar-fill" style="height: ${h}px; background: ${s.color}"></div>
+            </div>
+            <span class="chart-col-label">${s.key}</span>
+          </div>`;
+      }).join('');
+
+      el.innerHTML = '<div class="chart-grid-line"></div>' + bars;
+    }
+
+    // ── RENDER SECTIONS TABLE FUNCTION ──────────────────────────────────────────
+    function renderSections(filter) {
+      const filtered = filter ? sections.filter(r => r.dept === filter) : sections;
+      const tbody = document.getElementById('sectionTbody');
+      
+      tbody.innerHTML = filtered.map(r => {
+        const pct = Math.round((r.present / r.total) * 100);
+        const tone = getTone(pct);
+        const [bg, fg] = deptColors[r.dept] || ['#f1f5f9', '#475569'];
+        
+        return `
+          <tr>
+            <td style="font-weight: 600;">Section ${r.s}</td>
+            <td><span class="chip-badge" style="background: ${bg}; color: ${fg}">${r.dept}</span></td>
+            <td class="font-mono align-r">${r.total}</td>
+            <td class="font-mono align-r">${r.present}</td>
+            <td>
+              <div class="progress-bar-row">
+                <div class="bar-track">
+                  <div class="bar-fill" style="width: ${pct}%; background: ${tone.fill}"></div>
+                </div>
+                <span class="percentage-label" style="color: ${tone.text}">${pct}%</span>
+              </div>
+            </td>
+            <td class="align-c">
+              <span class="attendance-badge ${tone.badgeClass}">${tone.label}</span>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ── RENDER BATCH CARDS FUNCTION ─────────────────────────────────────────────
+    function renderBatchCards() {
+      const container = document.getElementById('batchCards');
+      
+      container.innerHTML = batches.map(b => {
+        const pct = Math.round((b.present / b.total) * 100);
+        const tone = getTone(pct);
+        
+        return `
+          <div class="batch-kpi-card" style="border-color: ${tone.border}">
+            <div class="bk-top">
+              <span class="bk-lbl">Batch</span>
+              <span class="bk-id">${b.b}</span>
+            </div>
+            <div>
+              <div class="bk-count-row">
+                <span class="bk-present">${b.present}</span>
+                <span class="bk-total"> / ${b.total}</span>
+              </div>
+              <div class="bk-pct" style="color: ${tone.text}">${pct}% present</div>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${Math.min(pct, 100)}%; background: ${tone.fill}"></div>
+            </div>
+            <div class="bk-sub-grid">
+              <div class="bk-sub-row"><span>FN1</span><span class="bk-sub-val" style="color: var(--primary)">${b.fn1}</span></div>
+              <div class="bk-sub-row"><span>FN2</span><span class="bk-sub-val" style="color: var(--primary)">${b.fn2}</span></div>
+              <div class="bk-sub-row"><span>AN1</span><span class="bk-sub-val" style="color: var(--secondary)">${b.an1}</span></div>
+              <div class="bk-sub-row"><span>AN2</span><span class="bk-sub-val" style="color: var(--secondary)">${b.an2}</span></div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── RENDER BATCH TABLE FUNCTION ─────────────────────────────────────────────
+    function renderBatchTable() {
+      const tbody = document.getElementById('batchTbody');
+      
+      tbody.innerHTML = batches.map(b => {
+        const pct = Math.round((b.present / b.total) * 100);
+        const tone = getTone(pct);
+        
+        return `
+          <tr>
+            <td>
+              <span style="display: inline-flex; align-items: center; justify-content: center; background: var(--fg); color: #fff; width: 26px; height: 26px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">
+                ${b.b}
+              </span>
+            </td>
+            <td class="font-mono align-c" style="color: var(--primary); font-weight: 700;">${b.fn1}</td>
+            <td class="font-mono align-c" style="color: var(--primary); font-weight: 700;">${b.fn2}</td>
+            <td class="font-mono align-c" style="color: var(--secondary); font-weight: 700;">${b.an1}</td>
+            <td class="font-mono align-c" style="color: var(--secondary); font-weight: 700;">${b.an2}</td>
+            <td class="font-mono align-r">${b.total}</td>
+            <td class="font-mono align-r">${b.present}</td>
+            <td style="min-width: 130px;">
+              <div class="progress-bar-row">
+                <div class="bar-track">
+                  <div class="bar-fill" style="width: ${pct}%; background: ${tone.fill}"></div>
+                </div>
+                <span class="percentage-label" style="color: ${tone.text}">${pct}%</span>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ── VIEW SWITCHER FOR BATCH DATA ───────────────────────────────────────────
+    window.setBatchView = function(view) {
+      const cards = document.getElementById('batchCards');
+      const tableWrap = document.getElementById('batchTableWrap');
+      const tBtn = document.getElementById('tblBtn');
+      const cBtn = document.getElementById('crdBtn');
+      
+      if (view === 'cards') {
+        cards.style.display = 'grid';
+        tableWrap.style.display = 'none';
+        cBtn.classList.add('active');
+        tBtn.classList.remove('active');
+      } else {
+        cards.style.display = 'none';
+        tableWrap.style.display = 'block';
+        tBtn.classList.add('active');
+        cBtn.classList.remove('active');
+      }
+    };
+
+    // ── MOBILE MENU TOGGLE ──────────────────────────────────────────────────────
+    const menuToggle = document.getElementById('menuToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
+
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      mobileMenu.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!mobileMenu.contains(e.target) && e.target !== menuToggle) {
+        mobileMenu.classList.remove('open');
+      }
+    });
+
+    // ── FILTER ACTIONS ──────────────────────────────────────────────────────────
+    document.getElementById('deptFilter').addEventListener('change', e => {
+      renderSections(e.target.value);
+    });
+
+    // ── INITIALIZATION ──────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      renderChart();
+      renderSections('');
+      renderBatchCards();
+      renderBatchTable();
+    });
+  </script>
+</body>
+</html>

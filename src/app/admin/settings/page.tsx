@@ -38,6 +38,7 @@ export default function SettingsPage() {
       an2_start:       settings.an2_start,
       an2_end:         settings.an2_end,
       enabled:         settings.enabled,
+      block_immediate: settings.block_immediate ?? false,
     }).eq('id', 1)
     setSaving(false)
     setSaved(true)
@@ -65,6 +66,22 @@ export default function SettingsPage() {
             >
               <span className={`inline-block h-4 w-4 rounded-full bg-white shadow translate-y-1 transition-transform
                 ${settings?.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-b border-slate-100">
+            <div>
+              <p className="font-medium text-slate-800">Block QR immediately on miss</p>
+              <p className="text-sm text-slate-500">If disabled, blocking takes effect from the next day onwards</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setField('block_immediate', !settings?.block_immediate)}
+              className={`relative inline-flex h-6 w-11 rounded-full transition-colors
+                ${settings?.block_immediate ? 'bg-brand-600' : 'bg-slate-200'}`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white shadow translate-y-1 transition-transform
+                ${settings?.block_immediate ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
 

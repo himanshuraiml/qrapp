@@ -10,6 +10,7 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') || ''
     const department = searchParams.get('department') || 'all'
     const year = searchParams.get('year') || 'all'
+    const batch = searchParams.get('batch') || 'all'
 
     // Verify caller is Admin
     const supabase = await createClient()
@@ -38,6 +39,9 @@ export async function GET(request: Request) {
     }
     if (year !== 'all' && year.trim() !== '') {
       query = query.eq('year', parseInt(year))
+    }
+    if (batch !== 'all' && batch.trim() !== '') {
+      query = query.eq('batch', batch)
     }
 
     // Apply sorting (which uses composite index)

@@ -12,6 +12,8 @@ export default function ManageStudentsPage() {
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('all')
   const [yearFilter, setYearFilter] = useState('all')
+  const [batchFilter, setBatchFilter] = useState('all')
+  const [batches, setBatches] = useState<string[]>([])
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -74,13 +76,23 @@ export default function ManageStudentsPage() {
   const [limit] = useState(50)
 
   useEffect(() => {
-    async function loadUniqueDepts() {
+    async function loadUniqueFilters() {
       const { data, error } = await supabase.rpc('get_distinct_filters')
       if (!error && data && data.departments) {
         setDepts(data.departments)
       }
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('batch')
+        .not('batch', 'is', null)
+        .neq('batch', '')
+      if (!profilesError && profilesData) {
+        const uniqueBatches = Array.from(new Set(profilesData.map((p: any) => p.batch))).filter(Boolean).sort() as string[]
+        setBatches(uniqueBatches)
+      }
     }
-    loadUniqueDepts()
+    loadUniqueFilters()
   }, [supabase])
 
   async function loadStudents(currentPage = page, silent = false) {
@@ -92,6 +104,7 @@ export default function ManageStudentsPage() {
         search: search,
         department: deptFilter,
         year: yearFilter,
+        batch: batchFilter,
         t: String(Date.now())
       })
       const res = await fetch(`/api/admin/students?${queryParams.toString()}`, { cache: 'no-store' })
@@ -100,7 +113,7 @@ export default function ManageStudentsPage() {
         setStudents(json.data)
         setTotalCount(json.count ?? 0)
         
-        const cacheKey = `students_cache_${currentPage}_${search}_${deptFilter}_${yearFilter}`
+        const cacheKey = `students_cache_${currentPage}_${search}_${deptFilter}_${yearFilter}_${batchFilter}`
         sessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
       }
     } catch (e) {
@@ -111,7 +124,7 @@ export default function ManageStudentsPage() {
   }
 
   useEffect(() => {
-    const cacheKey = `students_cache_${page}_${search}_${deptFilter}_${yearFilter}`
+    const cacheKey = `students_cache_${page}_${search}_${deptFilter}_${yearFilter}_${batchFilter}`
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       try {
@@ -122,7 +135,7 @@ export default function ManageStudentsPage() {
       } catch (e) {}
     }
     loadStudents(page, !!cached)
-  }, [page, search, deptFilter, yearFilter])
+  }, [page, search, deptFilter, yearFilter, batchFilter])
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
@@ -184,7 +197,7 @@ export default function ManageStudentsPage() {
   // Clear selection on page/search/filter change
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [page, search, deptFilter, yearFilter])
+  }, [page, search, deptFilter, yearFilter, batchFilter])
 
   // ── NEW: Edit individual student handlers ──
   const startEdit = (student: Profile) => {
@@ -250,6 +263,43 @@ export default function ManageStudentsPage() {
       loadStudents(page, false)
     } catch (e: any) {
       alert(e.message || 'Failed to update status')
+      setLoading(false)
+    }
+  }
+
+  async function enableStudentQr(student: Profile) {
+    const confirmMsg = `Are you sure you want to enable QR code generation for ${student.name}?`
+    if (!confirm(confirmMsg)) return
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ qr_blocked: false, qr_unblocked_at: new Date().toISOString() })
+      .eq('id', student.id)
+    if (error) {
+      console.error('Failed to enable student QR:', error)
+      alert('Failed to enable student QR code: ' + error.message)
+    } else {
+      setStudents(prev => prev.map(s => s.id === student.id ? { ...s, qr_blocked: false } : s))
+    }
+  }
+
+  async function handleBulkEnableQr() {
+    if (selectedIds.size === 0) return
+    const confirmMsg = `Are you sure you want to enable QR code generation for the ${selectedIds.size} selected students?`
+    if (!confirm(confirmMsg)) return
+
+    setLoading(true)
+    const selectedArray = Array.from(selectedIds)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ qr_blocked: false, qr_unblocked_at: new Date().toISOString() })
+        .in('id', selectedArray)
+      if (error) throw error
+      setSelectedIds(new Set())
+      loadStudents(page, false)
+    } catch (e: any) {
+      alert(e.message || 'Failed to enable QR codes')
       setLoading(false)
     }
   }
@@ -494,6 +544,17 @@ export default function ManageStudentsPage() {
                 <option key={y} value={String(y)}>Year {y}</option>
               ))}
             </select>
+
+            <select
+              value={batchFilter}
+              onChange={(e) => { setBatchFilter(e.target.value); setPage(1) }}
+              className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-32"
+            >
+              <option value="all">All Batches</option>
+              {batches.map(b => (
+                <option key={b} value={b}>Batch {b}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -523,6 +584,7 @@ export default function ManageStudentsPage() {
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Sec</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Batch</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Status</th>
+                  <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">QR Status</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
@@ -557,8 +619,22 @@ export default function ManageStudentsPage() {
                         : 'bg-slate-100 text-slate-500 border-slate-200'
                       }`}>{s.status}</span>
                     </td>
+                    <td className="p-4">
+                      <span className={`badge border font-bold ${!s.qr_blocked
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                      }`}>{s.qr_blocked ? 'Blocked' : 'Active'}</span>
+                    </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {s.qr_blocked && (
+                          <button
+                            onClick={() => enableStudentQr(s)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-95"
+                          >
+                            🔓 Enable QR
+                          </button>
+                        )}
                         <button
                           onClick={() => startEdit(s)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 active:scale-95 font-semibold"
@@ -584,7 +660,7 @@ export default function ManageStudentsPage() {
                               : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                             }`}
                         >
-                          {s.status === 'Active' ? 'Deactivate' : 'Activate'}
+                          {s.status === 'Active' ? 'Deactivate' : 'Active'}
                         </button>
                       </div>
                     </td>
@@ -952,6 +1028,13 @@ export default function ManageStudentsPage() {
                 className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-red-400 hover:text-red-300"
               >
                 ✕ Deactivate
+              </button>
+
+              <button
+                onClick={handleBulkEnableQr}
+                className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-cyan-400 hover:text-cyan-300"
+              >
+                🔓 Enable QRs
               </button>
               
               <button

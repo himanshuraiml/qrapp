@@ -1,0 +1,834 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — SRMIST QR Attendance</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:             #f8fafc;
+      --surface:        #ffffff;
+      --surface-dim:    #f1f5f9;
+      --fg:             #0f172a;
+      --fg-muted:       #475569;
+      --border:         #e2e8f0;
+      --border-strong:  #cbd5e1;
+      --primary:        #2563eb;
+      --primary-light:  #dbeafe;
+      --primary-dark:   #1e40af;
+      --secondary:      #4f46e5;
+      --secondary-light:#e0e7ff;
+      --tertiary:       #06b6d4;
+      --tertiary-light: #ecfeff;
+      --success:        #10b981;
+      --success-light:  #d1fae5;
+      --warning:        #f59e0b;
+      --warning-light:  #fef3c7;
+      --danger:         #ef4444;
+      --danger-light:   #fee2e2;
+      --font-display:   'Outfit', system-ui, sans-serif;
+      --font-body:      'Inter', system-ui, sans-serif;
+      --font-mono:      'JetBrains Mono', ui-monospace, Menlo, monospace;
+      --sidebar-w:      240px;
+      --topbar-h:       60px;
+      --radius-card:    12px;
+      --radius-sm:      8px;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      font-size: 14px;
+    }
+
+    .shell { display: flex; min-height: 100vh; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: fixed; inset: 0 auto 0 0; z-index: 200;
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+    }
+    .sidebar-brand {
+      height: var(--topbar-h); padding: 0 16px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .brand-icon {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .brand-title { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--fg); line-height: 1.2; }
+    .brand-sub   { font-size: 10px; color: var(--fg-muted); font-weight: 500; margin-top: 1px; }
+    .sidebar-nav { padding: 10px; flex: 1; overflow-y: auto; }
+    .nav-group-label {
+      font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--fg-muted); padding: 10px 8px 4px; margin-top: 4px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+      border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--fg-muted);
+      text-decoration: none; cursor: pointer; transition: background .12s, color .12s; margin-bottom: 1px;
+    }
+    .nav-item:hover  { background: var(--bg); color: var(--fg); }
+    .nav-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+    .nav-item svg    { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto; background: var(--success); color: #fff;
+      font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 100px;
+      font-family: var(--font-mono);
+    }
+    .sidebar-footer { padding: 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .admin-row {
+      display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+      border-radius: var(--radius-sm); cursor: pointer; transition: background .12s;
+    }
+    .admin-row:hover { background: var(--bg); }
+    .admin-avatar {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      border-radius: 7px; color: #fff; font-size: 11px; font-weight: 700;
+      font-family: var(--font-display); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .admin-name { font-size: 12px; font-weight: 600; color: var(--fg); }
+    .admin-role { font-size: 10px; color: var(--fg-muted); }
+
+    /* ── MAIN ── */
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: var(--topbar-h); background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 24px; gap: 16px;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .menu-btn {
+      display: none; width: 34px; height: 34px; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface);
+      cursor: pointer; color: var(--fg-muted); transition: background .12s;
+    }
+    .menu-btn:hover { background: var(--bg); }
+    .topbar-title { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--fg); }
+    .topbar-sub   { font-size: 11px; color: var(--fg-muted); margin-top: 1px; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px;
+      background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; border-radius: 100px;
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    }
+    .live-dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; animation: livepulse 1.8s ease-in-out infinite; }
+    @keyframes livepulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .date-picker {
+      display: flex; align-items: center; gap: 8px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 11px;
+    }
+    .date-picker-label { font-size: 9px; font-weight: 700; color: var(--fg-muted); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+    .date-picker input { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--fg); background: transparent; border: none; outline: none; cursor: pointer; }
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+      background: var(--surface); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--fg-muted); transition: background .12s, color .12s;
+    }
+    .icon-btn:hover { background: var(--bg); color: var(--fg); }
+
+    /* ── PAGE ── */
+    .page { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; flex: 1; }
+
+    /* ── RATE BANNER ── */
+    .rate-banner {
+      background: linear-gradient(130deg, #1e3a8a 0%, #1e40af 45%, #312e81 100%);
+      border-radius: 14px; padding: 20px 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      position: relative; overflow: hidden;
+    }
+    .rate-banner::before { content:''; position:absolute; width:200px; height:200px; top:-60px; right:-40px; background:rgba(255,255,255,.04); border-radius:50%; }
+    .rate-banner::after  { content:''; position:absolute; width:140px; height:140px; bottom:-50px; right:100px; background:rgba(99,102,241,.15); border-radius:50%; }
+    .rate-left { display: flex; align-items: center; gap: 20px; position: relative; z-index: 1; }
+    .ring-wrap { width: 66px; height: 66px; position: relative; flex-shrink: 0; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-track { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 5; }
+    .ring-fill  { fill: none; stroke: #34d399; stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+    .ring-text  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:13px; font-weight:800; color:#fff; }
+    .rate-label { font-size:10px; font-weight:600; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:.1em; }
+    .rate-value { font-family:var(--font-display); font-size:30px; font-weight:800; color:#fff; line-height:1.05; margin-top:1px; }
+    .rate-sub   { font-size:11px; color:rgba(255,255,255,.45); margin-top:4px; }
+    .rate-stats { display:flex; gap:28px; position:relative; z-index:1; }
+    .rate-stat  { text-align:right; }
+    .rate-stat-v { font-family:var(--font-display); font-size:22px; font-weight:800; color:#fff; font-variant-numeric:tabular-nums; }
+    .rate-stat-l { font-size:9px; color:rgba(255,255,255,.4); font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin-top:1px; }
+
+    /* ── KPI GRID ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+      padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
+      transition: box-shadow .18s, border-color .18s; cursor: default;
+    }
+    .kpi-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.06); border-color: var(--border-strong); }
+    .kpi-top { display:flex; align-items:flex-start; justify-content:space-between; }
+    .kpi-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .kpi-trend { display:inline-flex; align-items:center; gap:3px; font-size:9px; font-weight:700; padding:3px 7px; border-radius:100px; }
+    .trend-up      { background:var(--success-light); color:#065f46; }
+    .trend-down    { background:var(--danger-light);  color:#7f1d1d; }
+    .trend-warn    { background:var(--warning-light); color:#78350f; }
+    .trend-neutral { background:var(--surface-dim); color:var(--fg-muted); border:1px solid var(--border); }
+    .kpi-label { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--fg-muted); font-family:var(--font-mono); }
+    .kpi-value { font-family:var(--font-display); font-size:28px; font-weight:800; color:var(--fg); line-height:1.05; margin-top:4px; font-variant-numeric:tabular-nums; }
+    .kpi-sub   { font-size:11px; color:var(--fg-muted); margin-top:3px; }
+
+    /* ── CONTENT GRID ── */
+    .content-grid { display:grid; grid-template-columns:2fr 3fr; gap:14px; align-items:start; }
+    .left-col { display:flex; flex-direction:column; gap:14px; }
+
+    /* ── CARD ── */
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; }
+    .card-head {
+      padding:14px 18px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .card-title { font-family:var(--font-display); font-size:13px; font-weight:700; color:var(--fg); }
+    .card-sub   { font-size:11px; color:var(--fg-muted); margin-top:1px; }
+    .card-tag   { font-size:9px; font-weight:700; font-family:var(--font-mono); color:var(--primary); background:var(--primary-light); padding:3px 8px; border-radius:5px; flex-shrink:0; }
+
+    /* ── CHART ── */
+    .chart-wrap { padding:14px 18px; }
+    .chart-legend { display:flex; gap:14px; margin-bottom:14px; }
+    .legend-item { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; color:var(--fg-muted); text-transform:uppercase; letter-spacing:.06em; }
+    .legend-dot  { width:8px; height:8px; border-radius:2px; }
+    .chart-body  { display:flex; gap:14px; height:130px; position:relative; padding-bottom:22px; }
+    .chart-baseline { position:absolute; bottom:22px; left:0; right:0; border-bottom:1px solid var(--border); }
+    .bar-col     { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+    .bar-top-space { flex:1; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+    .bar-val-label { font-family:var(--font-mono); font-size:9px; font-weight:700; margin-bottom:3px; }
+    .bar-rect    { width:100%; border-radius:3px 3px 0 0; min-height:4px; }
+    .bar-key-label { font-family:var(--font-mono); font-size:9px; font-weight:700; color:var(--fg-muted); text-transform:uppercase; padding-top:5px; }
+    .chart-totals { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; padding-top:12px; border-top:1px solid var(--border); }
+    .ct-item { text-align:center; }
+    .ct-label { font-family:var(--font-mono); font-size:8px; font-weight:700; text-transform:uppercase; color:var(--fg-muted); letter-spacing:.06em; }
+    .ct-val   { font-family:var(--font-display); font-size:17px; font-weight:800; margin-top:1px; font-variant-numeric:tabular-nums; }
+
+    /* ── QUICK ACTIONS ── */
+    .actions-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:12px; }
+    .action-btn {
+      display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:var(--radius-sm);
+      border:1px solid var(--border); background:var(--surface); cursor:pointer; text-decoration:none;
+      transition:background .12s, border-color .15s, box-shadow .15s;
+    }
+    .action-btn:hover { background:var(--bg); border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.08); }
+    .action-icon  { width:30px; height:30px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .action-label { font-size:11px; font-weight:700; color:var(--fg); }
+    .action-desc  { font-size:9px; color:var(--fg-muted); margin-top:1px; }
+
+    /* ── SECTION TABLE ── */
+    .section-head {
+      padding:14px 18px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+    .filter-select {
+      font-family:var(--font-body); font-size:11px; font-weight:600; color:var(--fg);
+      background:var(--bg); border:1px solid var(--border); border-radius:7px; padding:5px 10px;
+      outline:none; cursor:pointer; transition:border-color .12s;
+    }
+    .filter-select:focus { border-color:var(--primary); }
+    .tbl-scroll { overflow-x:auto; }
+    .data-tbl { width:100%; border-collapse:collapse; font-size:12px; }
+    .data-tbl thead tr { background:var(--bg); }
+    .data-tbl th {
+      padding:8px 14px; font-size:9px; font-weight:700; text-transform:uppercase;
+      letter-spacing:.09em; color:var(--fg-muted); text-align:left;
+      border-bottom:1px solid var(--border); white-space:nowrap; font-family:var(--font-mono);
+    }
+    .data-tbl th.r { text-align:right; }
+    .data-tbl th.c { text-align:center; }
+    .data-tbl td { padding:9px 14px; border-bottom:1px solid var(--border); vertical-align:middle; color:var(--fg); }
+    .data-tbl tbody tr:last-child td { border-bottom:none; }
+    .data-tbl tbody tr:hover td { background:#fafafa; }
+    .data-tbl td.r { text-align:right; }
+    .data-tbl td.c { text-align:center; }
+    .data-tbl td.mono { font-family:var(--font-mono); font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
+    .dept-chip { display:inline-block; font-size:9px; font-weight:700; font-family:var(--font-mono); padding:2px 6px; border-radius:4px; }
+    .pct-bar-row { display:flex; align-items:center; gap:7px; min-width:90px; }
+    .pct-track { flex:1; height:4px; background:var(--border); border-radius:100px; overflow:hidden; }
+    .pct-fill  { height:100%; border-radius:100px; transition:width .6s ease; }
+    .pct-num   { font-family:var(--font-mono); font-size:10px; font-weight:700; width:32px; text-align:right; flex-shrink:0; }
+    .status-pill { display:inline-flex; align-items:center; gap:4px; padding:3px 7px; border-radius:100px; font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+    .status-pill::before { content:''; width:4px; height:4px; border-radius:50%; }
+    .pill-ok::before   { background:var(--success); }
+    .pill-warn::before { background:var(--warning); }
+    .pill-crit::before { background:var(--danger); }
+    .pill-ok   { background:var(--success-light); color:#065f46; }
+    .pill-warn { background:var(--warning-light);  color:#78350f; }
+    .pill-crit { background:var(--danger-light);   color:#7f1d1d; }
+
+    /* ── BATCH ── */
+    .batch-head {
+      padding:14px 18px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    }
+    .btn-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+    .seg-ctrl { display:flex; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px; gap:2px; }
+    .seg-btn  { font-size:10px; font-weight:700; padding:4px 10px; border-radius:6px; border:none; background:transparent; color:var(--fg-muted); cursor:pointer; transition:all .12s; }
+    .seg-btn.active { background:var(--surface); color:var(--primary); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .exp-btn {
+      display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:7px;
+      font-size:10px; font-weight:700; border:1px solid var(--border); background:var(--surface);
+      color:var(--fg); cursor:pointer; transition:background .12s, border-color .12s;
+    }
+    .exp-btn:hover { background:var(--bg); border-color:var(--border-strong); }
+    .exp-btn.primary { background:var(--primary); border-color:var(--primary); color:#fff; }
+    .exp-btn.primary:hover { background:var(--primary-dark); }
+    .batch-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:10px; padding:14px; }
+    .batch-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px; display:flex; flex-direction:column; gap:7px; }
+    .bc-top { display:flex; align-items:center; justify-content:space-between; }
+    .bc-sub { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--fg-muted); }
+    .bc-id  { font-family:var(--font-mono); font-size:11px; font-weight:700; background:var(--fg); color:#fff; width:22px; height:22px; border-radius:5px; display:flex; align-items:center; justify-content:center; }
+    .bc-count { font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--fg); line-height:1; font-variant-numeric:tabular-nums; }
+    .bc-total { font-size:11px; font-weight:600; color:var(--fg-muted); }
+    .bc-pct   { font-size:10px; font-weight:700; margin-top:-2px; }
+    .bc-bar   { height:4px; background:var(--border); border-radius:100px; overflow:hidden; }
+    .bc-fill  { height:100%; border-radius:100px; }
+    .bc-sess  { display:grid; grid-template-columns:1fr 1fr; gap:2px; padding-top:5px; border-top:1px solid var(--border); }
+    .bc-sess-row { display:flex; justify-content:space-between; align-items:center; font-size:8px; font-family:var(--font-mono); font-weight:600; color:var(--fg-muted); }
+    .bc-sv { font-weight:700; }
+
+    /* ── MOBILE NAV ── */
+    .mobile-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); z-index:300; padding:6px 0 env(safe-area-inset-bottom,0); }
+    .mnav-inner { display:flex; justify-content:space-around; align-items:center; }
+    .mnav-item  { display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 12px; color:var(--fg-muted); cursor:pointer; text-decoration:none; transition:color .12s; }
+    .mnav-item.active { color:var(--primary); }
+    .mnav-item svg { width:22px; height:22px; }
+    .mnav-label { font-size:9px; font-weight:700; }
+
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:150; backdrop-filter:blur(2px); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width:1280px) {
+      :root { --sidebar-w:220px; }
+      .kpi-grid { grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width:1024px) {
+      .content-grid { grid-template-columns:1fr; }
+      .rate-stats { display:none; }
+    }
+    @media (max-width:768px) {
+      .sidebar { transform:translateX(-100%); }
+      .sidebar.open { transform:translateX(0); box-shadow:4px 0 24px rgba(0,0,0,.15); }
+      .overlay.open { display:block; }
+      .main { margin-left:0; }
+      .menu-btn { display:flex; }
+      .topbar-title-group { display:none; }
+      .topbar { padding:0 16px; }
+      .date-picker-label { display:none; }
+      .page { padding:14px 16px 80px; }
+      .kpi-grid { grid-template-columns:repeat(2,1fr); gap:10px; }
+      .rate-banner { padding:16px; }
+      .mobile-nav { display:block; }
+      .kpi-value { font-size:22px; }
+      .batch-cards { grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); }
+    }
+    @media (max-width:480px) {
+      .kpi-grid { gap:8px; }
+      .kpi-value { font-size:20px; }
+      .rate-value { font-size:24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="overlay" id="overlay"></div>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".9"/>
+          <rect x="12" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".9"/>
+          <rect x="2" y="12" width="6" height="6" rx="1.5" fill="white" opacity=".9"/>
+          <rect x="12" y="12" width="3" height="3" rx=".8" fill="white" opacity=".7"/>
+          <rect x="17" y="12" width="1.5" height="1.5" rx=".4" fill="white" opacity=".7"/>
+          <rect x="12" y="17" width="1.5" height="1.5" rx=".4" fill="white" opacity=".7"/>
+          <rect x="15" y="15" width="1.5" height="3.5" rx=".4" fill="white" opacity=".7"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">QR Attendance</div>
+        <div class="brand-sub">SRMIST · Admin Portal</div>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-group-label">Overview</div>
+      <a href="#" class="nav-item active">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8.854-1.146a.5.5 0 010 .707l-3 3a.5.5 0 01-.707-.707l3-3a.5.5 0 01.707 0z"/><path d="M13.854 10.146a.5.5 0 010 .708l-1.5 1.5a.5.5 0 01-.708-.708l1.5-1.5a.5.5 0 01.708 0zm0 3a.5.5 0 010 .708l-1.5 1.5a.5.5 0 01-.708-.708l1.5-1.5a.5.5 0 01.708 0z"/></svg>
+        Dashboard
+        <span class="nav-badge">Live</span>
+      </a>
+      <a href="/admin/reports" class="nav-item">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 4a.5.5 0 000 1h6a.5.5 0 000-1H5zm-.5 2.5A.5.5 0 015 6h6a.5.5 0 010 1H5a.5.5 0 01-.5-.5zM5 8a.5.5 0 000 1h6a.5.5 0 000-1H5zm0 2a.5.5 0 000 1h3a.5.5 0 000-1H5z"/><path fill-rule="evenodd" d="M2 2a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V2zm10-1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V2a1 1 0 00-1-1H4z" clip-rule="evenodd"/></svg>
+        Reports &amp; Logs
+      </a>
+      <div class="nav-group-label">People</div>
+      <a href="/admin/students" class="nav-item">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>
+        Students
+      </a>
+      <a href="/admin/faculty" class="nav-item">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 100-6 3 3 0 000 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 015 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 005 9c-4 0-5 3-5 4s1 1 1 1h4.216z" clip-rule="evenodd"/><path d="M4.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>
+        Faculty
+      </a>
+      <div class="nav-group-label">Configuration</div>
+      <a href="/admin/settings" class="nav-item">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 002.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 001.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 00-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 00-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 00-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 003.06 9.377l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 004.175 5.02l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 002.692-1.115l.094-.319z"/><path d="M8 5.754a2.246 2.246 0 100 4.492 2.246 2.246 0 000-4.492zM9.5 8a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>
+        Session Settings
+      </a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="admin-row">
+        <div class="admin-avatar">AD</div>
+        <div style="flex:1;min-width:0">
+          <div class="admin-name">Administrator</div>
+          <div class="admin-role">Super Admin</div>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="color:var(--fg-muted)"><path d="M4.646 1.646a.5.5 0 01.708 0l6 6a.5.5 0 010 .708l-6 6a.5.5 0 01-.708-.708L10.293 8 4.646 2.354a.5.5 0 010-.708z"/></svg>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><path d="M1.5 3a.5.5 0 000 1h12a.5.5 0 000-1h-12zm0 4a.5.5 0 000 1h12a.5.5 0 000-1h-12zm0 4a.5.5 0 000 1h12a.5.5 0 000-1h-12z"/></svg>
+        </button>
+        <div class="topbar-title-group">
+          <div class="topbar-title">Admin Dashboard</div>
+          <div class="topbar-sub">SRMIST Tiruchirappalli</div>
+        </div>
+        <span class="live-badge"><span class="live-dot"></span> Live</span>
+      </div>
+      <div class="topbar-right">
+        <div class="date-picker">
+          <span class="date-picker-label">Date</span>
+          <input type="date" id="datePicker" value="2026-06-08">
+        </div>
+        <button class="icon-btn" title="Notifications">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 16a2 2 0 002-2H6a2 2 0 002 2zm.995-14.901a1 1 0 10-1.99 0A5.002 5.002 0 003 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7 0-2.42-1.72-4.44-4.005-4.901z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="page">
+
+      <!-- Rate Banner -->
+      <div class="rate-banner">
+        <div class="rate-left">
+          <div class="ring-wrap">
+            <svg width="66" height="66" viewBox="0 0 66 66">
+              <circle cx="33" cy="33" r="26" class="ring-track"/>
+              <circle cx="33" cy="33" r="26" class="ring-fill"
+                stroke-dasharray="163.4" stroke-dashoffset="43.1"/>
+            </svg>
+            <div class="ring-text">73.6%</div>
+          </div>
+          <div>
+            <div class="rate-label">Today's Attendance Rate</div>
+            <div class="rate-value">73.6%</div>
+            <div class="rate-sub">Jun 8, 2026 · 3 batches below threshold</div>
+          </div>
+        </div>
+        <div class="rate-stats">
+          <div class="rate-stat"><div class="rate-stat-v">847</div><div class="rate-stat-l">Enrolled</div></div>
+          <div class="rate-stat"><div class="rate-stat-v">623</div><div class="rate-stat-l">Present</div></div>
+          <div class="rate-stat"><div class="rate-stat-v">1,084</div><div class="rate-stat-l">Total Scans</div></div>
+        </div>
+      </div>
+
+      <!-- KPI Grid -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-top">
+            <div class="kpi-icon" style="background:var(--primary-light)">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="var(--primary)"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>
+            </div>
+            <span class="kpi-trend trend-up">↑ Active</span>
+          </div>
+          <div>
+            <div class="kpi-label">Total Students</div>
+            <div class="kpi-value">847</div>
+            <div class="kpi-sub">Across 8 training batches</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top">
+            <div class="kpi-icon" style="background:var(--secondary-light)">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="var(--secondary)"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 100-6 3 3 0 000 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 015 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 005 9c-4 0-5 3-5 4s1 1 1 1h4.216z" clip-rule="evenodd"/><path d="M4.5 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"/></svg>
+            </div>
+            <span class="kpi-trend trend-neutral">12 Active</span>
+          </div>
+          <div>
+            <div class="kpi-label">Faculty Members</div>
+            <div class="kpi-value">12</div>
+            <div class="kpi-sub">Teaching &amp; supervising staff</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top">
+            <div class="kpi-icon" style="background:var(--success-light)">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="var(--success)"><path d="M10.97 4.97a.75.75 0 011.07 1.05l-3.99 4.99a.75.75 0 01-1.08.02L4.324 8.384a.75.75 0 111.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 01.02-.022z"/><path fill-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zM0 8a8 8 0 1116 0A8 8 0 010 8z" clip-rule="evenodd"/></svg>
+            </div>
+            <span class="kpi-trend trend-up">1,084 scans</span>
+          </div>
+          <div>
+            <div class="kpi-label">Present Today</div>
+            <div class="kpi-value">623</div>
+            <div class="kpi-sub">At least 1 scan logged</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-top">
+            <div class="kpi-icon" style="background:var(--warning-light)">
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="var(--warning)"><path d="M8.982 1.566a1.13 1.13 0 00-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 01-1.1 0L7.1 5.995A.905.905 0 018 5zm.002 6a1 1 0 110 2 1 1 0 010-2z"/></svg>
+            </div>
+            <span class="kpi-trend trend-warn">Below 75%</span>
+          </div>
+          <div>
+            <div class="kpi-label">Attendance Rate</div>
+            <div class="kpi-value" style="color:#d97706">73.6%</div>
+            <div class="kpi-sub">Target: 75% · Gap: −1.4 pts</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Grid -->
+      <div class="content-grid">
+        <div class="left-col">
+
+          <!-- Session Chart -->
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title">Session Scan Breakdown</div>
+                <div class="card-sub">Scans per FN / AN slot · Jun 8</div>
+              </div>
+              <span class="card-tag">FN · AN</span>
+            </div>
+            <div class="chart-wrap">
+              <div class="chart-legend">
+                <span class="legend-item"><span class="legend-dot" style="background:var(--primary)"></span> FN Sessions</span>
+                <span class="legend-item"><span class="legend-dot" style="background:var(--secondary)"></span> AN Sessions</span>
+              </div>
+              <div class="chart-body" id="chartBody">
+                <div class="chart-baseline"></div>
+              </div>
+              <div class="chart-totals">
+                <div class="ct-item"><div class="ct-label">FN1</div><div class="ct-val" style="color:var(--primary)">312</div></div>
+                <div class="ct-item"><div class="ct-label">FN2</div><div class="ct-val" style="color:var(--primary)">289</div></div>
+                <div class="ct-item"><div class="ct-label">AN1</div><div class="ct-val" style="color:var(--secondary)">298</div></div>
+                <div class="ct-item"><div class="ct-label">AN2</div><div class="ct-val" style="color:var(--secondary)">185</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title">Quick Actions</div>
+                <div class="card-sub">Jump to management sections</div>
+              </div>
+            </div>
+            <div class="actions-grid">
+              <a href="/admin/students" class="action-btn">
+                <div class="action-icon" style="background:var(--primary-light)">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="var(--primary)"><path d="M8 4a.5.5 0 01.5.5v3h3a.5.5 0 010 1h-3v3a.5.5 0 01-1 0v-3h-3a.5.5 0 010-1h3v-3A.5.5 0 018 4z"/><path fill-rule="evenodd" d="M8 0a8 8 0 100 16A8 8 0 008 0zM1 8a7 7 0 1114 0A7 7 0 011 8z" clip-rule="evenodd"/></svg>
+                </div>
+                <div><div class="action-label">Add Student</div><div class="action-desc">Create new account</div></div>
+              </a>
+              <a href="/admin/students" class="action-btn">
+                <div class="action-icon" style="background:var(--secondary-light)">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="var(--secondary)"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/><path d="M7.646 1.146a.5.5 0 01.708 0l3 3a.5.5 0 01-.708.708L8.5 2.707V11.5a.5.5 0 01-1 0V2.707L5.354 4.854a.5.5 0 11-.708-.708l3-3z"/></svg>
+                </div>
+                <div><div class="action-label">Bulk Upload</div><div class="action-desc">CSV / Excel import</div></div>
+              </a>
+              <a href="/admin/reports" class="action-btn">
+                <div class="action-icon" style="background:var(--tertiary-light)">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="var(--tertiary)"><path d="M5 4a.5.5 0 000 1h6a.5.5 0 000-1H5zm-.5 2.5A.5.5 0 015 6h6a.5.5 0 010 1H5a.5.5 0 01-.5-.5zM5 8a.5.5 0 000 1h6a.5.5 0 000-1H5zm0 2a.5.5 0 000 1h3a.5.5 0 000-1H5z"/><path fill-rule="evenodd" d="M2 2a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V2zm10-1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V2a1 1 0 00-1-1H4z" clip-rule="evenodd"/></svg>
+                </div>
+                <div><div class="action-label">Reports</div><div class="action-desc">View &amp; export logs</div></div>
+              </a>
+              <a href="/admin/settings" class="action-btn">
+                <div class="action-icon" style="background:var(--surface-dim)">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="var(--fg-muted)"><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319z"/><path d="M8 5.754a2.246 2.246 0 100 4.492 2.246 2.246 0 000-4.492zM9.5 8a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>
+                </div>
+                <div><div class="action-label">Settings</div><div class="action-desc">Session time windows</div></div>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Table -->
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <div class="card-title">Section-wise Attendance</div>
+              <div class="card-sub">Classroom breakdown by department</div>
+            </div>
+            <select class="filter-select" id="deptFilter">
+              <option value="">All Departments</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="MECH">MECH</option>
+              <option value="CIVIL">CIVIL</option>
+              <option value="IT">IT</option>
+            </select>
+          </div>
+          <div class="tbl-scroll">
+            <table class="data-tbl">
+              <thead>
+                <tr>
+                  <th>Section</th><th>Dept</th>
+                  <th class="r">Students</th><th class="r">Present</th>
+                  <th>Rate</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="sectionTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Batch Attendance -->
+      <div class="card">
+        <div class="batch-head">
+          <div>
+            <div class="card-title">Batch-wise Attendance</div>
+            <div class="card-sub">FN1 · FN2 · AN1 · AN2 session breakdown per training batch</div>
+          </div>
+          <div class="btn-row">
+            <div class="seg-ctrl">
+              <button class="seg-btn" id="tblBtn" onclick="setBatchView('table')">Table</button>
+              <button class="seg-btn active" id="crdBtn" onclick="setBatchView('cards')">Cards</button>
+            </div>
+            <button class="exp-btn">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5zm-3 0A1.5 1.5 0 019.5 3V1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V4.5h-2z"/></svg>
+              Excel
+            </button>
+            <button class="exp-btn primary">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/><path d="M7.646 1.146a.5.5 0 01.708 0l3 3a.5.5 0 01-.708.708L8.5 2.707V11.5a.5.5 0 01-1 0V2.707L5.354 4.854a.5.5 0 11-.708-.708l3-3z"/></svg>
+              PDF
+            </button>
+          </div>
+        </div>
+        <div id="batchCards" class="batch-cards"></div>
+        <div id="batchTableWrap" style="display:none">
+          <div class="tbl-scroll">
+            <table class="data-tbl">
+              <thead>
+                <tr>
+                  <th>Batch</th>
+                  <th class="c" style="color:var(--primary)">FN1</th>
+                  <th class="c" style="color:var(--primary)">FN2</th>
+                  <th class="c" style="color:var(--secondary)">AN1</th>
+                  <th class="c" style="color:var(--secondary)">AN2</th>
+                  <th class="c">Total</th><th class="c">Present</th><th>Rate</th>
+                </tr>
+              </thead>
+              <tbody id="batchTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<nav class="mobile-nav">
+  <div class="mnav-inner">
+    <a href="#" class="mnav-item active">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span class="mnav-label">Dashboard</span>
+    </a>
+    <a href="/admin/students" class="mnav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span class="mnav-label">Students</span>
+    </a>
+    <a href="/admin/reports" class="mnav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>
+      <span class="mnav-label">Reports</span>
+    </a>
+    <a href="/admin/settings" class="mnav-item">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87a.49.49 0 00.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      <span class="mnav-label">Settings</span>
+    </a>
+  </div>
+</nav>
+
+<script>
+const sessions = [
+  { key:'FN1', color:'#2563eb', val:312 },
+  { key:'FN2', color:'#3b82f6', val:289 },
+  { key:'AN1', color:'#4f46e5', val:298 },
+  { key:'AN2', color:'#818cf8', val:185 },
+];
+
+const sections = [
+  { s:'A1', dept:'CSE',   total:65, present:54 },
+  { s:'A2', dept:'CSE',   total:63, present:49 },
+  { s:'B1', dept:'ECE',   total:58, present:47 },
+  { s:'B2', dept:'ECE',   total:60, present:38 },
+  { s:'C1', dept:'MECH',  total:55, present:43 },
+  { s:'C2', dept:'MECH',  total:52, present:41 },
+  { s:'D1', dept:'CIVIL', total:48, present:35 },
+  { s:'E1', dept:'IT',    total:62, present:55 },
+  { s:'E2', dept:'IT',    total:60, present:50 },
+  { s:'F1', dept:'CSE',   total:54, present:48 },
+  { s:'G1', dept:'ECE',   total:50, present:40 },
+  { s:'H1', dept:'MECH',  total:60, present:44 },
+];
+
+const batches = [
+  { b:'A', total:80,  present:68, fn1:58, fn2:52, an1:55, an2:38 },
+  { b:'B', total:72,  present:54, fn1:44, fn2:38, an1:40, an2:25 },
+  { b:'C', total:85,  present:71, fn1:62, fn2:58, an1:57, an2:40 },
+  { b:'D', total:65,  present:48, fn1:38, fn2:30, an1:35, an2:22 },
+  { b:'E', total:90,  present:82, fn1:72, fn2:68, an1:70, an2:52 },
+  { b:'F', total:55,  present:39, fn1:30, fn2:24, an1:28, an2:18 },
+  { b:'G', total:88,  present:76, fn1:68, fn2:62, an1:64, an2:44 },
+  { b:'H', total:60,  present:45, fn1:36, fn2:30, an1:32, an2:20 },
+];
+
+function tone(pct) {
+  if (pct >= 75) return { fill:'#10b981', text:'#059669', border:'#a7f3d0', pill:'pill-ok',  label:'Good' };
+  if (pct >= 50) return { fill:'#f59e0b', text:'#d97706', border:'#fde68a', pill:'pill-warn', label:'At Risk' };
+  return           { fill:'#ef4444', text:'#dc2626', border:'#fecaca', pill:'pill-crit', label:'Critical' };
+}
+
+const deptColors = {
+  CSE:['#dbeafe','#1e40af'], ECE:['#e0e7ff','#3730a3'],
+  MECH:['#d1fae5','#065f46'], CIVIL:['#fef3c7','#92400e'], IT:['#ecfeff','#0e7490']
+};
+
+function renderChart() {
+  const el = document.getElementById('chartBody');
+  const max = Math.max(...sessions.map(s => s.val)) * 1.08;
+  const chartH = 108;
+  const bars = sessions.map(s => {
+    const h = Math.max(Math.round((s.val / max) * chartH), 6);
+    return `<div class="bar-col">
+      <div class="bar-top-space">
+        <span class="bar-val-label" style="color:${s.color}">${s.val}</span>
+        <div class="bar-rect" style="height:${h}px;background:${s.color}"></div>
+      </div>
+      <span class="bar-key-label">${s.key}</span>
+    </div>`;
+  }).join('');
+  el.innerHTML = '<div class="chart-baseline"></div>' + bars;
+}
+
+function renderSections(filter) {
+  const rows = filter ? sections.filter(r => r.dept === filter) : sections;
+  document.getElementById('sectionTbody').innerHTML = rows.map(r => {
+    const pct = Math.round((r.present / r.total) * 100);
+    const t = tone(pct);
+    const [bg, fg] = deptColors[r.dept] || ['#f1f5f9','#475569'];
+    return `<tr>
+      <td style="font-weight:600">Section ${r.s}</td>
+      <td><span class="dept-chip" style="background:${bg};color:${fg}">${r.dept}</span></td>
+      <td class="mono">${r.total}</td>
+      <td class="mono">${r.present}</td>
+      <td><div class="pct-bar-row">
+        <div class="pct-track"><div class="pct-fill" style="width:${pct}%;background:${t.fill}"></div></div>
+        <span class="pct-num" style="color:${t.text}">${pct}%</span>
+      </div></td>
+      <td><span class="status-pill ${t.pill}">${t.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderBatchCards() {
+  document.getElementById('batchCards').innerHTML = batches.map(b => {
+    const pct = Math.round((b.present / b.total) * 100);
+    const t = tone(pct);
+    return `<div class="batch-card" style="border-color:${t.border}">
+      <div class="bc-top"><span class="bc-sub">Batch</span><span class="bc-id">${b.b}</span></div>
+      <div>
+        <span class="bc-count">${b.present}</span><span class="bc-total"> / ${b.total}</span>
+        <div class="bc-pct" style="color:${t.text}">${pct}% present</div>
+      </div>
+      <div class="bc-bar"><div class="bc-fill" style="width:${Math.min(pct,100)}%;background:${t.fill}"></div></div>
+      <div class="bc-sess">
+        <div class="bc-sess-row"><span>FN1</span><span class="bc-sv" style="color:#2563eb">${b.fn1}</span></div>
+        <div class="bc-sess-row"><span>FN2</span><span class="bc-sv" style="color:#3b82f6">${b.fn2}</span></div>
+        <div class="bc-sess-row"><span>AN1</span><span class="bc-sv" style="color:#4f46e5">${b.an1}</span></div>
+        <div class="bc-sess-row"><span>AN2</span><span class="bc-sv" style="color:#818cf8">${b.an2}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderBatchTable() {
+  document.getElementById('batchTbody').innerHTML = batches.map(b => {
+    const pct = Math.round((b.present / b.total) * 100);
+    const t = tone(pct);
+    return `<tr>
+      <td><span style="display:inline-flex;align-items:center;justify-content:center;background:#0f172a;color:#fff;width:24px;height:24px;border-radius:5px;font-family:var(--font-mono);font-size:10px;font-weight:700">${b.b}</span></td>
+      <td class="mono c" style="color:#2563eb">${b.fn1}</td>
+      <td class="mono c" style="color:#3b82f6">${b.fn2}</td>
+      <td class="mono c" style="color:#4f46e5">${b.an1}</td>
+      <td class="mono c" style="color:#818cf8">${b.an2}</td>
+      <td class="mono c">${b.total}</td>
+      <td class="mono c">${b.present}</td>
+      <td style="min-width:110px"><div class="pct-bar-row">
+        <div class="pct-track"><div class="pct-fill" style="width:${pct}%;background:${t.fill}"></div></div>
+        <span class="pct-num" style="color:${t.text}">${pct}%</span>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function setBatchView(v) {
+  const cards = document.getElementById('batchCards');
+  const tbl   = document.getElementById('batchTableWrap');
+  const tBtn  = document.getElementById('tblBtn');
+  const cBtn  = document.getElementById('crdBtn');
+  if (v === 'cards') {
+    cards.style.display = ''; tbl.style.display = 'none';
+    cBtn.classList.add('active'); tBtn.classList.remove('active');
+  } else {
+    cards.style.display = 'none'; tbl.style.display = '';
+    tBtn.classList.add('active'); cBtn.classList.remove('active');
+  }
+}
+
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('overlay');
+document.getElementById('menuBtn').addEventListener('click', () => {
+  sidebar.classList.toggle('open'); overlay.classList.toggle('open');
+});
+overlay.addEventListener('click', () => {
+  sidebar.classList.remove('open'); overlay.classList.remove('open');
+});
+document.getElementById('deptFilter').addEventListener('change', e => renderSections(e.target.value));
+
+renderChart();
+renderSections('');
+renderBatchCards();
+renderBatchTable();
+</script>
+</body>
+</html>

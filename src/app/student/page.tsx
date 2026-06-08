@@ -23,12 +23,34 @@ export default function StudentDashboard() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
+  // QR Blocking states
+  const [qrBlocked, setQrBlocked] = useState(false)
+  const [blockChecking, setBlockChecking] = useState(true)
+
   // Filters for detailed history view
   const [histDateFrom, setHistDateFrom] = useState('')
   const [histDateTo, setHistDateTo] = useState('')
   const [histSession, setHistSession] = useState('')
   const [histStatus, setHistStatus] = useState('') // '', 'present', 'absent'
   const [histSearch, setHistSearch] = useState('')
+
+  const checkBlockStatus = useCallback(async () => {
+    if (!profile?.student_id) return
+    setBlockChecking(true)
+    try {
+      const { data, error } = await supabase
+        .rpc('check_and_update_student_qr_blocked', { p_student_id: profile.student_id })
+      if (error) {
+        console.error('Failed to check/update QR blocked status:', error)
+      } else {
+        setQrBlocked(!!data)
+      }
+    } catch (err) {
+      console.error('Error checking QR blocked status:', err)
+    } finally {
+      setBlockChecking(false)
+    }
+  }, [profile?.student_id, supabase])
 
   const fetchRecords = useCallback(async () => {
     if (!profile?.student_id) return
@@ -95,18 +117,20 @@ export default function StudentDashboard() {
     if (!profile?.student_id) {
       setLoading(false)
       setStatsLoading(false)
+      setBlockChecking(false)
       return
     }
     fetchRecords()
     fetchStats()
     fetchHistory()
-  }, [authLoading, profile?.student_id, fetchRecords, fetchStats, fetchHistory])
+    checkBlockStatus()
+  }, [authLoading, profile?.student_id, fetchRecords, fetchStats, fetchHistory, checkBlockStatus])
 
-  // Real-time subscription (listening to any change in attendance)
+  // Real-time subscription (listening to any change in attendance & profiles)
   useEffect(() => {
     if (authLoading || !profile?.student_id) return
 
-    const channel = supabase
+    const attendanceChannel = supabase
       .channel(`student_attendance_${profile.student_id}`)
       .on(
         'postgres_changes',
@@ -120,14 +144,34 @@ export default function StudentDashboard() {
           fetchRecords()
           fetchStats()
           fetchHistory()
+          checkBlockStatus()
+        }
+      )
+      .subscribe()
+
+    const profileChannel = supabase
+      .channel(`student_profile_${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${profile.id}`,
+        },
+        (payload) => {
+          if (payload.new && 'qr_blocked' in payload.new) {
+            setQrBlocked(!!payload.new.qr_blocked)
+          }
         }
       )
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      supabase.removeChannel(attendanceChannel)
+      supabase.removeChannel(profileChannel)
     }
-  }, [profile?.student_id, authLoading, supabase, fetchRecords, fetchStats, fetchHistory])
+  }, [profile?.id, profile?.student_id, authLoading, supabase, fetchRecords, fetchStats, fetchHistory, checkBlockStatus])
 
 
   const today = todayIST()
@@ -330,7 +374,29 @@ export default function StudentDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left Column: QR Code Component */}
         <div className="space-y-6">
-          {qrPayload && <QrDisplay basePayload={qrPayload} />}
+          {blockChecking ? (
+            <div className="card-premium flex flex-col items-center gap-6 py-12 relative overflow-hidden bg-slate-50 animate-pulse rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+              <span className="text-slate-400 text-xs font-semibold">Verifying QR status...</span>
+            </div>
+          ) : qrBlocked ? (
+            <div className="card-premium flex flex-col items-center gap-6 py-12 relative overflow-hidden group border-red-200/50 bg-red-50/10 rounded-[2rem] p-6 shadow-lg border">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-500 to-rose-600"></div>
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-3xl font-extrabold shadow-sm animate-pulse">
+                🔒
+              </div>
+              <div className="text-center space-y-2 max-w-sm px-4">
+                <h3 className="text-lg font-bold text-slate-800 font-heading">QR Code Generation Blocked</h3>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                  Your QR code generation has been disabled because you missed a scheduled attendance session.
+                </p>
+                <div className="p-3.5 rounded-xl bg-red-50/80 border border-red-100/80 text-xs text-red-700 font-bold mt-2 shadow-inner">
+                  Please contact the admin (IST 118) to enable your QR code.
+                </div>
+              </div>
+            </div>
+          ) : (
+            qrPayload && <QrDisplay basePayload={qrPayload} />
+          )}
 
           {/* Today's scan verification status */}
           <div className="card space-y-4">

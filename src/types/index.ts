@@ -11,6 +11,8 @@ export interface Profile {
   section?: string | null
   batch?: string | null
   status: 'Active' | 'Inactive'
+  qr_blocked?: boolean
+  qr_unblocked_at?: string
   created_at: string
   updated_at: string
 }
@@ -27,6 +29,7 @@ export interface AttendanceRecord {
   marked_by_name: string
   date: string        // 'YYYY-MM-DD'
   timestamp: string   // ISO8601
+  batch?: string | null
 }
 
 export interface SectionSummary {
@@ -77,6 +80,7 @@ export interface SessionSettings {
   an2_start: string
   an2_end: string
   enabled: boolean
+  block_immediate?: boolean
   updated_at: string
 }
 
@@ -97,6 +101,7 @@ export interface ReportFilters {
   section: string
   year: string
   session: string
+  batch: string
 }
 
 export interface RosterRecord {

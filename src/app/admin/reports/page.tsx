@@ -54,6 +54,7 @@ export default function ReportsPage() {
     section: '',
     year: '',
     session: '',
+    batch: '',
   })
 
   function setFilter(key: keyof ReportFilters, value: string) {
@@ -102,6 +103,7 @@ export default function ReportsPage() {
           p_section: filters.section || null,
           p_year: filters.year ? parseInt(filters.year) : null,
           p_session: filters.session || null,
+          p_batch: filters.batch || null,
         }
 
         if (fetchAll) {
@@ -374,7 +376,7 @@ export default function ReportsPage() {
 
     // 2. Silent background refresh
     loadData(!!cached)
-  }, [tab, page, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session])
+  }, [tab, page, filters.dateFrom, filters.dateTo, filters.department, filters.section, filters.year, filters.session, filters.batch])
 
 
   const filterTitle = [
@@ -382,6 +384,7 @@ export default function ReportsPage() {
     filters.dateTo !== filters.dateFrom ? `– ${formatDate(filters.dateTo)}` : '',
     filters.department ? `· ${filters.department}` : '',
     filters.section ? filters.section : '',
+    filters.batch ? `· Batch ${filters.batch}` : '',
     filters.session ? `· ${filters.session}` : '',
   ].filter(Boolean).join(' ')
 
@@ -515,7 +518,7 @@ export default function ReportsPage() {
 
       {/* Filters Glass Panel */}
       <div className="card space-y-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-5">
           {/* Date From */}
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
@@ -583,6 +586,21 @@ export default function ReportsPage() {
               >
                 <option value="">All Sections</option>
                 {sections.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Batch Filter dropdown for Attendance Records tab */}
+          {tab === 'records' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Batch</label>
+              <select
+                value={filters.batch}
+                onChange={(e) => setFilter('batch', e.target.value)}
+                className="input text-xs font-bold text-slate-700"
+              >
+                <option value="">All Batches</option>
+                {batchesList.map((b) => <option key={b} value={b}>Batch {b}</option>)}
               </select>
             </div>
           )}
@@ -699,6 +717,7 @@ export default function ReportsPage() {
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Dept</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Yr</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Sec</th>
+                    <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Batch</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Session</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Class Date</th>
                     <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Marked Time</th>
@@ -711,8 +730,9 @@ export default function ReportsPage() {
                       <td className="p-4 font-mono font-bold text-brand-600">{r.student_id}</td>
                       <td className="p-4 font-bold text-slate-800">{r.student_name}</td>
                       <td className="p-4 font-semibold text-slate-500 uppercase">{r.department}</td>
-                      <td className="p-4 font-bold text-slate-600 text-center">{r.year}</td>
+                      <td className="p-4 font-bold text-slate-600 text-center uppercase">{r.year}</td>
                       <td className="p-4 font-bold text-slate-600 text-center uppercase">{r.section}</td>
+                      <td className="p-4 font-bold text-slate-600 text-center uppercase">{r.batch || '—'}</td>
                       <td className="p-4">
                         <span className={`badge ${sessionColor(r.session)} text-[10px]`}>{r.session}</span>
                       </td>

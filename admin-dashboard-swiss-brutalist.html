@@ -1,0 +1,1678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SRMIST Admin Portal — Swiss Brutalist Redesign</title>
+  
+  <!-- Premium Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ── RESET & VARIABLES ──────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    :root {
+      /* Neo-Brutalist Color Palette */
+      --bg-cream: #FAF6F0;
+      --ink-black: #111115;
+      --card-white: #FFFFFF;
+      --cobalt-blue: #2563EB;
+      --cobalt-dark: #1D4ED8;
+      --cobalt-light: #EFF6FF;
+      --rust-red: #E11D48;
+      --rust-light: #FFF1F2;
+      --emerald-green: #059669;
+      --emerald-light: #ECFDF5;
+      --slate-gray: #6B7280;
+      --gold-yellow: #D97706;
+      --gold-light: #FEF3C7;
+      
+      /* Brutalist Border & Shadow */
+      --brutalist-border: 2px solid var(--ink-black);
+      --brutalist-shadow-sm: 2px 2px 0px var(--ink-black);
+      --brutalist-shadow: 4px 4px 0px var(--ink-black);
+      --brutalist-shadow-lg: 8px 8px 0px var(--ink-black);
+      --spring-transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    body {
+      background-color: var(--bg-cream);
+      color: var(--ink-black);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-y: scroll;
+    }
+
+    /* ── TYPOGRAPHY ──────────────────────────────────────── */
+    h1, h2, h3, h4, .brand-text, .stat-value {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: -0.01em;
+    }
+
+    code, .mono-text, table td, input, select {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── BASE BRUTALIST SHAPES ──────────────────────────── */
+    .brutalist-card {
+      background-color: var(--card-white);
+      border: var(--brutalist-border);
+      box-shadow: var(--brutalist-shadow);
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .brutalist-card.interactive:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: var(--brutalist-shadow-lg);
+      cursor: pointer;
+    }
+
+    .brutalist-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background-color: var(--card-white);
+      color: var(--ink-black);
+      border: var(--brutalist-border);
+      box-shadow: var(--brutalist-shadow-sm);
+      padding: 10px 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: 'Outfit', sans-serif;
+      transition: var(--spring-transition);
+    }
+
+    .brutalist-button:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: var(--brutalist-shadow);
+    }
+
+    .brutalist-button:active {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0px var(--ink-black);
+    }
+
+    .brutalist-button.primary {
+      background-color: var(--cobalt-blue);
+      color: var(--card-white);
+    }
+
+    .brutalist-button.danger {
+      background-color: var(--rust-red);
+      color: var(--card-white);
+    }
+
+    .brutalist-button.success {
+      background-color: var(--emerald-green);
+      color: var(--card-white);
+    }
+
+    .brutalist-input, .brutalist-select {
+      width: 100%;
+      border: var(--brutalist-border);
+      padding: 10px 14px;
+      background-color: var(--card-white);
+      color: var(--ink-black);
+      font-weight: 500;
+      outline: none;
+      box-shadow: inset 2px 2px 0px rgba(0,0,0,0.05);
+    }
+
+    .brutalist-input:focus, .brutalist-select:focus {
+      border-color: var(--cobalt-blue);
+      background-color: var(--cobalt-light);
+    }
+
+    /* Badge tags */
+    .brutalist-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: var(--brutalist-border);
+      box-shadow: 1px 1px 0px var(--ink-black);
+    }
+
+    .badge-success { background-color: var(--emerald-light); color: var(--emerald-green); }
+    .badge-danger { background-color: var(--rust-light); color: var(--rust-red); }
+    .badge-warning { background-color: var(--gold-light); color: var(--gold-yellow); }
+    .badge-info { background-color: var(--cobalt-light); color: var(--cobalt-blue); }
+
+    /* ── HEADER & NAVIGATION (NO SIDEBAR) ───────────────── */
+    .top-header {
+      background-color: var(--card-white);
+      border-bottom: var(--brutalist-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-box {
+      width: 40px;
+      height: 40px;
+      background-color: var(--cobalt-blue);
+      border: var(--brutalist-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--card-white);
+      font-weight: 900;
+      font-size: 20px;
+      box-shadow: 2px 2px 0px var(--ink-black);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--slate-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 2px;
+    }
+
+    /* Nav Tabs */
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      height: 100%;
+      align-items: center;
+    }
+
+    .nav-tab {
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 13px;
+      color: var(--ink-black);
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: var(--spring-transition);
+    }
+
+    .nav-tab:hover {
+      border: var(--brutalist-border);
+      background-color: var(--bg-cream);
+    }
+
+    .nav-tab.active {
+      border: var(--brutalist-border);
+      background-color: var(--cobalt-blue);
+      color: var(--card-white);
+      box-shadow: var(--brutalist-shadow-sm);
+    }
+
+    /* Right utilities */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px;
+      border: var(--brutalist-border);
+      background-color: var(--bg-cream);
+    }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 0;
+      border: var(--brutalist-border);
+      background-color: var(--gold-yellow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    /* Mobile Hamburger Menu */
+    .menu-toggle {
+      display: none;
+      background: none;
+      border: var(--brutalist-border);
+      width: 44px;
+      height: 44px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: var(--brutalist-shadow-sm);
+    }
+
+    .menu-toggle svg {
+      width: 24px;
+      height: 24px;
+      fill: var(--ink-black);
+    }
+
+    /* ── MOBILE MENU OVERLAY ────────────────────────────── */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 73px;
+      left: 0;
+      width: 100%;
+      background-color: var(--card-white);
+      border-bottom: var(--brutalist-border);
+      z-index: 99;
+      padding: 16px;
+      box-shadow: 0px 8px 0px rgba(17,17,21,0.15);
+    }
+
+    .mobile-menu.open {
+      display: block;
+    }
+
+    .mobile-nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mobile-nav-tab {
+      width: 100%;
+      text-align: left;
+      padding: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 14px;
+      background: none;
+      border: var(--brutalist-border);
+      color: var(--ink-black);
+    }
+
+    .mobile-nav-tab.active {
+      background-color: var(--cobalt-blue);
+      color: var(--card-white);
+      box-shadow: var(--brutalist-shadow-sm);
+    }
+
+    /* ── MAIN CONTENT CONTAINER ─────────────────────────── */
+    .main-canvas {
+      flex: 1;
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+      animation: tabFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── DASHBOARD TAB STYLES ───────────────────────────── */
+    .welcome-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: var(--cobalt-light);
+      border: var(--brutalist-border);
+      box-shadow: var(--brutalist-shadow);
+      padding: 28px;
+      margin-bottom: 32px;
+    }
+
+    .welcome-text h1 {
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    .welcome-text p {
+      color: var(--slate-gray);
+      font-size: 14px;
+    }
+
+    .dashboard-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background-color: var(--card-white);
+      border: var(--brutalist-border);
+      box-shadow: var(--brutalist-shadow);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 140px;
+    }
+
+    .stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .stat-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--slate-gray);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-icon {
+      width: 28px;
+      height: 28px;
+      border: var(--brutalist-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .stat-value {
+      font-size: 36px;
+      line-height: 1;
+      margin-top: 16px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .stat-delta {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    .stat-delta.up { color: var(--emerald-green); }
+    .stat-delta.down { color: var(--rust-red); }
+
+    /* Secondary Dash Grid */
+    .dashboard-details-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+    }
+
+    .recent-activity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border: var(--brutalist-border);
+      background-color: var(--bg-cream);
+    }
+
+    .activity-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .activity-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--emerald-green);
+      box-shadow: 0 0 0 2px var(--card-white), 0 0 0 4px var(--emerald-green);
+    }
+
+    .session-indicator-box {
+      text-align: center;
+      padding: 24px;
+      border: var(--brutalist-border);
+      background-color: var(--gold-light);
+      margin-top: 16px;
+    }
+
+    /* ── TABLES ─────────────────────────────────────────── */
+    .table-container {
+      overflow-x: auto;
+      border: var(--brutalist-border);
+      box-shadow: var(--brutalist-shadow);
+      background-color: var(--card-white);
+      margin-top: 16px;
+    }
+
+    .brutalist-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .brutalist-table th {
+      background-color: var(--ink-black);
+      color: var(--card-white);
+      padding: 14px 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    .brutalist-table td {
+      padding: 14px 16px;
+      border-bottom: var(--brutalist-border);
+      font-size: 13px;
+      font-weight: 500;
+      vertical-align: middle;
+    }
+
+    .brutalist-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .brutalist-table tr:hover td {
+      background-color: var(--bg-cream);
+    }
+
+    /* Filter Panel Grid */
+    .filter-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+      align-items: flex-end;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .filter-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--slate-gray);
+    }
+
+    /* ── MODALS (POPOVERS) ────────────────────────────── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(17,17,21,0.4);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      background-color: var(--card-white);
+      border: var(--brutalist-border);
+      box-shadow: var(--brutalist-shadow-lg);
+      width: 100%;
+      max-width: 480px;
+      animation: modalSlideUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes modalSlideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: var(--brutalist-border);
+      background-color: var(--ink-black);
+      color: var(--card-white);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--card-white);
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: var(--brutalist-border);
+      background-color: var(--bg-cream);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* Quick Forms */
+    .form-group {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    /* Switch Component */
+    .brutalist-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    .switch-bg {
+      width: 48px;
+      height: 24px;
+      background-color: var(--bg-cream);
+      border: var(--brutalist-border);
+      position: relative;
+      transition: var(--spring-transition);
+    }
+
+    .switch-thumb {
+      width: 16px;
+      height: 16px;
+      background-color: var(--ink-black);
+      border: 1px solid var(--ink-black);
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: var(--spring-transition);
+    }
+
+    input:checked + .switch-bg {
+      background-color: var(--emerald-green);
+    }
+
+    input:checked + .switch-bg .switch-thumb {
+      left: 26px;
+      background-color: var(--card-white);
+    }
+
+    .brutalist-switch input {
+      display: none;
+    }
+
+    /* QR Code Box */
+    .qr-container {
+      background-color: var(--ink-black);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: var(--brutalist-border);
+      margin-bottom: 16px;
+    }
+
+    .qr-image-mock {
+      width: 200px;
+      height: 200px;
+      background-color: var(--card-white);
+      border: var(--brutalist-border);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .qr-pixel-grid {
+      width: 100%;
+      height: 100%;
+      background-image: 
+        radial-gradient(var(--ink-black) 25%, transparent 25%),
+        radial-gradient(var(--ink-black) 25%, transparent 25%);
+      background-size: 16px 16px;
+      background-position: 0 0, 8px 8px;
+      border: var(--brutalist-border);
+    }
+
+    /* ── RESPONSIVE ADAPTABILITY ────────────────────────── */
+    @media (max-width: 1024px) {
+      .dashboard-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header-container {
+        padding: 0 16px;
+      }
+      .nav-tabs {
+        display: none; /* Collapsed on mobile/tablet */
+      }
+      .menu-toggle {
+        display: flex;
+      }
+      .dashboard-stats-grid {
+        grid-template-columns: 1fr;
+      }
+      .dashboard-details-grid {
+        grid-template-columns: 1fr;
+      }
+      .main-canvas {
+        padding: 20px 16px;
+      }
+      .welcome-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+      .filter-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── TOP HEADER (NO SIDEBARS) ────────────────────────── -->
+  <header class="top-header">
+    <div class="header-container">
+      <div class="logo-section">
+        <div class="logo-box">QR</div>
+        <div>
+          <h1 class="brand-title">SRMIST ADMIN</h1>
+          <p class="brand-sub">Attendance Control Center</p>
+        </div>
+      </div>
+
+      <!-- Desktop Nav Tabs -->
+      <nav class="nav-tabs">
+        <button class="nav-tab active" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="nav-tab" onclick="switchTab('faculty')">Faculty</button>
+        <button class="nav-tab" onclick="switchTab('students')">Students</button>
+        <button class="nav-tab" onclick="switchTab('sessions')">Sessions</button>
+        <button class="nav-tab" onclick="switchTab('reports')">Reports</button>
+      </nav>
+
+      <div class="header-actions">
+        <div class="user-profile">
+          <div class="user-avatar">H</div>
+          <span style="font-size: 13px; font-weight: 700; text-transform: uppercase;">Dr. H. Rai</span>
+        </div>
+        <button class="menu-toggle" onclick="toggleMobileMenu()" aria-label="Toggle Navigation">
+          <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Menu Drawer -->
+  <div class="mobile-menu" id="mobileMenu">
+    <div class="mobile-nav-list">
+      <button class="mobile-nav-tab active" onclick="switchTab('dashboard'); toggleMobileMenu()">Dashboard</button>
+      <button class="mobile-nav-tab" onclick="switchTab('faculty'); toggleMobileMenu()">Faculty</button>
+      <button class="mobile-nav-tab" onclick="switchTab('students'); toggleMobileMenu()">Students</button>
+      <button class="mobile-nav-tab" onclick="switchTab('sessions'); toggleMobileMenu()">Sessions</button>
+      <button class="mobile-nav-tab" onclick="switchTab('reports'); toggleMobileMenu()">Reports</button>
+    </div>
+  </div>
+
+  <!-- ── MAIN CONTENT AREA ───────────────────────────────── -->
+  <main class="main-canvas">
+
+    <!-- ── TAB 1: DASHBOARD OVERVIEW ────────────────────── -->
+    <div id="tab-dashboard" class="tab-panel active">
+      
+      <!-- Welcome Banner -->
+      <div class="welcome-banner">
+        <div class="welcome-text">
+          <h1>Welcome Back, Administrator</h1>
+          <p>System is online. Active scanning sessions are running normally.</p>
+        </div>
+        <div>
+          <button class="brutalist-button primary" onclick="switchTab('reports')">
+            <span class="mono-text">→</span> Run Quick Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="dashboard-stats-grid">
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Faculty Staff</span>
+            <div class="stat-icon">👤</div>
+          </div>
+          <div class="stat-value">
+            14
+            <span class="stat-delta up">+2 new</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Active Scanners</span>
+            <div class="stat-icon" style="background-color: var(--emerald-light);">✓</div>
+          </div>
+          <div class="stat-value">
+            12
+            <span class="stat-delta" style="color: var(--slate-gray);">/14 online</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Scanned Today</span>
+            <div class="stat-icon">⚡</div>
+          </div>
+          <div class="stat-value">
+            423
+            <span class="stat-delta up">↑ 18%</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Total Attendance</span>
+            <div class="stat-icon">📊</div>
+          </div>
+          <div class="stat-value">
+            8,432
+            <span class="stat-delta up">↑ 1.2k wk</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Secondary Info Panels -->
+      <div class="dashboard-details-grid">
+        
+        <!-- Live Log / Activity -->
+        <div class="brutalist-card">
+          <h2>Live Scan Streams</h2>
+          <p style="color: var(--slate-gray); font-size: 13px; margin-bottom: 16px;">Real-time incoming attendance confirmations from classrooms</p>
+          
+          <div class="recent-activity-list">
+            <div class="activity-item">
+              <div class="activity-main">
+                <div class="activity-indicator"></div>
+                <div>
+                  <strong style="text-transform: uppercase;">REG4039 — S. Raman</strong>
+                  <div style="font-size: 11px; color: var(--slate-gray);">CSE / 3rd Yr / Sec A • Scanned by <span class="mono-text">arun.v@srmist.edu.in</span></div>
+                </div>
+              </div>
+              <span class="mono-text" style="font-weight: 700;">15:38:12</span>
+            </div>
+
+            <div class="activity-item">
+              <div class="activity-main">
+                <div class="activity-indicator"></div>
+                <div>
+                  <strong style="text-transform: uppercase;">REG4112 — M. Divya</strong>
+                  <div style="font-size: 11px; color: var(--slate-gray);">ECE / 2nd Yr / Sec B • Scanned by <span class="mono-text">priya.k@srmist.edu.in</span></div>
+                </div>
+              </div>
+              <span class="mono-text" style="font-weight: 700;">15:36:45</span>
+            </div>
+
+            <div class="activity-item">
+              <div class="activity-main">
+                <div class="activity-indicator"></div>
+                <div>
+                  <strong style="text-transform: uppercase;">REG3987 — K. Rajesh</strong>
+                  <div style="font-size: 11px; color: var(--slate-gray);">MECH / 4th Yr / Sec A • Scanned by <span class="mono-text">subash.m@srmist.edu.in</span></div>
+                </div>
+              </div>
+              <span class="mono-text" style="font-weight: 700;">15:35:01</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session Status -->
+        <div class="brutalist-card">
+          <h2>Current Session</h2>
+          
+          <div class="session-indicator-box">
+            <span class="brutalist-badge badge-warning" style="margin-bottom: 8px;">Afternoon (AN)</span>
+            <div class="stat-value" style="justify-content: center; font-size: 40px; margin-top: 8px;">
+              ACTIVE
+            </div>
+            <p style="font-size: 12px; margin-top: 12px; color: var(--slate-gray);">
+              Started: <span class="mono-text">13:00</span><br>
+              Ends: <span class="mono-text">17:00</span>
+            </p>
+          </div>
+
+          <div style="margin-top: 24px;">
+            <button class="brutalist-button" style="width: 100%;" onclick="switchTab('sessions')">
+              ⚙ Configure Timings
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ── TAB 2: FACULTY MANAGEMENT ───────────────────── -->
+    <div id="tab-faculty" class="tab-panel">
+      <div class="brutalist-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h2>Faculty Directory</h2>
+            <p style="color: var(--slate-gray); font-size: 13px;">Manage approved staff members authorized to register student attendance</p>
+          </div>
+          <button class="brutalist-button primary" onclick="openModal('add-faculty-modal')">
+            + Add Faculty Member
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-panel">
+          <div class="filter-group">
+            <label class="filter-label">Search Staff</label>
+            <input type="text" class="brutalist-input" placeholder="Name or Email..." oninput="filterFacultyTable(this.value)">
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Status</label>
+            <select class="brutalist-select" onchange="filterFacultyStatus(this.value)">
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active Only</option>
+              <option value="INACTIVE">Inactive Only</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+          <table class="brutalist-table" id="facultyTable">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email Address</th>
+                <th>Status</th>
+                <th>Date Added</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Dr. Arun Vasanth</strong></td>
+                <td><span class="mono-text">arun.v@srmist.edu.in</span></td>
+                <td><span class="brutalist-badge badge-success">Active</span></td>
+                <td>2026-02-15</td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button" style="padding: 4px 8px; font-size: 11px;" onclick="toggleFacultyStatus(this, 'Arun Vasanth')">Toggle Status</button>
+                  <button class="brutalist-button danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteFacultyRow(this, 'Dr. Arun Vasanth')">Delete</button>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Dr. Priya Krishnan</strong></td>
+                <td><span class="mono-text">priya.k@srmist.edu.in</span></td>
+                <td><span class="brutalist-badge badge-success">Active</span></td>
+                <td>2026-02-18</td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button" style="padding: 4px 8px; font-size: 11px;" onclick="toggleFacultyStatus(this, 'Priya Krishnan')">Toggle Status</button>
+                  <button class="brutalist-button danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteFacultyRow(this, 'Dr. Priya Krishnan')">Delete</button>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Prof. Subash Mani</strong></td>
+                <td><span class="mono-text">subash.m@srmist.edu.in</span></td>
+                <td><span class="brutalist-badge badge-success">Active</span></td>
+                <td>2026-03-01</td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button" style="padding: 4px 8px; font-size: 11px;" onclick="toggleFacultyStatus(this, 'Subash Mani')">Toggle Status</button>
+                  <button class="brutalist-button danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteFacultyRow(this, 'Prof. Subash Mani')">Delete</button>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Mrs. Helen Rose</strong></td>
+                <td><span class="mono-text">helen.r@srmist.edu.in</span></td>
+                <td><span class="brutalist-badge badge-danger">Inactive</span></td>
+                <td>2026-03-10</td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button" style="padding: 4px 8px; font-size: 11px;" onclick="toggleFacultyStatus(this, 'Helen Rose')">Toggle Status</button>
+                  <button class="brutalist-button danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteFacultyRow(this, 'Mrs. Helen Rose')">Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB 3: STUDENT DIRECTORY ────────────────────── -->
+    <div id="tab-students" class="tab-panel">
+      <div class="brutalist-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h2>Student Directory</h2>
+            <p style="color: var(--slate-gray); font-size: 13px;">Manage student profiles and control QR generation accessibility</p>
+          </div>
+          <button class="brutalist-button primary" onclick="openModal('add-student-modal')">
+            + Register New Student
+          </button>
+        </div>
+
+        <!-- Filters (including Batch-wise filter) -->
+        <div class="filter-panel">
+          <div class="filter-group">
+            <label class="filter-label">Search Student</label>
+            <input type="text" id="studentSearchInput" class="brutalist-input" placeholder="ID or Name..." oninput="filterStudentTable()">
+          </div>
+          
+          <!-- NEW: Batch Filter -->
+          <div class="filter-group">
+            <label class="filter-label">Batch</label>
+            <select id="studentBatchFilter" class="brutalist-select" onchange="filterStudentTable()">
+              <option value="ALL">All Batches</option>
+              <option value="2027">2027 YOP</option>
+              <option value="2026">2026 YOP</option>
+              <option value="2025">2025 YOP</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Department</label>
+            <select id="studentDeptFilter" class="brutalist-select" onchange="filterStudentTable()">
+              <option value="ALL">All Depts</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="MECH">MECH</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Year</label>
+            <select id="studentYearFilter" class="brutalist-select" onchange="filterStudentTable()">
+              <option value="ALL">All Years</option>
+              <option value="1">1st Year</option>
+              <option value="2">2nd Year</option>
+              <option value="3">3rd Year</option>
+              <option value="4">4th Year</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">QR Access</label>
+            <select id="studentQrFilter" class="brutalist-select" onchange="filterStudentTable()">
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Allowed (Active)</option>
+              <option value="BLOCKED">Blocked</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+          <table class="brutalist-table" id="studentTable">
+            <thead>
+              <tr>
+                <th>Reg. ID</th>
+                <th>Name</th>
+                <th>Dept & Year</th>
+                <th>Sec</th>
+                <th>Batch (YOP)</th>
+                <th>QR Access Status</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-batch="2027" data-dept="CSE" data-year="3" data-qr="ACTIVE">
+                <td><span class="mono-text">REG4039</span></td>
+                <td><strong>Siddharth Raman</strong></td>
+                <td>CSE — Year 3</td>
+                <td>A</td>
+                <td><span class="mono-text">2027</span></td>
+                <td><span class="brutalist-badge badge-success">Allowed</span></td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button success" style="padding: 4px 8px; font-size: 11px;" onclick="viewStudentQR('REG4039', 'Siddharth Raman', 'CSE', 'A', '3')">View QR</button>
+                  <button class="brutalist-button danger" style="padding: 4px 8px; font-size: 11px;" onclick="toggleQrAccess(this, 'REG4039')">Block QR</button>
+                </td>
+              </tr>
+              <tr data-batch="2027" data-dept="ECE" data-year="2" data-qr="ACTIVE">
+                <td><span class="mono-text">REG4112</span></td>
+                <td><strong>Mithra Divya</strong></td>
+                <td>ECE — Year 2</td>
+                <td>B</td>
+                <td><span class="mono-text">2027</span></td>
+                <td><span class="brutalist-badge badge-success">Allowed</span></td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button success" style="padding: 4px 8px; font-size: 11px;" onclick="viewStudentQR('REG4112', 'Mithra Divya', 'ECE', 'B', '2')">View QR</button>
+                  <button class="brutalist-button danger" style="padding: 4px 8px; font-size: 11px;" onclick="toggleQrAccess(this, 'REG4112')">Block QR</button>
+                </td>
+              </tr>
+              <tr data-batch="2026" data-dept="MECH" data-year="4" data-qr="BLOCKED">
+                <td><span class="mono-text">REG3987</span></td>
+                <td><strong>Karthik Rajesh</strong></td>
+                <td>MECH — Year 4</td>
+                <td>A</td>
+                <td><span class="mono-text">2026</span></td>
+                <td><span class="brutalist-badge badge-danger">Blocked</span></td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button success" style="padding: 4px 8px; font-size: 11px;" onclick="viewStudentQR('REG3987', 'Karthik Rajesh', 'MECH', 'A', '4')">View QR</button>
+                  <button class="brutalist-button success" style="padding: 4px 8px; font-size: 11px; background-color: var(--emerald-green); color: white;" onclick="toggleQrAccess(this, 'REG3987')">Unblock QR</button>
+                </td>
+              </tr>
+              <tr data-batch="2025" data-dept="CSE" data-year="4" data-qr="ACTIVE">
+                <td><span class="mono-text">REG3854</span></td>
+                <td><strong>Aditya Verma</strong></td>
+                <td>CSE — Year 4</td>
+                <td>B</td>
+                <td><span class="mono-text">2025</span></td>
+                <td><span class="brutalist-badge badge-success">Allowed</span></td>
+                <td style="text-align: right;">
+                  <button class="brutalist-button success" style="padding: 4px 8px; font-size: 11px;" onclick="viewStudentQR('REG3854', 'Aditya Verma', 'CSE', 'B', '4')">View QR</button>
+                  <button class="brutalist-button danger" style="padding: 4px 8px; font-size: 11px;" onclick="toggleQrAccess(this, 'REG3854')">Block QR</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB 4: SESSION CONFIGURATION ────────────────── -->
+    <div id="tab-sessions" class="tab-panel">
+      <div class="dashboard-details-grid" style="grid-template-columns: 1fr 1fr;">
+        
+        <!-- Timings Config -->
+        <div class="brutalist-card">
+          <h2>Session Timings</h2>
+          <p style="color: var(--slate-gray); font-size: 13px; margin-bottom: 24px;">Define absolute times for Morning (FN) and Afternoon (AN) attendance capture</p>
+          
+          <form id="sessionForm" onsubmit="saveSessionSettings(event)">
+            <h3 style="font-size: 14px; margin-bottom: 12px; border-bottom: 2px solid var(--ink-black); padding-bottom: 4px;">Forenoon (FN) Session</h3>
+            <div class="dashboard-details-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+              <div class="form-group">
+                <label>Scan Starts At</label>
+                <input type="time" class="brutalist-input" value="08:00">
+              </div>
+              <div class="form-group">
+                <label>Scan Ends At</label>
+                <input type="time" class="brutalist-input" value="12:00">
+              </div>
+            </div>
+
+            <h3 style="font-size: 14px; margin-bottom: 12px; border-bottom: 2px solid var(--ink-black); padding-bottom: 4px;">Afternoon (AN) Session</h3>
+            <div class="dashboard-details-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+              <div class="form-group">
+                <label>Scan Starts At</label>
+                <input type="time" class="brutalist-input" value="13:00">
+              </div>
+              <div class="form-group">
+                <label>Scan Ends At</label>
+                <input type="time" class="brutalist-input" value="17:00">
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+              <button type="submit" class="brutalist-button primary">
+                ✓ Save Configuration
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Global Master Switch -->
+        <div class="brutalist-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <h2>System Master Controls</h2>
+            <p style="color: var(--slate-gray); font-size: 13px; margin-bottom: 24px;">Perform overriding actions on scanner connections and security gates</p>
+            
+            <div class="form-group" style="margin-bottom: 24px;">
+              <span class="filter-label" style="display: block; margin-bottom: 8px;">Master Attendance Scanning</span>
+              <label class="brutalist-switch">
+                <input type="checkbox" checked onchange="toggleMasterSwitch(this.checked)">
+                <span class="switch-bg"><span class="switch-thumb"></span></span>
+                <span style="font-weight: 700; font-size: 13px;">Allow Scans (Global)</span>
+              </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 24px;">
+              <span class="filter-label" style="display: block; margin-bottom: 8px;">Block Student QR Generation Automatically</span>
+              <label class="brutalist-switch">
+                <input type="checkbox" onchange="toggleAutoBlock(this.checked)">
+                <span class="switch-bg"><span class="switch-thumb"></span></span>
+                <span style="font-weight: 700; font-size: 13px;">Auto-block Next Day on Missed Session</span>
+              </label>
+              <p style="font-size: 11px; color: var(--slate-gray); margin-top: 4px;">If enabled, students who miss today's sessions will be automatically blocked tomorrow.</p>
+            </div>
+          </div>
+
+          <div style="background-color: var(--rust-light); padding: 16px; border: var(--brutalist-border);">
+            <strong style="color: var(--rust-red); text-transform: uppercase; font-size: 12px; display: block; margin-bottom: 4px;">⚠️ Administrative Alert</strong>
+            <p style="font-size: 11px; line-height: 1.4;">Changing session configuration forces all logged-in faculty scanner devices to synchronize active hours on their next scan request.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── TAB 5: REPORTS & EXPORTS ────────────────────── -->
+    <div id="tab-reports" class="tab-panel">
+      <div class="brutalist-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+          <div>
+            <h2>Attendance Records & Reports</h2>
+            <p style="color: var(--slate-gray); font-size: 13px;">Analyze aggregate attendance patterns and export raw logs to Google Drive/Excel/PDF</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="brutalist-button success" onclick="triggerExport('Excel')">Export to Excel</button>
+            <button class="brutalist-button primary" onclick="triggerExport('PDF')">Export to PDF</button>
+          </div>
+        </div>
+
+        <!-- Filter Panel with Date, Dept, Session, Section, Batch -->
+        <div class="filter-panel">
+          <div class="filter-group">
+            <label class="filter-label">Filter Date</label>
+            <input type="date" id="reportDateFilter" class="brutalist-input" value="2026-06-08" onchange="filterReportsTable()">
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Batch</label>
+            <select id="reportBatchFilter" class="brutalist-select" onchange="filterReportsTable()">
+              <option value="ALL">All Batches</option>
+              <option value="2027">2027 YOP</option>
+              <option value="2026">2026 YOP</option>
+              <option value="2025">2025 YOP</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Department</label>
+            <select id="reportDeptFilter" class="brutalist-select" onchange="filterReportsTable()">
+              <option value="ALL">All Depts</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="MECH">MECH</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Section</label>
+            <select id="reportSectionFilter" class="brutalist-select" onchange="filterReportsTable()">
+              <option value="ALL">All Sections</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Session</label>
+            <select id="reportSessionFilter" class="brutalist-select" onchange="filterReportsTable()">
+              <option value="ALL">All Sessions</option>
+              <option value="FN">Forenoon (FN)</option>
+              <option value="AN">Afternoon (AN)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Attendance Logs Table -->
+        <div class="table-container">
+          <table class="brutalist-table" id="reportsTable">
+            <thead>
+              <tr>
+                <th>Reg. ID</th>
+                <th>Student Name</th>
+                <th>Dept & Year</th>
+                <th>Batch</th>
+                <th>Sec</th>
+                <th>Session</th>
+                <th>Scanned By</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-date="2026-06-08" data-batch="2027" data-dept="CSE" data-section="A" data-session="FN">
+                <td><span class="mono-text">REG4039</span></td>
+                <td><strong>Siddharth Raman</strong></td>
+                <td>CSE — Year 3</td>
+                <td><span class="mono-text">2027</span></td>
+                <td>A</td>
+                <td><span class="brutalist-badge badge-warning">FN</span></td>
+                <td><span class="mono-text">arun.v@srmist.edu.in</span></td>
+                <td>09:12:45</td>
+              </tr>
+              <tr data-date="2026-06-08" data-batch="2027" data-dept="CSE" data-section="A" data-session="AN">
+                <td><span class="mono-text">REG4039</span></td>
+                <td><strong>Siddharth Raman</strong></td>
+                <td>CSE — Year 3</td>
+                <td><span class="mono-text">2027</span></td>
+                <td>A</td>
+                <td><span class="brutalist-badge badge-info">AN</span></td>
+                <td><span class="mono-text">arun.v@srmist.edu.in</span></td>
+                <td>15:38:12</td>
+              </tr>
+              <tr data-date="2026-06-08" data-batch="2027" data-dept="ECE" data-section="B" data-session="AN">
+                <td><span class="mono-text">REG4112</span></td>
+                <td><strong>Mithra Divya</strong></td>
+                <td>ECE — Year 2</td>
+                <td><span class="mono-text">2027</span></td>
+                <td>B</td>
+                <td><span class="brutalist-badge badge-info">AN</span></td>
+                <td><span class="mono-text">priya.k@srmist.edu.in</span></td>
+                <td>15:36:45</td>
+              </tr>
+              <tr data-date="2026-06-08" data-batch="2026" data-dept="MECH" data-section="A" data-session="FN">
+                <td><span class="mono-text">REG3987</span></td>
+                <td><strong>Karthik Rajesh</strong></td>
+                <td>MECH — Year 4</td>
+                <td><span class="mono-text">2026</span></td>
+                <td>A</td>
+                <td><span class="brutalist-badge badge-warning">FN</span></td>
+                <td><span class="mono-text">subash.m@srmist.edu.in</span></td>
+                <td>09:15:30</td>
+              </tr>
+              <tr data-date="2026-06-07" data-batch="2025" data-dept="CSE" data-section="B" data-session="FN">
+                <td><span class="mono-text">REG3854</span></td>
+                <td><strong>Aditya Verma</strong></td>
+                <td>CSE — Year 4</td>
+                <td><span class="mono-text">2025</span></td>
+                <td>B</td>
+                <td><span class="brutalist-badge badge-warning">FN</span></td>
+                <td><span class="mono-text">priya.k@srmist.edu.in</span></td>
+                <td>09:11:02</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── MODALS SECTION ────────────────────────────────── -->
+  
+  <!-- Add Faculty Modal -->
+  <div class="modal-backdrop" id="add-faculty-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>+ Register Faculty Member</h3>
+        <button class="modal-close" onclick="closeModal('add-faculty-modal')">&times;</button>
+      </div>
+      <form onsubmit="handleAddFaculty(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Faculty Full Name</label>
+            <input type="text" class="brutalist-input" required placeholder="e.g. Dr. Ramesh Kumar">
+          </div>
+          <div class="form-group">
+            <label>Official Email Address</label>
+            <input type="email" class="brutalist-input" required placeholder="name@srmist.edu.in">
+          </div>
+          <div class="form-group">
+            <label>Temporary Password</label>
+            <input type="password" class="brutalist-input" required placeholder="••••••••">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="brutalist-button" onclick="closeModal('add-faculty-modal')">Cancel</button>
+          <button type="submit" class="brutalist-button primary">✓ Add Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Student Modal -->
+  <div class="modal-backdrop" id="add-student-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>+ Register Student Profile</h3>
+        <button class="modal-close" onclick="closeModal('add-student-modal')">&times;</button>
+      </div>
+      <form onsubmit="handleAddStudent(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Registration ID</label>
+            <input type="text" class="brutalist-input" required placeholder="e.g. REG4512">
+          </div>
+          <div class="form-group">
+            <label>Student Full Name</label>
+            <input type="text" class="brutalist-input" required placeholder="e.g. S. Varun">
+          </div>
+          <div class="dashboard-details-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 0;">
+            <div class="form-group">
+              <label>Department</label>
+              <select class="brutalist-select">
+                <option value="CSE">CSE</option>
+                <option value="ECE">ECE</option>
+                <option value="MECH">MECH</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Year</label>
+              <select class="brutalist-select">
+                <option value="1">1st Year</option>
+                <option value="2">2nd Year</option>
+                <option value="3">3rd Year</option>
+                <option value="4">4th Year</option>
+              </select>
+            </div>
+          </div>
+          <div class="dashboard-details-grid" style="grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 0; margin-top: 12px;">
+            <div class="form-group">
+              <label>Section</label>
+              <input type="text" class="brutalist-input" placeholder="e.g. A" required>
+            </div>
+            <div class="form-group">
+              <label>Batch Year (YOP)</label>
+              <input type="text" class="brutalist-input" placeholder="e.g. 2027" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="brutalist-button" onclick="closeModal('add-student-modal')">Cancel</button>
+          <button type="submit" class="brutalist-button primary">✓ Register Student</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- QR Visualizer Modal -->
+  <div class="modal-backdrop" id="qr-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="qrModalTitle">Student QR Access ID</h3>
+        <button class="modal-close" onclick="closeModal('qr-modal')">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <div class="qr-container">
+          <div class="qr-image-mock">
+            <div class="qr-pixel-grid"></div>
+          </div>
+          <div id="qrStudentRegId" class="mono-text" style="color: var(--card-white); font-weight: 700; font-size: 16px; margin-top: 12px;">REG0000</div>
+        </div>
+        <div style="text-align: left; padding: 12px; border: var(--brutalist-border); background-color: var(--cobalt-light);">
+          <strong id="qrStudentName" style="text-transform: uppercase; font-size: 14px; display: block; margin-bottom: 4px;">Student Name</strong>
+          <p id="qrStudentDetails" style="font-size: 12px; color: var(--slate-gray);">CSE / 3rd Yr / Sec A • Batch 2027</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="brutalist-button" onclick="closeModal('qr-modal')">Close Window</button>
+        <button class="brutalist-button primary" onclick="printQrMock()">⎙ Print Card</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── JAVASCRIPT LOGIC ───────────────────────────────── -->
+  <script>
+    // Tab switching routing
+    function switchTab(tabId) {
+      // Deactivate all tabs & panels
+      document.querySelectorAll('.nav-tab, .mobile-nav-tab').forEach(btn => {
+        btn.classList.remove('active');
+        if(btn.innerText.toLowerCase().includes(tabId)) {
+          btn.classList.add('active');
+        }
+      });
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+      });
+
+      // Activate selected panel
+      const targetPanel = document.getElementById('tab-' + tabId);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+      }
+    }
+
+    // Toggle Mobile Navigation Overlay
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobileMenu');
+      menu.classList.toggle('open');
+    }
+
+    // Modal Control System
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.add('open');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('open');
+    }
+
+    // Faculty Actions
+    function toggleFacultyStatus(btn, name) {
+      const tdStatus = btn.parentElement.parentElement.children[2];
+      const isCurrentlyActive = tdStatus.innerText.trim().toLowerCase() === 'active';
+      
+      if(isCurrentlyActive) {
+        tdStatus.innerHTML = '<span class="brutalist-badge badge-danger">Inactive</span>';
+        alert(`${name}'s status has been set to INACTIVE.`);
+      } else {
+        tdStatus.innerHTML = '<span class="brutalist-badge badge-success">Active</span>';
+        alert(`${name}'s status has been set to ACTIVE.`);
+      }
+    }
+
+    function deleteFacultyRow(btn, name) {
+      if(confirm(`Are you sure you want to permanently delete faculty member: ${name}?`)) {
+        btn.parentElement.parentElement.remove();
+      }
+    }
+
+    function handleAddFaculty(e) {
+      e.preventDefault();
+      alert('New faculty member registered successfully!');
+      closeModal('add-faculty-modal');
+    }
+
+    // Student Actions
+    function toggleQrAccess(btn, regId) {
+      const row = btn.parentElement.parentElement;
+      const statusCell = row.children[5];
+      const isCurrentlyAllowed = row.getAttribute('data-qr') === 'ACTIVE';
+
+      if(isCurrentlyAllowed) {
+        row.setAttribute('data-qr', 'BLOCKED');
+        statusCell.innerHTML = '<span class="brutalist-badge badge-danger">Blocked</span>';
+        btn.innerText = 'Unblock QR';
+        btn.className = 'brutalist-button success';
+        btn.style.backgroundColor = 'var(--emerald-green)';
+        btn.style.color = 'white';
+        alert(`Student ${regId} has been BLOCKED from generating QR codes.`);
+      } else {
+        row.setAttribute('data-qr', 'ACTIVE');
+        statusCell.innerHTML = '<span class="brutalist-badge badge-success">Allowed</span>';
+        btn.innerText = 'Block QR';
+        btn.className = 'brutalist-button danger';
+        btn.style.backgroundColor = '';
+        btn.style.color = '';
+        alert(`Student ${regId} has been UNBLOCKED and is allowed to generate QR codes.`);
+      }
+      
+      filterStudentTable();
+    }
+
+    function viewStudentQR(regId, name, dept, section, year) {
+      document.getElementById('qrModalTitle').innerText = `${name}'s QR Code`;
+      document.getElementById('qrStudentRegId').innerText = regId;
+      document.getElementById('qrStudentName').innerText = name;
+      document.getElementById('qrStudentDetails').innerText = `${dept} — Year ${year} — Section ${section} • Batch ${2030 - parseInt(year)}`;
+      openModal('qr-modal');
+    }
+
+    function printQrMock() {
+      alert('Mock printing interface triggered successfully.');
+    }
+
+    function handleAddStudent(e) {
+      e.preventDefault();
+      alert('Student registered successfully in the system database.');
+      closeModal('add-student-modal');
+    }
+
+    // Filter Logic: Faculty
+    function filterFacultyTable(query) {
+      const rows = document.querySelectorAll('#facultyTable tbody tr');
+      const lowerQuery = query.toLowerCase();
+      rows.forEach(row => {
+        const name = row.children[0].innerText.toLowerCase();
+        const email = row.children[1].innerText.toLowerCase();
+        if(name.includes(lowerQuery) || email.includes(lowerQuery)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function filterFacultyStatus(val) {
+      const rows = document.querySelectorAll('#facultyTable tbody tr');
+      rows.forEach(row => {
+        const status = row.children[2].innerText.toLowerCase();
+        if (val === 'ALL' || (val === 'ACTIVE' && status === 'active') || (val === 'INACTIVE' && status === 'inactive')) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    // Filter Logic: Student Directory
+    function filterStudentTable() {
+      const search = document.getElementById('studentSearchInput').value.toLowerCase();
+      const batch = document.getElementById('studentBatchFilter').value;
+      const dept = document.getElementById('studentDeptFilter').value;
+      const year = document.getElementById('studentYearFilter').value;
+      const qrStatus = document.getElementById('studentQrFilter').value;
+
+      const rows = document.querySelectorAll('#studentTable tbody tr');
+      rows.forEach(row => {
+        const rowId = row.children[0].innerText.toLowerCase();
+        const rowName = row.children[1].innerText.toLowerCase();
+        const rBatch = row.getAttribute('data-batch');
+        const rDept = row.getAttribute('data-dept');
+        const rYear = row.getAttribute('data-year');
+        const rQr = row.getAttribute('data-qr');
+
+        const matchesSearch = rowId.includes(search) || rowName.includes(search);
+        const matchesBatch = batch === 'ALL' || rBatch === batch;
+        const matchesDept = dept === 'ALL' || rDept === dept;
+        const matchesYear = year === 'ALL' || rYear === year;
+        const matchesQr = qrStatus === 'ALL' || rQr === qrStatus;
+
+        if (matchesSearch && matchesBatch && matchesDept && matchesYear && matchesQr) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    // Filter Logic: Reports
+    function filterReportsTable() {
+      const date = document.getElementById('reportDateFilter').value;
+      const batch = document.getElementById('reportBatchFilter').value;
+      const dept = document.getElementById('reportDeptFilter').value;
+      const section = document.getElementById('reportSectionFilter').value;
+      const session = document.getElementById('reportSessionFilter').value;
+
+      const rows = document.querySelectorAll('#reportsTable tbody tr');
+      rows.forEach(row => {
+        const rDate = row.getAttribute('data-date');
+        const rBatch = row.getAttribute('data-batch');
+        const rDept = row.getAttribute('data-dept');
+        const rSection = row.getAttribute('data-section');
+        const rSession = row.getAttribute('data-session');
+
+        const matchesDate = !date || rDate === date;
+        const matchesBatch = batch === 'ALL' || rBatch === batch;
+        const matchesDept = dept === 'ALL' || rDept === dept;
+        const matchesSection = section === 'ALL' || rSection === section;
+        const matchesSession = session === 'ALL' || rSession === session;
+
+        if (matchesDate && matchesBatch && matchesDept && matchesSection && matchesSession) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    // System Control Actions
+    function saveSessionSettings(e) {
+      e.preventDefault();
+      alert('Session timing settings updated successfully.');
+    }
+
+    function toggleMasterSwitch(checked) {
+      alert(`Master attendance recording status changed: ${checked ? 'ENABLED' : 'DISABLED'}`);
+    }
+
+    function toggleAutoBlock(checked) {
+      alert(`Auto-block next day policies: ${checked ? 'ENABLED' : 'DISABLED'}`);
+    }
+
+    function triggerExport(format) {
+      alert(`Attendance reports exported successfully to ${format} format.`);
+    }
+  </script>
+</body>
+</html>

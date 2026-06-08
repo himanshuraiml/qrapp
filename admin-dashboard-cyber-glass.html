@@ -1,0 +1,1971 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyber-Control — Admin Portal</title>
+  
+  <!-- Premium Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ── BASE RESET & CYBER SYSTEMS ───────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Cosmic Dark Theme Tokens */
+      --bg-color:       #07080d;
+      --bg-space:       radial-gradient(circle at 50% 10%, #111428 0%, #07080d 70%);
+      --glass-pane:     rgba(13, 17, 33, 0.6);
+      --glass-solid:    #0f1224;
+      --glass-border:   rgba(255, 255, 255, 0.06);
+      
+      --fg-white:       #ffffff;
+      --fg-silver:      #94a3b8;
+      --fg-dim:         #64748b;
+      
+      /* Glowing Neon Colors */
+      --neon-cyan:      #06b6d4;
+      --neon-cyan-glow: rgba(6, 182, 212, 0.4);
+      --neon-indigo:    #6366f1;
+      --neon-indigo-glow: rgba(99, 102, 241, 0.4);
+      --neon-purple:    #a855f7;
+      --neon-purple-glow: rgba(168, 85, 247, 0.4);
+      
+      --neon-emerald:   #10b981;
+      --neon-emerald-glow: rgba(16, 185, 129, 0.3);
+      --neon-amber:     #f59e0b;
+      --neon-rose:      #f43f5e;
+      --neon-rose-glow: rgba(244, 63, 94, 0.3);
+      
+      --font-display:   'Outfit', system-ui, sans-serif;
+      --font-body:      'Inter', system-ui, sans-serif;
+      --font-mono:      'JetBrains Mono', monospace;
+      
+      --radius-xl:      24px;
+      --radius-lg:      16px;
+      --radius-md:      12px;
+      --radius-sm:      6px;
+      
+      --neon-blur:      24px;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-color);
+      background-image: var(--bg-space);
+      color: var(--fg-silver);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Cosmic Background Glows */
+    .glow-field {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      pointer-events: none;
+      filter: blur(140px);
+      z-index: 0;
+      opacity: 0.15;
+    }
+    .glow-1 { top: -150px; left: -100px; background: var(--neon-indigo); }
+    .glow-2 { top: 400px; right: -200px; background: var(--neon-cyan); }
+    .glow-3 { bottom: -200px; left: 20%; background: var(--neon-purple); }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      width: 100%;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ── FLOATING TRANSPARENT NAV ───────────────────────── */
+    .navbar-wrapper {
+      padding-top: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    }
+
+    .navbar {
+      background: rgba(13, 17, 33, 0.4);
+      backdrop-filter: blur(var(--neon-blur));
+      -webkit-backdrop-filter: blur(var(--neon-blur));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 0 24px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    .navbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo-cyber {
+      width: 38px;
+      height: 38px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-logo-cyber::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-indigo) 100%);
+      opacity: 0.15;
+    }
+
+    .brand-logo-cyber svg {
+      width: 20px;
+      height: 20px;
+      color: var(--neon-cyan);
+      filter: drop-shadow(0 0 8px var(--neon-cyan));
+    }
+
+    .brand-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: 15px;
+      color: var(--fg-white);
+      line-height: 1.1;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .brand-sub {
+      font-size: 9px;
+      color: var(--neon-cyan);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-top: 1px;
+    }
+
+    /* Horizontal Nav Links */
+    .nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 100%;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg-silver);
+      text-decoration: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover {
+      color: var(--fg-white);
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-link.active {
+      color: var(--neon-cyan);
+      background: rgba(6, 182, 212, 0.06);
+      border-color: rgba(6, 182, 212, 0.15);
+      box-shadow: inset 0 0 12px rgba(6, 182, 212, 0.05);
+    }
+
+    .nav-link svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    /* Actions */
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-badge-cyber {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(6, 182, 212, 0.05);
+      color: var(--neon-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.15);
+      border-radius: var(--radius-sm);
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .status-dot-cyber {
+      width: 6px;
+      height: 6px;
+      background: var(--neon-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--neon-cyan);
+      animation: pulse-cyan 2s infinite;
+    }
+
+    @keyframes pulse-cyan {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.6); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(6, 182, 212, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+    }
+
+    .profile-widget {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 10px 3px 3px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.01);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .profile-widget:hover {
+      border-color: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .profile-avatar {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-indigo) 100%);
+      border-radius: var(--radius-sm);
+      color: var(--fg-white);
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2);
+    }
+
+    .profile-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .profile-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--fg-white);
+      line-height: 1.1;
+    }
+
+    .profile-role {
+      font-size: 9px;
+      color: var(--fg-dim);
+      font-weight: 600;
+    }
+
+    .menu-btn {
+      display: none;
+      width: 36px;
+      height: 36px;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.01);
+      cursor: pointer;
+      color: var(--fg-silver);
+      transition: all 0.2s ease;
+    }
+
+    .menu-btn:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--fg-white);
+    }
+
+    /* ── MOBILE OVERDRAWER NAV ────────────────────────── */
+    .mobile-nav {
+      display: none;
+      background: rgba(11, 14, 28, 0.95);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--glass-border);
+      padding: 12px 24px;
+      position: absolute;
+      top: 80px;
+      left: 24px;
+      right: 24px;
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      transform: translateY(-10px);
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    .mobile-nav.open {
+      display: block;
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mobile-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mobile-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg-silver);
+      text-decoration: none;
+    }
+
+    .mobile-link:hover, .mobile-link.active {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--neon-cyan);
+    }
+
+    /* ── HEADER HERO SECTION ──────────────────────────── */
+    .dashboard-header {
+      padding: 32px 0 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .header-left h1 {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--fg-white);
+      letter-spacing: -0.01em;
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+    }
+
+    .header-left p {
+      font-size: 13px;
+      color: var(--fg-dim);
+      margin-top: 3px;
+    }
+
+    .date-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 8px 14px;
+    }
+
+    .date-badge label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--fg-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .date-badge input {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--fg-white);
+      background: transparent;
+      border: none;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* ── FUTURISTIC GAUGES DECK (BANNER ALTERNATIVE) ── */
+    .radar-deck {
+      display: grid;
+      grid-template-columns: 3fr 5fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    /* Cosmic Glass Card Base */
+    .cyber-card {
+      background: var(--glass-pane);
+      backdrop-filter: blur(var(--neon-blur));
+      -webkit-backdrop-filter: blur(var(--neon-blur));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+
+    .cyber-card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35);
+    }
+
+    .panel-head {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--fg-white);
+      letter-spacing: 0.03em;
+    }
+
+    .panel-tag {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      background: rgba(6, 182, 212, 0.08);
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Attendance Radial Gauge Panel */
+    .gauge-panel {
+      display: flex;
+      align-items: center;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    .radial-gauge-container {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      flex-shrink: 0;
+    }
+
+    .radial-gauge-container svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+
+    .gauge-track {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.03);
+      stroke-width: 8;
+    }
+
+    .gauge-fill {
+      fill: none;
+      stroke: url(#cyanPurpleGrad);
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+      filter: drop-shadow(0 0 6px var(--neon-cyan-glow));
+    }
+
+    .gauge-text-wrap {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gauge-pct {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--fg-white);
+      line-height: 1;
+    }
+
+    .gauge-lbl {
+      font-size: 8px;
+      color: var(--neon-cyan);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 3px;
+    }
+
+    .gauge-details {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .gauge-main-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--fg-dim);
+    }
+
+    .gauge-main-val {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--fg-white);
+      line-height: 1.1;
+      margin-top: 4px;
+    }
+
+    .gauge-main-sub {
+      font-size: 11px;
+      color: var(--fg-dim);
+      margin-top: 4px;
+    }
+
+    /* Horizontal Overview Metrics Panel */
+    .deck-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      padding: 32px 24px;
+      align-items: center;
+      height: 100%;
+    }
+
+    .deck-metric-cell {
+      display: flex;
+      flex-direction: column;
+      padding: 0 20px;
+      border-right: 1px solid var(--glass-border);
+    }
+
+    .deck-metric-cell:last-child {
+      border-right: none;
+    }
+
+    .dm-lbl {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--fg-dim);
+      font-family: var(--font-mono);
+    }
+
+    .dm-val {
+      font-family: var(--font-display);
+      font-size: 34px;
+      font-weight: 900;
+      color: var(--fg-white);
+      line-height: 1;
+      margin-top: 8px;
+    }
+
+    .dm-sub {
+      font-size: 11px;
+      color: var(--fg-dim);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ── FUTURISTIC KPI MATRIX GRID ───────────────────── */
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .matrix-card {
+      background: var(--glass-pane);
+      backdrop-filter: blur(var(--neon-blur));
+      -webkit-backdrop-filter: blur(var(--neon-blur));
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: all 0.25s ease;
+    }
+
+    .matrix-card:hover {
+      border-color: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.08);
+    }
+
+    /* Interactive neon line on top of metric card */
+    .matrix-card::before {
+      content: '';
+      position: absolute;
+      top: -1px; left: 20px; right: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+      opacity: 0.4;
+    }
+
+    .matrix-card.purple::before {
+      background: linear-gradient(90deg, transparent, var(--neon-purple), transparent);
+    }
+
+    .matrix-card.rose::before {
+      background: linear-gradient(90deg, transparent, var(--neon-rose), transparent);
+    }
+
+    .mc-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .mc-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mc-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .mc-trend {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    
+    .mc-trend.green { background: rgba(16, 185, 129, 0.06); color: var(--neon-emerald); border: 1px solid rgba(16, 185, 129, 0.15); }
+    .mc-trend.neutral { background: rgba(255, 255, 255, 0.02); color: var(--fg-dim); border: 1px solid var(--glass-border); }
+    .mc-trend.red { background: rgba(244, 63, 94, 0.06); color: var(--neon-rose); border: 1px solid rgba(244, 63, 94, 0.15); }
+
+    .mc-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--fg-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-family: var(--font-mono);
+    }
+
+    .mc-value {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--fg-white);
+      line-height: 1.1;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mc-sub {
+      font-size: 11px;
+      color: var(--fg-dim);
+      margin-top: 6px;
+    }
+
+    /* ── DASHBOARD GRID SECTION ──────────────────────── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 2.3fr 3.7fr;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 24px;
+    }
+
+    .grid-left {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── GLOWING NEON CHART WIDGET ───────────────────── */
+    .chart-container {
+      padding: 24px;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fg-silver);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .chart-canvas {
+      display: flex;
+      gap: 18px;
+      height: 150px;
+      position: relative;
+      padding-bottom: 24px;
+      margin-bottom: 16px;
+    }
+
+    .chart-baseline {
+      position: absolute;
+      bottom: 24px;
+      left: 0;
+      right: 0;
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .chart-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      position: relative;
+      z-index: 2;
+    }
+
+    .chart-bar-wrap {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .chart-bar-val {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-shadow: 0 0 10px currentColor;
+    }
+
+    .chart-bar-fill {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      min-height: 4px;
+      transition: height 0.8s ease;
+      box-shadow: 0 0 15px currentColor;
+      opacity: 0.85;
+    }
+
+    .chart-bar-fill:hover {
+      opacity: 1;
+      filter: brightness(1.2);
+    }
+
+    .chart-col-lbl {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--fg-dim);
+      text-transform: uppercase;
+      padding-top: 8px;
+    }
+
+    .chart-totals {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding-top: 16px;
+      border-top: 1px solid var(--glass-border);
+    }
+
+    .ct-cell {
+      text-align: center;
+    }
+
+    .ct-lbl {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--fg-dim);
+      text-transform: uppercase;
+    }
+
+    .ct-val {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 800;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 8px currentColor;
+    }
+
+    /* ── CYBER ACTION PANEL ───────────────────────────── */
+    .action-panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      padding: 18px;
+    }
+
+    .cyber-action-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.01);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .cyber-action-btn:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 4px 15px rgba(6, 182, 212, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .cab-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .cab-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--fg-white);
+    }
+
+    .cab-desc {
+      font-size: 10px;
+      color: var(--fg-dim);
+      margin-top: 1px;
+    }
+
+    /* ── CYBERNETIC MATRIX TABLE ──────────────────────── */
+    .filter-deck {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cyber-dropdown {
+      font-family: var(--font-body);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--fg-white);
+      background: rgba(13, 17, 33, 0.6);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .cyber-dropdown:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .cyber-dropdown:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.25);
+    }
+
+    .scroll-wrapper {
+      overflow-x: auto;
+    }
+
+    .cyber-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+
+    .cyber-table thead tr {
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    .cyber-table th {
+      padding: 12px 18px;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--fg-dim);
+      text-align: left;
+      border-bottom: 1px solid var(--glass-border);
+      font-family: var(--font-mono);
+    }
+
+    .cyber-table th.r { text-align: right; }
+    .cyber-table th.c { text-align: center; }
+
+    .cyber-table td {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--glass-border);
+      vertical-align: middle;
+      color: var(--fg-silver);
+    }
+
+    .cyber-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .cyber-table tbody tr {
+      transition: all 0.15s ease;
+    }
+
+    .cyber-table tbody tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--fg-white);
+    }
+
+    .cyber-table td.r { text-align: right; }
+    .cyber-table td.c { text-align: center; }
+    .cyber-table td.mono {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cyber-chip {
+      display: inline-block;
+      font-size: 8.5px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 3px 7px;
+      border-radius: 4px;
+    }
+
+    .cyber-progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 100px;
+    }
+
+    .cyber-progress-track {
+      flex: 1;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .cyber-progress-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.8s ease;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .cyber-pct-lbl {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      width: 32px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* Cyber Badge Indicators */
+    .indicator-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 100px;
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .indicator-pill::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    .pill-green { background: rgba(16, 185, 129, 0.06); color: var(--neon-emerald); border: 1px solid rgba(16, 185, 129, 0.15); }
+    .pill-orange { background: rgba(245, 158, 11, 0.06); color: var(--neon-amber); border: 1px solid rgba(245, 158, 11, 0.15); }
+    .pill-rose { background: rgba(244, 63, 94, 0.06); color: var(--neon-rose); border: 1px solid rgba(244, 63, 94, 0.15); }
+
+    /* ── FUTURE BATCH SECTIONS ────────────────────────── */
+    .batch-head-deck {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .cyber-tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .cyber-tab-btn {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--fg-silver);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .cyber-tab-btn.active {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--neon-cyan);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-cyber-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 10.5px;
+      font-weight: 700;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.01);
+      color: var(--fg-silver);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-cyber-outline:hover {
+      background: rgba(255, 255, 255, 0.03);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: var(--fg-white);
+    }
+
+    .btn-cyber-outline.neon {
+      background: rgba(6, 182, 212, 0.08);
+      border-color: rgba(6, 182, 212, 0.2);
+      color: var(--neon-cyan);
+    }
+
+    .btn-cyber-outline.neon:hover {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 10px var(--neon-cyan-glow);
+    }
+
+    .btn-cyber-outline svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Batch Cyber Grid Layout */
+    .batch-cyber-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .batch-cyber-node {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    .batch-cyber-node:hover {
+      border-color: var(--neon-cyan-glow);
+      box-shadow: 0 4px 15px rgba(6, 182, 212, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .node-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .node-title {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--fg-dim);
+    }
+
+    .node-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--fg-white);
+      width: 22px;
+      height: 22px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .node-main {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .node-present {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--fg-white);
+      line-height: 1;
+    }
+
+    .node-total {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--fg-dim);
+    }
+
+    .node-pct-indicator {
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+
+    .node-bars-group {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3px;
+      padding-top: 8px;
+      border-top: 1px solid var(--glass-border);
+    }
+
+    .node-mini-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-size: 7px;
+      font-family: var(--font-mono);
+      color: var(--fg-dim);
+    }
+
+    .nmb-val {
+      font-weight: 700;
+      color: var(--fg-silver);
+    }
+
+    /* ── RESPONSIVE OVERRIDES ────────────────────────── */
+    @media (max-width: 1024px) {
+      .navbar-wrapper {
+        padding-top: 12px;
+      }
+      .navbar {
+        border-radius: var(--radius-md);
+      }
+      .nav-menu {
+        display: none; /* Collapsed */
+      }
+      .menu-btn {
+        display: flex;
+      }
+      .matrix-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      .radar-deck {
+        grid-template-columns: 1fr;
+      }
+      .deck-metrics {
+        padding: 24px 12px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-main {
+        padding: 20px 0;
+      }
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .date-badge {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .matrix-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .batch-cyber-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .gauge-panel {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow Fields -->
+  <div class="glow-field glow-1"></div>
+  <div class="glow-field glow-2"></div>
+  <div class="glow-field glow-3"></div>
+
+  <!-- ── FLOATING TOP HEADER NAV ── -->
+  <div class="container navbar-wrapper">
+    <header class="navbar">
+      <div class="navbar-inner">
+        
+        <!-- Identity -->
+        <a href="#" class="nav-brand">
+          <div class="brand-logo-cyber">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="2" y="2" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="12" y="2" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="2" y="12" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+              <rect x="12" y="12" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/>
+            </svg>
+          </div>
+          <div class="brand-info">
+            <span class="brand-title">Cyber-Control</span>
+            <span class="brand-sub">Attendance System</span>
+          </div>
+        </a>
+
+        <!-- Links (Desktop) -->
+        <nav class="nav-menu">
+          <a href="#" class="nav-link active">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3z"/></svg>
+            Dashboard
+          </a>
+          <a href="/admin/reports" class="nav-link">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 4a.5.5 0 000 1h6A.5.5 0 0011 4H5z"/></svg>
+            Reports
+          </a>
+          <a href="/admin/students" class="nav-link">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6z"/></svg>
+            Students
+          </a>
+          <a href="/admin/faculty" class="nav-link">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7z"/></svg>
+            Faculty
+          </a>
+          <a href="/admin/settings" class="nav-link">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.405 1.02c.252-1.36 2.338-1.36 2.59 0l.295 1.59z"/></svg>
+            Settings
+          </a>
+        </nav>
+
+        <!-- Right Side Widgets -->
+        <div class="nav-actions">
+          <span class="status-badge-cyber"><span class="status-dot-cyber"></span> Active System</span>
+          
+          <div class="profile-widget">
+            <div class="profile-avatar">AD</div>
+            <div class="profile-info">
+              <span class="profile-name">Administrator</span>
+              <span class="profile-role">Portal Root</span>
+            </div>
+          </div>
+
+          <button class="menu-btn" id="menuBtn">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+
+      </div>
+    </header>
+  </div>
+
+  <!-- Mobile Drawer -->
+  <div class="mobile-nav" id="mobileMenu">
+    <nav class="mobile-links">
+      <a href="#" class="mobile-link active">Dashboard Overview</a>
+      <a href="/admin/reports" class="mobile-link">Reports Logs</a>
+      <a href="/admin/students" class="mobile-link">Student Roster</a>
+      <a href="/admin/faculty" class="mobile-link">Faculty Scanners</a>
+      <a href="/admin/settings" class="mobile-link">System Settings</a>
+    </nav>
+  </div>
+
+  <!-- ── MAIN CONTENT WRAPPER ── -->
+  <main class="container page-main">
+    
+    <!-- Title Area -->
+    <section class="dashboard-header">
+      <div class="header-left">
+        <h1>Portal Control Panel</h1>
+        <p>Real-time analytics, check-in activity levels, and batch compliance indexes</p>
+      </div>
+      <div class="date-badge">
+        <label for="datePicker">System Time</label>
+        <input type="date" id="datePicker" value="2026-06-08">
+      </div>
+    </section>
+
+    <!-- ── GAUGES DECK (BANNER REPLACEMENT) ── -->
+    <section class="radar-deck">
+      
+      <!-- Radial Gauge Card -->
+      <article class="cyber-card">
+        <div class="panel-head">
+          <h2 class="panel-title">Attendance Ratio</h2>
+          <span class="panel-tag">Live Index</span>
+        </div>
+        <div class="gauge-panel">
+          <div class="radial-gauge-container">
+            <svg viewBox="0 0 66 66">
+              <defs>
+                <linearGradient id="cyanPurpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="var(--neon-cyan)" />
+                  <stop offset="100%" stop-color="var(--neon-purple)" />
+                </linearGradient>
+              </defs>
+              <circle cx="33" cy="33" r="26" class="gauge-track"/>
+              <circle cx="33" cy="33" r="26" class="gauge-fill" id="ringFill"
+                stroke-dasharray="163.4" stroke-dashoffset="43.1"/>
+            </svg>
+            <div class="gauge-text-wrap">
+              <span class="gauge-pct" id="ringText">73.6%</span>
+            </div>
+          </div>
+          <div class="gauge-details">
+            <span class="gauge-main-title">Today's Check-in Level</span>
+            <div class="gauge-main-val" id="rateValue">73.6%</div>
+            <p class="gauge-main-sub" id="rateSub">Jun 8, 2026 · 3 batches below target threshold (75%)</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- Horizontal Overview Stats Card -->
+      <article class="cyber-card">
+        <div class="panel-head">
+          <h2 class="panel-title">System Metrics Summary</h2>
+          <span class="panel-tag">Aggregation</span>
+        </div>
+        <div class="deck-metrics">
+          <div class="deck-metric-cell">
+            <span class="dm-lbl">Enrolled Students</span>
+            <span class="dm-val">847</span>
+            <div class="dm-sub">Total database size</div>
+          </div>
+          <div class="deck-metric-cell">
+            <span class="dm-lbl">Active Present</span>
+            <span class="dm-val" style="color: var(--neon-cyan); text-shadow: 0 0 10px rgba(6, 182, 212, 0.2)">623</span>
+            <div class="dm-sub">Checked in today</div>
+          </div>
+          <div class="deck-metric-cell">
+            <span class="dm-lbl">Total Scans Logged</span>
+            <span class="dm-val" style="color: var(--neon-purple); text-shadow: 0 0 10px rgba(168, 85, 247, 0.2)">1,084</span>
+            <div class="dm-sub">Across FN / AN slots</div>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ── FUTURISTIC KPI MATRIX ── -->
+    <section class="matrix-grid">
+      
+      <!-- Card 1 -->
+      <div class="matrix-card">
+        <div class="mc-top">
+          <div class="mc-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--neon-cyan)"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+          </div>
+          <span class="mc-trend green">SYSTEM STATUS</span>
+        </div>
+        <div>
+          <span class="mc-label">Total Student Profiles</span>
+          <div class="mc-value">847</div>
+          <p class="mc-sub">Across 8 training groups</p>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="matrix-card purple">
+        <div class="mc-top">
+          <div class="mc-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--neon-purple)"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7z"/></svg>
+          </div>
+          <span class="mc-trend neutral">12 REGISTERED</span>
+        </div>
+        <div>
+          <span class="mc-label">Supervising Staff</span>
+          <div class="mc-value">12</div>
+          <p class="mc-sub">Scanner devices online</p>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="matrix-card">
+        <div class="mc-top">
+          <div class="mc-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--neon-emerald)"><path d="M10.97 4.97a.75.75 0 011.07 1.05l-3.99 4.99a.75.75 0 01-1.08.02z"/></svg>
+          </div>
+          <span class="mc-trend green">↑ 1,084 SCANS</span>
+        </div>
+        <div>
+          <span class="mc-label">Present Students</span>
+          <div class="mc-value" style="color: var(--neon-emerald); text-shadow: 0 0 10px rgba(16, 185, 129, 0.1)">623</div>
+          <p class="mc-sub">Checked in today</p>
+        </div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="matrix-card rose">
+        <div class="mc-top">
+          <div class="mc-icon">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--neon-rose)"><path d="M8.982 1.566a1.13 1.13 0 00-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767zM8 5c.535 0 .954.462.9.995z"/></svg>
+          </div>
+          <span class="mc-trend red">CRITICAL RANGE</span>
+        </div>
+        <div>
+          <span class="mc-label">Attendance Index</span>
+          <div class="mc-value" style="color: var(--neon-rose); text-shadow: 0 0 10px rgba(244, 63, 94, 0.1)">73.6%</div>
+          <p class="mc-sub">Target threshold: 75.0%</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── CONTENT LAYOUT GRID ── -->
+    <div class="dashboard-grid">
+      
+      <!-- Grid Left: Glow Chart + Cyber Actions -->
+      <div class="grid-left">
+        
+        <!-- Glow Chart Card -->
+        <article class="cyber-card">
+          <div class="panel-head">
+            <div>
+              <h3 class="panel-title">Session Breakdown</h3>
+              <p class="g-card-sub" style="font-size: 11px; color: var(--fg-dim); margin-top: 2px;">Daily check-in distribution per slot</p>
+            </div>
+            <span class="panel-tag">Slots</span>
+          </div>
+          
+          <div class="chart-container">
+            <div class="chart-legend">
+              <span class="legend-item" style="--neon-dot-c: var(--neon-cyan)">
+                <span class="legend-dot" style="background: var(--neon-cyan)"></span> Forenoon slots
+              </span>
+              <span class="legend-item" style="--neon-dot-c: var(--neon-purple)">
+                <span class="legend-dot" style="background: var(--neon-purple)"></span> Afternoon slots
+              </span>
+            </div>
+
+            <!-- SVG Bar Canvas -->
+            <div class="chart-canvas" id="chartBody">
+              <div class="chart-baseline"></div>
+              <!-- JS rendered -->
+            </div>
+
+            <!-- Footer data values -->
+            <div class="chart-totals">
+              <div class="ct-cell">
+                <span style="color: var(--fg-dim)">FN1</span>
+                <h4 style="color: var(--neon-cyan)">312</h4>
+              </div>
+              <div class="ct-cell">
+                <span style="color: var(--fg-dim)">FN2</span>
+                <h4 style="color: var(--neon-cyan)">289</h4>
+              </div>
+              <div class="ct-cell">
+                <span style="color: var(--fg-dim)">AN1</span>
+                <h4 style="color: var(--neon-purple)">298</h4>
+              </div>
+              <div class="ct-cell">
+                <span style="color: var(--fg-dim)">AN2</span>
+                <h4 style="color: var(--neon-purple)">185</h4>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- Cyber Action Panel -->
+        <article class="cyber-card">
+          <div class="panel-head">
+            <div>
+              <h3 class="panel-title">Command Panel</h3>
+              <p class="g-card-sub" style="font-size: 11px; color: var(--fg-dim); margin-top: 2px;">Direct action panel</p>
+            </div>
+          </div>
+          <div class="action-panel-grid">
+            
+            <a href="/admin/students" class="cyber-action-btn">
+              <div class="cab-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--neon-cyan)"><path d="M8 4a.5.5 0 01.5.5v3h3a.5.5 0 010 1h-3v3a.5.5 0 01-1 0v-3h-3a.5.5 0 010-1h3v-3A.5.5 0 018 4z"/></svg>
+              </div>
+              <div>
+                <span class="cab-title">Add Student</span>
+                <p class="cab-desc">Create profile</p>
+              </div>
+            </a>
+
+            <a href="/admin/students" class="cyber-action-btn">
+              <div class="cab-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--neon-indigo)"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5z"/></svg>
+              </div>
+              <div>
+                <span class="cab-title">Bulk Import</span>
+                <p class="cab-desc">Upload roster</p>
+              </div>
+            </a>
+
+            <a href="/admin/reports" class="cyber-action-btn">
+              <div class="cab-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--neon-purple)"><path d="M5 4a.5.5 0 000 1h6a.5.5 0 000-1H5zM5 8a.5.5 0 000 1h6a.5.5 0 000-1H5z"/></svg>
+              </div>
+              <div>
+                <span class="cab-title">View Reports</span>
+                <p class="cab-desc">Data sheets</p>
+              </div>
+            </a>
+
+            <a href="/admin/settings" class="cyber-action-btn">
+              <div class="cab-icon">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--fg-dim)"><path d="M9.405 1.02c.252-1.36 2.338-1.36 2.59 0l.295 1.59c.252 1.36-2.338 1.36-2.59 0l-.295-1.59z"/></svg>
+              </div>
+              <div>
+                <span class="cab-title">Settings</span>
+                <p class="cab-desc">Configure limits</p>
+              </div>
+            </a>
+
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Grid Right: Section-wise dark table -->
+      <article class="cyber-card">
+        <div class="sec-table-header">
+          <div>
+            <h3 class="panel-title">Classroom Distribution</h3>
+            <p class="g-card-sub" style="font-size: 11px; color: var(--fg-dim); margin-top: 2px;">Section check-ins and performance levels</p>
+          </div>
+          <div class="filter-deck">
+            <select class="cyber-dropdown" id="deptFilter" aria-label="Department Filter">
+              <option value="">All Departments</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="MECH">MECH</option>
+              <option value="CIVIL">CIVIL</option>
+              <option value="IT">IT</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="scroll-wrapper">
+          <table class="cyber-table">
+            <thead>
+              <tr>
+                <th>Class Section</th>
+                <th>Dept</th>
+                <th class="align-r">Enrolled</th>
+                <th class="align-r">Present</th>
+                <th>Check-in Ratio</th>
+                <th class="align-c">Status</th>
+              </tr>
+            </thead>
+            <tbody id="sectionTbody">
+              <!-- Injected by JS -->
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- Batch-wise Attendance Node-Grid -->
+    <section class="cyber-card">
+      <div class="batch-section-header" style="border-bottom: 1px solid var(--glass-border); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div>
+          <h3 class="panel-title">Batch check-in Index</h3>
+          <p class="g-card-sub" style="font-size: 11px; color: var(--fg-dim); margin-top: 2px;">Visual map of compliance and scan averages across batches A-H</p>
+        </div>
+        <div class="filter-deck">
+          <div class="segmented-control">
+            <button class="segment-btn active" id="crdBtn" onclick="setBatchView('cards')">Nodes</button>
+            <button class="segment-btn" id="tblBtn" onclick="setBatchView('table')">Matrix</button>
+          </div>
+          <button class="btn-cyber-outline">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5z"/></svg>
+            Excel
+          </button>
+          <button class="btn-cyber-outline neon">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5z"/></svg>
+            PDF Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Node-Grid display -->
+      <div id="batchCards" class="batch-cyber-grid">
+        <!-- Injected by JS -->
+      </div>
+
+      <!-- Matrix list display (Hidden by default) -->
+      <div id="batchTableWrap" style="display: none;">
+        <div class="scroll-wrapper">
+          <table class="cyber-table">
+            <thead>
+              <tr>
+                <th>Batch ID</th>
+                <th class="align-c" style="color: var(--neon-cyan)">FN1 check-ins</th>
+                <th class="align-c" style="color: var(--neon-cyan)">FN2 check-ins</th>
+                <th class="align-c" style="color: var(--neon-purple)">AN1 check-ins</th>
+                <th class="align-c" style="color: var(--neon-purple)">AN2 check-ins</th>
+                <th class="align-r">Enrolled</th>
+                <th class="align-r">Present</th>
+                <th>Ratio %</th>
+              </tr>
+            </thead>
+            <tbody id="batchTbody">
+              <!-- Injected by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ── DATA DEFINITION ────────────────────────────────────────────────────────
+    const sessions = [
+      { key: 'FN1', color: 'var(--neon-cyan)', val: 312 },
+      { key: 'FN2', color: '#00e1ff', val: 289 },
+      { key: 'AN1', color: 'var(--neon-purple)', val: 298 },
+      { key: 'AN2', color: '#c084fc', val: 185 },
+    ];
+
+    const sections = [
+      { s: 'A1', dept: 'CSE',   total: 65, present: 54 },
+      { s: 'A2', dept: 'CSE',   total: 63, present: 49 },
+      { s: 'B1', dept: 'ECE',   total: 58, present: 47 },
+      { s: 'B2', dept: 'ECE',   total: 60, present: 38 },
+      { s: 'C1', dept: 'MECH',  total: 55, present: 43 },
+      { s: 'C2', dept: 'MECH',  total: 52, present: 41 },
+      { s: 'D1', dept: 'CIVIL', total: 48, present: 35 },
+      { s: 'E1', dept: 'IT',    total: 62, present: 55 },
+      { s: 'E2', dept: 'IT',    total: 60, present: 50 },
+      { s: 'F1', dept: 'CSE',   total: 54, present: 48 },
+      { s: 'G1', dept: 'ECE',   total: 50, present: 40 },
+      { s: 'H1', dept: 'MECH',  total: 60, present: 44 },
+    ];
+
+    const batches = [
+      { b: 'A', total: 80, present: 68, fn1: 58, fn2: 52, an1: 55, an2: 38 },
+      { b: 'B', total: 72, present: 54, fn1: 44, fn2: 38, an1: 40, an2: 25 },
+      { b: 'C', total: 85, present: 71, fn1: 62, fn2: 58, an1: 57, an2: 40 },
+      { b: 'D', total: 65, present: 48, fn1: 38, fn2: 30, an1: 35, an2: 22 },
+      { b: 'E', total: 90, present: 82, fn1: 72, fn2: 68, an1: 70, an2: 52 },
+      { b: 'F', total: 55, present: 39, fn1: 30, fn2: 24, an1: 28, an2: 18 },
+      { b: 'G', total: 88, present: 76, fn1: 68, fn2: 62, an1: 64, an2: 44 },
+      { b: 'H', total: 60, present: 45, fn1: 36, fn2: 30, an1: 32, an2: 20 },
+    ];
+
+    const deptColors = {
+      CSE:   ['rgba(6, 182, 212, 0.05)', 'var(--neon-cyan)'], 
+      ECE:   ['rgba(99, 102, 241, 0.05)', 'var(--neon-indigo)'],
+      MECH:  ['rgba(16, 185, 129, 0.05)', 'var(--neon-emerald)'], 
+      CIVIL: ['rgba(245, 158, 11, 0.05)', '#f59e0b'], 
+      IT:    ['rgba(168, 85, 247, 0.05)', 'var(--neon-purple)']
+    };
+
+    function getTone(pct) {
+      if (pct >= 75) {
+        return { 
+          fill: 'var(--neon-emerald)', 
+          text: 'var(--neon-emerald)', 
+          border: 'rgba(16, 185, 129, 0.2)', 
+          pillClass: 'pill-green', 
+          label: 'Optimal' 
+        };
+      }
+      if (pct >= 50) {
+        return { 
+          fill: '#f59e0b', 
+          text: '#f59e0b', 
+          border: 'rgba(245, 158, 11, 0.2)', 
+          pillClass: 'pill-orange', 
+          label: 'At Risk' 
+        };
+      }
+      return { 
+        fill: 'var(--neon-rose)', 
+        text: 'var(--neon-rose)', 
+        border: 'rgba(244, 63, 94, 0.2)', 
+        pillClass: 'pill-rose', 
+        label: 'Critical' 
+      };
+    }
+
+    // ── CHART ──
+    function renderChart() {
+      const el = document.getElementById('chartBody');
+      const maxVal = Math.max(...sessions.map(s => s.val)) * 1.08;
+      const chartHeight = 126;
+
+      const bars = sessions.map(s => {
+        const h = Math.max(Math.round((s.val / maxVal) * chartHeight), 6);
+        return `
+          <div class="chart-column">
+            <div class="chart-bar-wrap">
+              <span class="chart-bar-val" style="color: ${s.color}">${s.val}</span>
+              <div class="chart-bar-fill" style="height: ${h}px; background: ${s.color}; color: ${s.color}"></div>
+            </div>
+            <span class="chart-col-lbl">${s.key}</span>
+          </div>`;
+      }).join('');
+
+      el.innerHTML = '<div class="chart-baseline"></div>' + bars;
+    }
+
+    // ── SECTIONS TABLE ──
+    function renderSections(filter) {
+      const filtered = filter ? sections.filter(r => r.dept === filter) : sections;
+      const tbody = document.getElementById('sectionTbody');
+      
+      tbody.innerHTML = filtered.map(r => {
+        const pct = Math.round((r.present / r.total) * 100);
+        const tone = getTone(pct);
+        const [bg, fg] = deptColors[r.dept] || ['rgba(255,255,255,0.01)', 'var(--fg-silver)'];
+        
+        return `
+          <tr>
+            <td style="font-weight: 600; color: var(--fg-white)">Section ${r.s}</td>
+            <td><span class="cyber-chip" style="background: ${bg}; color: ${fg}; border: 1px solid rgba(255,255,255,0.02)">${r.dept}</span></td>
+            <td class="mono align-r">${r.total}</td>
+            <td class="mono align-r">${r.present}</td>
+            <td>
+              <div class="cyber-progress-row">
+                <div class="cyber-progress-track">
+                  <div class="cyber-progress-fill" style="width: ${pct}%; background: ${tone.fill}; color: ${tone.fill}"></div>
+                </div>
+                <span class="cyber-pct-lbl" style="color: ${tone.text}">${pct}%</span>
+              </div>
+            </td>
+            <td class="align-c">
+              <span class="indicator-pill ${tone.pillClass}">${tone.label}</span>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ── BATCH CARDS ──
+    function renderBatchCards() {
+      const container = document.getElementById('batchCards');
+      
+      container.innerHTML = batches.map(b => {
+        const pct = Math.round((b.present / b.total) * 100);
+        const tone = getTone(pct);
+        
+        return `
+          <div class="batch-cyber-node" style="border-color: ${tone.border}">
+            <div class="node-header">
+              <span class="node-title">Batch</span>
+              <span class="node-id">${b.b}</span>
+            </div>
+            <div>
+              <div class="node-main">
+                <span class="node-present">${b.present}</span>
+                <span class="node-total">/ ${b.total}</span>
+              </div>
+              <div class="node-pct-indicator" style="color: ${tone.text}">${pct}% present</div>
+            </div>
+            <div class="cyber-progress-track">
+              <div class="cyber-progress-fill" style="width: ${Math.min(pct, 100)}%; background: ${tone.fill}; color: ${tone.fill}"></div>
+            </div>
+            <div class="node-bars-group">
+              <div class="node-mini-bar"><span>FN1</span><span class="nmb-val" style="color: var(--neon-cyan)">${b.fn1}</span></div>
+              <div class="node-mini-bar"><span>FN2</span><span class="nmb-val" style="color: var(--neon-cyan)">${b.fn2}</span></div>
+              <div class="node-mini-bar"><span>AN1</span><span class="nmb-val" style="color: var(--neon-purple)">${b.an1}</span></div>
+              <div class="node-mini-bar"><span>AN2</span><span class="nmb-val" style="color: var(--neon-purple)">${b.an2}</span></div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── BATCH TABLE ──
+    function renderBatchTable() {
+      const tbody = document.getElementById('batchTbody');
+      
+      tbody.innerHTML = batches.map(b => {
+        const pct = Math.round((b.present / b.total) * 100);
+        const tone = getTone(pct);
+        
+        return `
+          <tr>
+            <td>
+              <span style="display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); color: var(--fg-white); width: 26px; height: 26px; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 11px; font-weight: 700;">
+                ${b.b}
+              </span>
+            </td>
+            <td class="mono align-c" style="color: var(--neon-cyan); text-shadow: 0 0 5px rgba(6,182,212,0.15);">${b.fn1}</td>
+            <td class="mono align-c" style="color: var(--neon-cyan); text-shadow: 0 0 5px rgba(6,182,212,0.15);">${b.fn2}</td>
+            <td class="mono align-c" style="color: var(--neon-purple); text-shadow: 0 0 5px rgba(168,85,247,0.15);">${b.an1}</td>
+            <td class="mono align-c" style="color: var(--neon-purple); text-shadow: 0 0 5px rgba(168,85,247,0.15);">${b.an2}</td>
+            <td class="mono align-r">${b.total}</td>
+            <td class="mono align-r">${b.present}</td>
+            <td style="min-width: 120px;">
+              <div class="cyber-progress-row">
+                <div class="cyber-progress-track">
+                  <div class="cyber-progress-fill" style="width: ${pct}%; background: ${tone.fill}; color: ${tone.fill}"></div>
+                </div>
+                <span class="cyber-pct-lbl" style="color: ${tone.text}">${pct}%</span>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ── VIEW TOGGLER ──
+    window.setBatchView = function(view) {
+      const cards = document.getElementById('batchCards');
+      const tableWrap = document.getElementById('batchTableWrap');
+      const tBtn = document.getElementById('tblBtn');
+      const cBtn = document.getElementById('crdBtn');
+      
+      if (view === 'cards') {
+        cards.style.display = 'grid';
+        tableWrap.style.display = 'none';
+        cBtn.classList.add('active');
+        tBtn.classList.remove('active');
+      } else {
+        cards.style.display = 'none';
+        tableWrap.style.display = 'block';
+        tBtn.classList.add('active');
+        cBtn.classList.remove('active');
+      }
+    };
+
+    // ── MOBILE DRAWER ──
+    const menuBtn = document.getElementById('menuBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+
+    menuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      mobileMenu.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!mobileMenu.contains(e.target) && e.target !== menuBtn) {
+        mobileMenu.classList.remove('open');
+      }
+    });
+
+    // ── FILTER DEPT ──
+    document.getElementById('deptFilter').addEventListener('change', e => {
+      renderSections(e.target.value);
+    });
+
+    // ── INITIALIZATION ──
+    window.addEventListener('DOMContentLoaded', () => {
+      renderChart();
+      renderSections('');
+      renderBatchCards();
+      renderBatchTable();
+    });
+  </script>
+</body>
+</html>
