@@ -39,6 +39,7 @@ export default function SettingsPage() {
       an2_end:         settings.an2_end,
       enabled:         settings.enabled,
       block_immediate: settings.block_immediate ?? false,
+      qr_blocking_enabled: settings.qr_blocking_enabled ?? true,
     }).eq('id', 1)
     setSaving(false)
     setSaved(true)
@@ -71,11 +72,28 @@ export default function SettingsPage() {
 
           <div className="flex items-center justify-between py-2 border-b border-slate-100">
             <div>
+              <p className="font-medium text-slate-800">Enable student QR blocking</p>
+              <p className="text-sm text-slate-500">Automatically block students who miss attendance sessions</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setField('qr_blocking_enabled', !(settings?.qr_blocking_enabled ?? true))}
+              className={`relative inline-flex h-6 w-11 rounded-full transition-colors
+                ${(settings?.qr_blocking_enabled ?? true) ? 'bg-brand-600' : 'bg-slate-200'}`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white shadow translate-y-1 transition-transform
+                ${(settings?.qr_blocking_enabled ?? true) ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className={`flex items-center justify-between py-2 border-b border-slate-100 transition-opacity duration-200 ${(settings?.qr_blocking_enabled ?? true) ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+            <div>
               <p className="font-medium text-slate-800">Block QR immediately on miss</p>
               <p className="text-sm text-slate-500">If disabled, blocking takes effect from the next day onwards</p>
             </div>
             <button
               type="button"
+              disabled={!(settings?.qr_blocking_enabled ?? true)}
               onClick={() => setField('block_immediate', !settings?.block_immediate)}
               className={`relative inline-flex h-6 w-11 rounded-full transition-colors
                 ${settings?.block_immediate ? 'bg-brand-600' : 'bg-slate-200'}`}

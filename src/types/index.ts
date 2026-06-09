@@ -81,6 +81,7 @@ export interface SessionSettings {
   an2_end: string
   enabled: boolean
   block_immediate?: boolean
+  qr_blocking_enabled?: boolean
   updated_at: string
 }
 
