@@ -660,8 +660,14 @@ export default function ScanPage() {
                   ⚠️
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-amber-300 font-heading">Already Verified</h3>
-                  <p className="text-slate-400 text-xs font-medium">Attendance is already registered for this session.</p>
+                  <h3 className="text-base font-bold text-amber-300 font-heading">
+                    {result.message?.toLowerCase().includes('session') && !result.message?.toLowerCase().includes('already')
+                      ? 'Invalid Scan Time'
+                      : 'Already Verified'}
+                  </h3>
+                  <p className="text-slate-400 text-xs font-medium">
+                    {result.message || 'Attendance is already registered for this session.'}
+                  </p>
                 </div>
                 <div className="p-3 bg-white/5 border border-white/5 rounded-2xl">
                   <p className="text-sm font-extrabold text-white">{result.studentName}</p>
