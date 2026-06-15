@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminClient, getAuthUserByEmail } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { studentEmail } from '@/lib/utils'
 
@@ -82,6 +82,9 @@ export async function POST(request: Request) {
         continue
       }
 
+      let authUserId: string | null = null
+      let createdNewAuthUser = false
+
       const email = studentEmail(student_id)
       const { data: authData, error: authErr } = await admin.auth.admin.createUser({
         email,
@@ -89,13 +92,39 @@ export async function POST(request: Request) {
         email_confirm: true,
         user_metadata: { role: 'Student' },
       })
-      if (authErr || !authData?.user) {
-        results.push({ rowNum, student_id, status: 'error', message: authErr?.message ?? 'Failed to create login' })
+
+      if (authErr) {
+        if (authErr.message?.includes('already been registered') || authErr.code === 'email_exists') {
+          try {
+            const existingUser = await getAuthUserByEmail(admin, email)
+            if (existingUser) {
+              authUserId = existingUser.id
+              // Update password to the new one
+              await admin.auth.admin.updateUserById(authUserId, { password })
+            } else {
+              results.push({ rowNum, student_id, status: 'error', message: 'Auth user exists but could not be retrieved' })
+              continue
+            }
+          } catch (err: any) {
+            results.push({ rowNum, student_id, status: 'error', message: `Auth retrieval failed: ${err.message}` })
+            continue
+          }
+        } else {
+          results.push({ rowNum, student_id, status: 'error', message: authErr.message ?? 'Failed to create login' })
+          continue
+        }
+      } else if (authData?.user) {
+        authUserId = authData.user.id
+        createdNewAuthUser = true
+      }
+
+      if (!authUserId) {
+        results.push({ rowNum, student_id, status: 'error', message: 'Failed to create or find login user' })
         continue
       }
 
       const { error: profileErr } = await admin.from('profiles').insert({
-        id:         authData.user.id,
+        id:         authUserId,
         name,
         role:       'Student',
         student_id,
@@ -106,8 +135,9 @@ export async function POST(request: Request) {
         status:     'Active',
       })
       if (profileErr) {
-        // Roll back the orphan auth user so a retry can succeed.
-        await admin.auth.admin.deleteUser(authData.user.id)
+        if (createdNewAuthUser) {
+          await admin.auth.admin.deleteUser(authUserId)
+        }
         results.push({ rowNum, student_id, status: 'error', message: profileErr.message })
         continue
       }

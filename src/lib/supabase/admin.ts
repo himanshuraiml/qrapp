@@ -9,3 +9,24 @@ export function createAdminClient() {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 }
+
+export async function getAuthUserByEmail(admin: any, email: string) {
+  let page = 1
+  const perPage = 1000
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage,
+    })
+    if (error) throw error
+    if (!data.users || data.users.length === 0) break
+    const user = data.users.find(
+      (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+    )
+    if (user) return user
+    if (data.users.length < perPage) break
+    page++
+  }
+  return null
+}
+
