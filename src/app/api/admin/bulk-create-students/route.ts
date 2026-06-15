@@ -100,7 +100,7 @@ export async function POST(request: Request) {
             if (existingUser) {
               authUserId = existingUser.id
               // Update password to the new one
-              await admin.auth.admin.updateUserById(authUserId, { password })
+              await admin.auth.admin.updateUserById(existingUser.id, { password })
             } else {
               results.push({ rowNum, student_id, status: 'error', message: 'Auth user exists but could not be retrieved' })
               continue

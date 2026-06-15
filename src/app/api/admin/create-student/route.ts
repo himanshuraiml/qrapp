@@ -44,7 +44,7 @@ export async function POST(request: Request) {
           if (existingUser) {
             authUserId = existingUser.id
             // Update password to the new one
-            await admin.auth.admin.updateUserById(authUserId, { password })
+            await admin.auth.admin.updateUserById(existingUser.id, { password })
           } else {
             return NextResponse.json({ success: false, error: 'Auth user exists but could not be retrieved' }, { status: 400 })
           }
