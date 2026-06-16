@@ -31,7 +31,7 @@ interface ParsedRow {
 type RowResult = {
   rowNum: number
   student_id: string
-  status: 'created' | 'skipped' | 'error'
+  status: 'created' | 'updated' | 'skipped' | 'error'
   message?: string
 }
 
@@ -167,7 +167,7 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
     all.sort((a, b) => a.rowNum - b.rowNum)
     setResults(all)
     setUploading(false)
-    if (all.some((r) => r.status === 'created')) onComplete?.()
+    if (all.some((r) => r.status === 'created' || r.status === 'updated')) onComplete?.()
   }
 
   async function downloadReport() {
@@ -186,6 +186,7 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
   const validCount = rows.filter((r) => r.valid).length
   const invalidCount = rows.length - validCount
   const created = results?.filter((r) => r.status === 'created').length ?? 0
+  const updated = results?.filter((r) => r.status === 'updated').length ?? 0
   const skipped = results?.filter((r) => r.status === 'skipped').length ?? 0
   const errored = results?.filter((r) => r.status === 'error').length ?? 0
 
@@ -304,12 +305,13 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
             <div className="space-y-4">
               <div className="flex flex-wrap gap-3 text-xs font-bold">
                 <span className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">{created} created</span>
+                {updated > 0 && <span className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200">{updated} updated</span>}
                 {skipped > 0 && <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">{skipped} skipped (already exist)</span>}
                 {errored > 0 && <span className="px-3 py-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200">{errored} failed</span>}
                 <button onClick={downloadReport} className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200">⬇️ Download report</button>
               </div>
 
-              {(skipped > 0 || errored > 0) && (
+              {(updated > 0 || skipped > 0 || errored > 0) && (
                 <div className="max-h-64 overflow-auto rounded-xl border border-slate-200">
                   <table className="w-full text-xs">
                     <thead className="bg-slate-50 sticky top-0">
@@ -322,10 +324,14 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {results.filter((r) => r.status !== 'created').map((r) => (
-                        <tr key={`${r.rowNum}-${r.student_id}`} className={r.status === 'error' ? 'bg-red-50/50' : 'bg-amber-50/40'}>
+                        <tr key={`${r.rowNum}-${r.student_id}`} className={r.status === 'error' ? 'bg-red-50/50' : r.status === 'updated' ? 'bg-indigo-50/30' : 'bg-amber-50/40'}>
                           <td className="px-3 py-2 text-slate-400">{r.rowNum}</td>
                           <td className="px-3 py-2 font-semibold text-slate-700">{r.student_id || '—'}</td>
-                          <td className="px-3 py-2 font-bold">{r.status === 'error' ? <span className="text-red-500">failed</span> : <span className="text-amber-600">skipped</span>}</td>
+                          <td className="px-3 py-2 font-bold">
+                            {r.status === 'error' && <span className="text-red-500">failed</span>}
+                            {r.status === 'skipped' && <span className="text-amber-600">skipped</span>}
+                            {r.status === 'updated' && <span className="text-indigo-600">updated</span>}
+                          </td>
                           <td className="px-3 py-2 text-slate-600">{r.message ?? ''}</td>
                         </tr>
                       ))}

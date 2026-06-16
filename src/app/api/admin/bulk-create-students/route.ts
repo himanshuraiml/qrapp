@@ -21,7 +21,7 @@ interface IncomingRow {
 type RowResult = {
   rowNum: number
   student_id: string
-  status: 'created' | 'skipped' | 'error'
+  status: 'created' | 'updated' | 'skipped' | 'error'
   message?: string
 }
 
@@ -69,16 +69,51 @@ export async function POST(request: Request) {
         results.push({ rowNum, student_id, status: 'error', message: 'Year must be 1–4' })
         continue
       }
-      if (password.length < 6) {
-        results.push({ rowNum, student_id, status: 'error', message: 'Password (or Register No) must be at least 6 characters' })
+      // Check if student already exists
+      const { data: existing } = await admin
+        .from('profiles').select('id').eq('student_id', student_id).maybeSingle()
+
+      if (existing) {
+        // If a password was explicitly provided, validate and update it
+        if (s.password && String(s.password).trim() !== '') {
+          const customPassword = String(s.password).trim()
+          if (customPassword.length < 6) {
+            results.push({ rowNum, student_id, status: 'error', message: 'Password must be at least 6 characters' })
+            continue
+          }
+          try {
+            await admin.auth.admin.updateUserById(existing.id, { password: customPassword })
+          } catch (authErr: any) {
+            results.push({ rowNum, student_id, status: 'error', message: `Auth update failed: ${authErr.message}` })
+            continue
+          }
+        }
+
+        // Update the profile in database
+        const { error: profileErr } = await admin
+          .from('profiles')
+          .update({
+            name,
+            department,
+            year: yearNum,
+            section,
+            batch,
+            status: 'Active',
+          })
+          .eq('id', existing.id)
+
+        if (profileErr) {
+          results.push({ rowNum, student_id, status: 'error', message: profileErr.message })
+          continue
+        }
+
+        results.push({ rowNum, student_id, status: 'updated' })
         continue
       }
 
-      // Skip duplicates rather than overwrite.
-      const { data: existing } = await admin
-        .from('profiles').select('id').eq('student_id', student_id).maybeSingle()
-      if (existing) {
-        results.push({ rowNum, student_id, status: 'skipped', message: 'Register No already exists' })
+      // For new students, validate password length (must be at least 6 chars)
+      if (password.length < 6) {
+        results.push({ rowNum, student_id, status: 'error', message: 'Password (or Register No) must be at least 6 characters' })
         continue
       }
 
@@ -148,6 +183,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       created: results.filter((r) => r.status === 'created').length,
+      updated: results.filter((r) => r.status === 'updated').length,
       skipped: results.filter((r) => r.status === 'skipped').length,
       errored: results.filter((r) => r.status === 'error').length,
       results,
