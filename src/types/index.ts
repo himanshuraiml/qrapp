@@ -10,6 +10,7 @@ export interface Profile {
   year?: number | null
   section?: string | null
   batch?: string | null
+  special_login?: boolean
   status: 'Active' | 'Inactive'
   qr_blocked?: boolean
   qr_unblocked_at?: string
@@ -82,6 +83,7 @@ export interface SessionSettings {
   enabled: boolean
   block_immediate?: boolean
   qr_blocking_enabled?: boolean
+  restrict_faculty_batch?: boolean
   updated_at: string
 }
 

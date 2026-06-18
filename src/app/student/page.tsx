@@ -27,6 +27,9 @@ export default function StudentDashboard() {
   const [qrBlocked, setQrBlocked] = useState(false)
   const [blockChecking, setBlockChecking] = useState(true)
 
+  // Batch Venue state
+  const [batchVenue, setBatchVenue] = useState<string | null>(null)
+
   // Filters for detailed history view
   const [histDateFrom, setHistDateFrom] = useState('')
   const [histDateTo, setHistDateTo] = useState('')
@@ -125,6 +128,22 @@ export default function StudentDashboard() {
     fetchHistory()
     checkBlockStatus()
   }, [authLoading, profile?.student_id, fetchRecords, fetchStats, fetchHistory, checkBlockStatus])
+
+  // Fetch batch venue when profile changes
+  useEffect(() => {
+    if (!profile?.batch) {
+      setBatchVenue(null)
+      return
+    }
+    supabase
+      .from('batch_venues')
+      .select('venue')
+      .eq('batch', profile.batch)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setBatchVenue(data.venue)
+      })
+  }, [profile?.batch, supabase])
 
   // Real-time subscription (listening to any change in attendance & profiles)
   useEffect(() => {
@@ -275,7 +294,7 @@ export default function StudentDashboard() {
                   </span>
                   {profile?.batch && (
                     <span className="px-2.5 py-1 rounded-lg bg-brand-500/15 border border-brand-500/30 text-[10px] sm:text-xs font-bold text-brand-200">
-                      Batch {profile.batch}
+                      Batch {profile.batch} {batchVenue ? `(Venue: ${batchVenue})` : ''}
                     </span>
                   )}
                 </div>
@@ -395,7 +414,20 @@ export default function StudentDashboard() {
               </div>
             </div>
           ) : (
-            qrPayload && <QrDisplay basePayload={qrPayload} />
+            <>
+              {qrPayload && <QrDisplay basePayload={qrPayload} />}
+              {profile?.batch && batchVenue && (
+                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm flex items-center gap-3 animate-fade-in mt-4">
+                  <div className="w-10 h-10 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-lg shadow-sm">
+                    📍
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Classroom Venue</p>
+                    <p className="text-xs font-extrabold text-slate-800 mt-0.5">Batch {profile.batch} · {batchVenue}</p>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Today's scan verification status */}

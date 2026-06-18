@@ -25,6 +25,9 @@ export default function ManageFacultyPage() {
   const [modalSaving, setModalSaving] = useState(false)
   const [modalError, setModalError] = useState('')
   const [modalSuccess, setModalSuccess] = useState(false)
+  const [modalBatch, setModalBatch] = useState('')
+  const [modalSpecialLogin, setModalSpecialLogin] = useState(false)
+  const [batchesList, setBatchesList] = useState<string[]>([])
 
   // Fetch current email when opening modal
   async function openManageModal(f: Profile) {
@@ -34,6 +37,8 @@ export default function ManageFacultyPage() {
     setModalLoading(true)
     setModalError('')
     setModalSuccess(false)
+    setModalBatch(f.batch || '')
+    setModalSpecialLogin(!!f.special_login)
 
     try {
       const res = await fetch(`/api/admin/user-details?userId=${f.id}`)
@@ -56,7 +61,7 @@ export default function ManageFacultyPage() {
       .from('profiles')
       // Only the columns the list + edit flow actually use — avoids pulling
       // every profile column for the whole faculty roster.
-      .select('id, name, department, status, role')
+      .select('id, name, department, status, role, batch, special_login')
       .eq('role', 'Faculty')
       .order('department')
       .order('name')
@@ -82,6 +87,20 @@ export default function ManageFacultyPage() {
     }
     // 2. Fetch in background (silent refresh)
     loadFaculty(!!cached)
+
+    // 3. Fetch unique student batches
+    supabase
+      .from('profiles')
+      .select('batch')
+      .eq('role', 'Student')
+      .not('batch', 'is', null)
+      .neq('batch', '')
+      .then(({ data, error }) => {
+        if (!error && data) {
+          const uniqueBatches = Array.from(new Set(data.map((p: any) => p.batch))).filter(Boolean).sort() as string[]
+          setBatchesList(uniqueBatches)
+        }
+      })
   }, [])
 
   async function handleCreate(e: FormEvent) {
@@ -246,8 +265,22 @@ export default function ManageFacultyPage() {
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((f) => (
                   <tr key={f.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4 font-bold text-slate-800 text-sm">{f.name}</td>
-                    <td className="p-4 font-semibold text-slate-500 uppercase">{f.department}</td>
+                    <td className="p-4 font-bold text-slate-800 text-sm">
+                      {f.name}
+                      {f.special_login && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-100">
+                          ⭐️ Special Login
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-4 font-semibold text-slate-500 uppercase">
+                      {f.department}
+                      {f.batch && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-brand-50 text-brand-700 border border-brand-100">
+                          Batch {f.batch}
+                        </span>
+                      )}
+                    </td>
                     <td className="p-4">
                       <span className={`badge border font-bold ${f.status === 'Active'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -351,6 +384,21 @@ export default function ManageFacultyPage() {
                   setModalSaving(true)
                   setModalError('')
                   try {
+                    // Update profile fields
+                    const { error: profileErr } = await supabase
+                      .from('profiles')
+                      .update({
+                        batch: modalBatch || null,
+                        special_login: modalSpecialLogin,
+                      })
+                      .eq('id', manageModalUser.id)
+
+                    if (profileErr) {
+                      setModalError(profileErr.message)
+                      setModalSaving(false)
+                      return
+                    }
+
                     const res = await fetch('/api/admin/user-details', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -362,9 +410,17 @@ export default function ManageFacultyPage() {
                     })
                     const data = await res.json()
                     if (data.success) {
+                      // Update local state and cache
+                      const updatedList = faculty.map((item) =>
+                        item.id === manageModalUser.id
+                          ? { ...item, batch: modalBatch || null, special_login: modalSpecialLogin }
+                          : item
+                      )
+                      setFaculty(updatedList)
+                      sessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
                       setModalSuccess(true)
                     } else {
-                      setModalError(data.error || 'Failed to update credentials')
+                      setModalError(data.error || 'Failed to update Auth credentials')
                     }
                   } catch (err: any) {
                     setModalError(err.message || 'An error occurred')
@@ -397,6 +453,37 @@ export default function ManageFacultyPage() {
                     value={modalPassword}
                     onChange={(e) => setModalPassword(e.target.value)}
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 font-heading">Assigned Batch</label>
+                    <select
+                      className="input font-semibold text-slate-700 bg-slate-50 focus:bg-white"
+                      value={modalBatch}
+                      onChange={(e) => setModalBatch(e.target.value)}
+                    >
+                      <option value="">None (Unassigned)</option>
+                      {batchesList.map((b) => (
+                        <option key={b} value={b}>Batch {b}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 font-heading">Special Login</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setModalSpecialLogin(!modalSpecialLogin)}
+                        className={`relative inline-flex h-6 w-11 rounded-full transition-colors
+                          ${modalSpecialLogin ? 'bg-brand-600' : 'bg-slate-200'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow translate-y-1 transition-transform
+                          ${modalSpecialLogin ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                      <span className="text-[10px] text-slate-400 font-semibold">Allows scanning all batches</span>
+                    </div>
+                  </div>
                 </div>
 
                 {modalError && (

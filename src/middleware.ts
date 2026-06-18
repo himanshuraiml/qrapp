@@ -32,38 +32,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // 2. Logged in → enforce role matches the route prefix
-  if (user && isProtected) {
+  // Role is needed for redirect decisions — read from JWT metadata to avoid a DB query.
+  // Falls back to a DB query only if metadata is missing (legacy accounts).
+  let role = user?.user_metadata?.role?.toLowerCase() ?? ''
+
+  if (user && !role && (isProtected || path === '/login')) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
+    role = profile?.role?.toLowerCase() ?? ''
+  }
 
-    const role = profile?.role?.toLowerCase() ?? ''
-
-    // Determine which top-level section the request targets
-    const targetSection = protectedPrefixes.find((p) => path.startsWith(p))?.slice(1) // e.g. "faculty"
-
+  // 2. Logged in → enforce role matches the route prefix
+  if (user && isProtected) {
+    const targetSection = protectedPrefixes.find((p) => path.startsWith(p))?.slice(1)
     if (targetSection && role !== targetSection) {
-      // Redirect to the user's own dashboard — don't expose a 403
       return NextResponse.redirect(new URL(`/${role || 'login'}`, request.url))
     }
   }
 
   // 3. Already logged in and trying to visit /login → redirect to their dashboard
-  if (user && path === '/login') {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role) {
-      return NextResponse.redirect(
-        new URL(`/${profile.role.toLowerCase()}`, request.url)
-      )
-    }
+  if (user && path === '/login' && role) {
+    return NextResponse.redirect(new URL(`/${role}`, request.url))
   }
 
   return supabaseResponse

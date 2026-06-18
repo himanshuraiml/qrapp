@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   year         INTEGER     CHECK (year BETWEEN 1 AND 4),
   section      TEXT,        -- permanent home section of the student
   batch        TEXT,        -- training batch (A, B, C, ...); may change on promote/demote
+  special_login BOOLEAN    NOT NULL DEFAULT FALSE,
   -- Shared
   status       TEXT        NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -86,8 +87,34 @@ CREATE TABLE IF NOT EXISTS session_settings (
   an1_end          TIME    NOT NULL DEFAULT '15:00',
   an2_start        TIME    NOT NULL DEFAULT '15:00',
   an2_end          TIME    NOT NULL DEFAULT '17:00',
-  enabled          BOOLEAN NOT NULL DEFAULT TRUE,
-  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  enabled                BOOLEAN NOT NULL DEFAULT TRUE,
+  restrict_faculty_batch BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 INSERT INTO session_settings DEFAULT VALUES ON CONFLICT DO NOTHING;
+
+
+-- ─────────────────────────────────────────
+-- BATCH VENUES
+-- ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS batch_venues (
+  batch            TEXT PRIMARY KEY,
+  venue            TEXT NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE batch_venues ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "batch_venues: authenticated read"
+  ON batch_venues FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "batch_venues: admin all"
+  ON batch_venues FOR ALL
+  USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'Admin');
+
+CREATE TRIGGER batch_venues_updated_at
+  BEFORE UPDATE ON batch_venues
+  FOR EACH ROW EXECUTE FUNCTION _set_updated_at();

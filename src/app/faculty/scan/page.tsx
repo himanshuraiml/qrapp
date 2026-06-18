@@ -29,6 +29,14 @@ export default function ScanPage() {
   const [sessionMode, setSessionMode] = useState<'FN' | 'AN'>('FN')
   const processingRef = useRef(false)
 
+  // Batch & Restriction states
+  const [facultyProfile, setFacultyProfile] = useState<any>(null)
+  const [restrictFaculty, setRestrictFaculty] = useState(false)
+  const [batchesList, setBatchesList] = useState<string[]>([])
+  const [batchVenue, setBatchVenue] = useState<string | null>(null)
+  const [loadingConfig, setLoadingConfig] = useState(true)
+  const [updatingBatch, setUpdatingBatch] = useState(false)
+
   // Fast scan states and refs
   const [recentScans, setRecentScans] = useState<Array<{
     id: string
@@ -56,6 +64,37 @@ export default function ScanPage() {
     isSyncingRef.current = isSyncing
   }, [isSyncing])
 
+  async function fetchVenue(batchName: string) {
+    const { data } = await supabase
+      .from('batch_venues')
+      .select('venue')
+      .eq('batch', batchName)
+      .maybeSingle()
+    if (data) setBatchVenue(data.venue)
+    else setBatchVenue(null)
+  }
+
+  async function handleAssignBatch(newBatch: string) {
+    if (!facultyProfile) return
+    setUpdatingBatch(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ batch: newBatch || null })
+      .eq('id', facultyProfile.id)
+
+    if (error) {
+      alert('Failed to assign batch: ' + error.message)
+    } else {
+      setFacultyProfile((prev: any) => prev ? { ...prev, batch: newBatch || null } : prev)
+      if (newBatch) {
+        await fetchVenue(newBatch)
+      } else {
+        setBatchVenue(null)
+      }
+    }
+    setUpdatingBatch(false)
+  }
+
   // Get active session mode and load settings/queue on mount
   useEffect(() => {
     const hour = new Date().getHours()
@@ -75,7 +114,60 @@ export default function ScanPage() {
         }
       }
     }
-  }, [])
+
+    async function loadConfig() {
+      setLoadingConfig(true)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id, name, department, status, role, batch, special_login')
+          .eq('id', user.id)
+          .single()
+        
+        if (prof) {
+          setFacultyProfile(prof)
+          if (prof.batch) {
+            supabase
+              .from('batch_venues')
+              .select('venue')
+              .eq('batch', prof.batch)
+              .maybeSingle()
+              .then(({ data }) => {
+                if (data) setBatchVenue(data.venue)
+              })
+          }
+        }
+
+        const { data: settings } = await supabase
+          .from('session_settings')
+          .select('restrict_faculty_batch')
+          .eq('id', 1)
+          .single()
+        if (settings) {
+          setRestrictFaculty(!!settings.restrict_faculty_batch)
+        }
+
+        const { data: batches } = await supabase
+          .from('profiles')
+          .select('batch')
+          .eq('role', 'Student')
+          .not('batch', 'is', null)
+          .neq('batch', '')
+        if (batches) {
+          const unique = Array.from(new Set(batches.map((p: any) => p.batch))).filter(Boolean).sort() as string[]
+          setBatchesList(unique)
+        }
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoadingConfig(false)
+      }
+    }
+    loadConfig()
+  }, [supabase])
 
   const toggleHaptics = () => {
     setHapticsEnabled((prev) => {
@@ -240,9 +332,7 @@ export default function ScanPage() {
         return
       }
 
-      const { data: profile } = await supabase
-        .from('profiles').select('name').eq('id', user.id).single()
-      const facultyName = profile?.name ?? 'Faculty'
+      const facultyName = facultyProfile?.name ?? 'Faculty'
 
       let successCount = 0
       let duplicateCount = 0
@@ -379,6 +469,30 @@ export default function ScanPage() {
         return
       }
 
+      // Client-side Faculty Batch Restriction check
+      if (restrictFaculty && !facultyProfile?.special_login) {
+        if (!facultyProfile?.batch) {
+          const errResult: ScanResult = { type: 'error', message: 'Restricted: Please select a batch first.' }
+          setResult(errResult)
+          triggerHaptic([400])
+          addToRecentScans('N/A', payload.name || 'Unknown Student', 'N/A', 'error', 'No batch selected')
+          scheduleClear(1200)
+          return
+        }
+
+        if (!payload.batch || payload.batch !== facultyProfile.batch) {
+          const errResult: ScanResult = { 
+            type: 'error', 
+            message: `Restricted: You can only mark Batch ${facultyProfile.batch} (Student is Batch ${payload.batch || 'None'})` 
+          }
+          setResult(errResult)
+          triggerHaptic([400])
+          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', `Batch mismatch (Student is Batch ${payload.batch || 'None'})`)
+          scheduleClear(1200)
+          return
+        }
+      }
+
       let userProfile: { name: string; id: string } | null = null
       let dbResult: any = null
       let networkErrorOccurred = false
@@ -399,10 +513,7 @@ export default function ScanPage() {
           return
         }
 
-        const { data: profile } = await supabase
-          .from('profiles').select('name').eq('id', user.id).single()
-
-        userProfile = { name: profile?.name ?? 'Faculty', id: user.id }
+        userProfile = { name: facultyProfile?.name ?? 'Faculty', id: user.id }
 
         const today = todayIST()
         const { data, error: rpcError } = await supabase.rpc('mark_attendance_safe', {
@@ -553,6 +664,46 @@ export default function ScanPage() {
         </button>
       </div>
 
+      {/* Assigned Batch Info & Switcher Card */}
+      <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Scanning Target</p>
+            {loadingConfig ? (
+              <p className="text-xs text-slate-400 font-medium">Loading batch details...</p>
+            ) : facultyProfile?.special_login ? (
+              <p className="text-xs font-extrabold text-purple-700 mt-0.5">⭐️ Special Login (All Batches Allowed)</p>
+            ) : facultyProfile?.batch ? (
+              <p className="text-xs font-extrabold text-slate-800 mt-0.5">
+                Batch <span className="text-brand-600 font-extrabold">{facultyProfile.batch}</span> {batchVenue ? `· Venue: ${batchVenue}` : ''}
+              </p>
+            ) : (
+              <p className="text-xs font-extrabold text-amber-600 mt-0.5">⚠️ No Batch Selected</p>
+            )}
+          </div>
+
+          {!loadingConfig && !facultyProfile?.special_login && (
+            <select
+              disabled={updatingBatch}
+              value={facultyProfile?.batch || ''}
+              onChange={(e) => handleAssignBatch(e.target.value)}
+              className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 max-w-[150px]"
+            >
+              <option value="">Select Batch</option>
+              {batchesList.map((b) => (
+                <option key={b} value={b}>Batch {b}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login && (
+          <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-2xl text-[10px] font-bold text-amber-700">
+            ⚠️ Restricted: You must assign a batch to start the camera scanner.
+          </div>
+        )}
+      </div>
+
       {/* Offline Queue Sync Card */}
       {offlineQueue.length > 0 && (
         <div className="bg-amber-50 border border-amber-200/60 p-4 rounded-3xl shadow-sm flex items-center justify-between gap-4 animate-slide-up">
@@ -603,12 +754,21 @@ export default function ScanPage() {
                 Permissions are required to access camera device to sweep student QR codes.
               </p>
             </div>
-            <button
-              onClick={() => setActive(true)}
-              className="btn-primary w-full py-3.5 font-bold shadow-xl shadow-brand-500/10 active:scale-98"
-            >
-              Start Attendance Scanner
-            </button>
+            {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login ? (
+              <button
+                disabled
+                className="btn-primary w-full py-3.5 font-bold opacity-40 cursor-not-allowed shadow-none animate-pulse"
+              >
+                Select Batch to Start Scanner
+              </button>
+            ) : (
+              <button
+                onClick={() => setActive(true)}
+                className="btn-primary w-full py-3.5 font-bold shadow-xl shadow-brand-500/10 active:scale-98"
+              >
+                Start Attendance Scanner
+              </button>
+            )}
           </div>
         ) : (
           <div className="p-6 text-center bg-slate-950/80 backdrop-blur-md border-t border-white/5 relative z-20">

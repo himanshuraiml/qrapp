@@ -12,6 +12,9 @@ export default function AboutApp() {
           <p className="text-xs text-slate-500 font-medium leading-relaxed">
             An elegant, high-speed QR-based attendance tracking platform designed for SRMIST Tiruchirappalli Campus. It facilitates real-time scan verification, dynamic secure QR generation, and automated classroom logs with robust analytics for students, faculty, and administrators alike.
           </p>
+          <p className="text-xs text-slate-500 font-medium leading-relaxed">
+            This web app is developed by Dr. Himanshu Rai, School of Computing, Department of AI, SRMIST, Tiruchirappalli.
+          </p>
         </div>
         <a
           href="https://www.linkedin.com/in/himanshurai14/"

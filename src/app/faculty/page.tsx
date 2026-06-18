@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -14,6 +14,87 @@ export default function FacultyDashboard() {
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Batch & Restriction states
+  const [facultyProfile, setFacultyProfile] = useState<any>(null)
+  const [restrictFaculty, setRestrictFaculty] = useState(false)
+  const [batchVenue, setBatchVenue] = useState<string | null>(null)
+  const [batchesList, setBatchesList] = useState<string[]>([])
+  const [updatingBatch, setUpdatingBatch] = useState(false)
+
+  const fetchVenue = useCallback(async (batchName: string) => {
+    const { data } = await supabase
+      .from('batch_venues')
+      .select('venue')
+      .eq('batch', batchName)
+      .maybeSingle()
+    if (data) setBatchVenue(data.venue)
+    else setBatchVenue(null)
+  }, [supabase])
+
+  useEffect(() => {
+    if (authLoading || !profile) return
+
+    // Load faculty profile details
+    supabase
+      .from('profiles')
+      .select('id, name, department, status, role, batch, special_login')
+      .eq('id', profile.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setFacultyProfile(data)
+          if (data.batch) {
+            fetchVenue(data.batch)
+          }
+        }
+      })
+
+    // Load restrict faculty batch setting
+    supabase
+      .from('session_settings')
+      .select('restrict_faculty_batch')
+      .eq('id', 1)
+      .single()
+      .then(({ data }) => {
+        if (data) setRestrictFaculty(!!data.restrict_faculty_batch)
+      })
+
+    // Load distinct student batches
+    supabase
+      .from('profiles')
+      .select('batch')
+      .eq('role', 'Student')
+      .not('batch', 'is', null)
+      .neq('batch', '')
+      .then(({ data }) => {
+        if (data) {
+          const unique = Array.from(new Set(data.map((p: any) => p.batch))).filter(Boolean).sort() as string[]
+          setBatchesList(unique)
+        }
+      })
+  }, [profile, authLoading, supabase, fetchVenue])
+
+  async function handleAssignBatch(newBatch: string) {
+    if (!profile) return
+    setUpdatingBatch(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ batch: newBatch || null })
+      .eq('id', profile.id)
+
+    if (error) {
+      alert('Failed to assign batch: ' + error.message)
+    } else {
+      setFacultyProfile((prev: any) => prev ? { ...prev, batch: newBatch || null } : prev)
+      if (newBatch) {
+        await fetchVenue(newBatch)
+      } else {
+        setBatchVenue(null)
+      }
+    }
+    setUpdatingBatch(false)
+  }
 
   useEffect(() => {
     if (authLoading) return
@@ -109,28 +190,102 @@ export default function FacultyDashboard() {
         </div>
       </div>
 
-      {/* Large Neon Scan CTA Banner */}
-      <Link
-        href="/faculty/scan"
-        className="block relative overflow-hidden rounded-[2rem] p-8 bg-gradient-to-br from-brand-600 via-brand-500 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-xl shadow-brand-500/20 text-white group cursor-pointer transition-all duration-500 transform hover:-translate-y-1"
-      >
-        {/* Decorative elements */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-white/10 to-transparent skew-x-12 transform group-hover:translate-x-10 transition-transform duration-1000"></div>
-        <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-white/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-700"></div>
-
-        <div className="flex items-center justify-between relative z-10">
-          <div className="space-y-1">
-            <h3 className="font-extrabold text-2xl tracking-tight font-heading">Mark Live Attendance</h3>
-            <p className="text-brand-100 text-sm font-medium">Launch the high-speed camera scanner to read student QR codes</p>
+      {/* Batch Assignment Panel */}
+      <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-6 rounded-[2rem] shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-800 font-heading">Assigned Training Batch</h3>
+            <p className="text-xs text-slate-400">
+              {restrictFaculty 
+                ? "You must be assigned to a batch to mark student attendance." 
+                : "Optional: Assign a batch to filter scans and view venue details."}
+            </p>
           </div>
-          <div className="w-16 h-16 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md group-hover:scale-110 transition-transform duration-500 shadow-lg">
-            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
+
+          <div className="flex items-center gap-3">
+            {facultyProfile?.special_login ? (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                ⭐️ Special Login (All Batches Allowed)
+              </span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <select
+                  disabled={updatingBatch}
+                  value={facultyProfile?.batch || ''}
+                  onChange={(e) => handleAssignBatch(e.target.value)}
+                  className="border border-slate-200 rounded-xl px-4 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700"
+                >
+                  <option value="">Unassigned (None)</option>
+                  {batchesList.map((b) => (
+                    <option key={b} value={b}>Batch {b}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
-      </Link>
+
+        {facultyProfile?.batch && (
+          <div className="p-3 bg-brand-50/50 border border-brand-100/50 rounded-2xl flex items-center gap-2.5">
+            <span className="text-base">📍</span>
+            <p className="text-xs font-bold text-slate-700">
+              Batch {facultyProfile.batch} Venue: <span className="text-brand-600 font-extrabold">{batchVenue || 'No Venue Set'}</span>
+            </p>
+          </div>
+        )}
+
+        {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login && (
+          <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center gap-2.5 animate-pulse">
+            <span className="text-base">⚠️</span>
+            <p className="text-xs font-bold">
+              Restricted: Select a batch to enable the Live QR Scanner.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Large Neon Scan CTA Banner */}
+      {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login ? (
+        <div
+          onClick={() => alert("Please assign a batch to yourself first.")}
+          className="block relative overflow-hidden rounded-[2rem] p-8 bg-slate-300 border border-slate-200 text-slate-500 opacity-60 cursor-not-allowed shadow-none"
+        >
+          <div className="flex items-center justify-between relative z-10">
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-2xl tracking-tight font-heading">Scanner Restricted</h3>
+              <p className="text-slate-500 text-sm font-medium">Please select a batch above to unlock the attendance scanner</p>
+            </div>
+            <div className="w-16 h-16 bg-slate-200 border border-slate-300 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <Link
+          href="/faculty/scan"
+          className="block relative overflow-hidden rounded-[2rem] p-8 bg-gradient-to-br from-brand-600 via-brand-500 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-xl shadow-brand-500/20 text-white group cursor-pointer transition-all duration-500 transform hover:-translate-y-1"
+        >
+          {/* Decorative elements */}
+          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-white/10 to-transparent skew-x-12 transform group-hover:translate-x-10 transition-transform duration-1000"></div>
+          <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-white/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-700"></div>
+
+          <div className="flex items-center justify-between relative z-10">
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-2xl tracking-tight font-heading">Mark Live Attendance</h3>
+              <p className="text-brand-100 text-sm font-medium">Launch the high-speed camera scanner to read student QR codes</p>
+            </div>
+            <div className="w-16 h-16 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md group-hover:scale-110 transition-transform duration-500 shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Quick Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">

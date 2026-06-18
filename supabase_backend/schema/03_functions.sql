@@ -20,21 +20,24 @@ CREATE OR REPLACE FUNCTION mark_attendance_safe(
 RETURNS JSON
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_time             TIME;
-  v_fn1_start        TIME := '08:00'::TIME;
-  v_fn1_end          TIME := '11:00'::TIME;
-  v_fn2_start        TIME := '11:00'::TIME;
-  v_fn2_end          TIME := '13:00'::TIME;
-  v_an1_start        TIME := '13:00'::TIME;
-  v_an1_end          TIME := '15:00'::TIME;
-  v_an2_start        TIME := '15:00'::TIME;
-  v_an2_end          TIME := '17:00'::TIME;
-  v_target_session   TEXT;
-  v_last_timestamp   TIMESTAMPTZ;
-  v_last_id          UUID;
-  v_gap_minutes      NUMERIC;
-  v_new              UUID;
-  v_cfg_enabled      BOOLEAN := TRUE;
+  v_time                   TIME;
+  v_fn1_start              TIME := '08:00'::TIME;
+  v_fn1_end                TIME := '11:00'::TIME;
+  v_fn2_start              TIME := '11:00'::TIME;
+  v_fn2_end                TIME := '13:00'::TIME;
+  v_an1_start              TIME := '13:00'::TIME;
+  v_an1_end                TIME := '15:00'::TIME;
+  v_an2_start              TIME := '15:00'::TIME;
+  v_an2_end                TIME := '17:00'::TIME;
+  v_target_session         TEXT;
+  v_last_timestamp         TIMESTAMPTZ;
+  v_last_id                UUID;
+  v_gap_minutes            NUMERIC;
+  v_new                    UUID;
+  v_cfg_enabled            BOOLEAN := TRUE;
+  v_restrict_faculty_batch BOOLEAN := FALSE;
+  v_faculty_batch          TEXT;
+  v_special_login          BOOLEAN := FALSE;
 BEGIN
   -- 1. Extract scan time in India Standard Time (IST)
   v_time := (p_timestamp AT TIME ZONE 'Asia/Kolkata')::TIME;
@@ -48,10 +51,35 @@ BEGIN
          COALESCE(an1_end, '15:00'::TIME),
          COALESCE(an2_start, '15:00'::TIME),
          COALESCE(an2_end, '17:00'::TIME),
-         COALESCE(enabled, TRUE)
-  INTO   v_fn1_start, v_fn1_end, v_fn2_start, v_fn2_end, v_an1_start, v_an1_end, v_an2_start, v_an2_end, v_cfg_enabled
+         COALESCE(enabled, TRUE),
+         COALESCE(restrict_faculty_batch, FALSE)
+  INTO   v_fn1_start, v_fn1_end, v_fn2_start, v_fn2_end, v_an1_start, v_an1_end, v_an2_start, v_an2_end, v_cfg_enabled, v_restrict_faculty_batch
   FROM   session_settings
   WHERE  id = 1;
+
+  -- 2b. Enforce Faculty Batch Restriction if enabled
+  IF v_restrict_faculty_batch THEN
+    SELECT batch, COALESCE(special_login, FALSE)
+    INTO   v_faculty_batch, v_special_login
+    FROM   profiles
+    WHERE  id = p_marked_by AND role = 'Faculty';
+
+    IF NOT v_special_login THEN
+      IF v_faculty_batch IS NULL OR v_faculty_batch = '' THEN
+        RETURN json_build_object(
+          'success', FALSE,
+          'message', 'Restricted: Assign a batch in your dashboard first.'
+        );
+      END IF;
+
+      IF p_batch IS NULL OR p_batch = '' OR p_batch != v_faculty_batch THEN
+        RETURN json_build_object(
+          'success', FALSE,
+          'message', 'Restricted: You can only mark Batch ' || v_faculty_batch || ' (Student is Batch ' || COALESCE(p_batch, 'None') || ')'
+        );
+      END IF;
+    END IF;
+  END IF;
 
   -- 3. Determine target session based on time boundaries:
   IF v_time BETWEEN v_fn1_start AND v_fn1_end THEN
