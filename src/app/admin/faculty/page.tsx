@@ -7,6 +7,7 @@ import type { Profile } from '@/types'
 export default function ManageFacultyPage() {
   const supabase = createClient()
   const [faculty, setFaculty] = useState<Profile[]>([])
+  const [loadError, setLoadError] = useState('')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState('')
@@ -57,21 +58,18 @@ export default function ManageFacultyPage() {
 
   async function loadFaculty(silent = false) {
     if (!silent) setLoading(true)
-    const { data, error } = await supabase
-      .from('profiles')
-      // Only the columns the list + edit flow actually use — avoids pulling
-      // every profile column for the whole faculty roster.
-      .select('id, name, department, status, role, batch, special_login')
-      .eq('role', 'Faculty')
-      .order('department')
-      .order('name')
-      .limit(1000)
-    
-    if (!error && data && data.length) {
-      // Only id/name/department/status/role are read in this view; cast the
-      // narrowed row shape to Profile for the shared list state.
-      setFaculty(data as unknown as Profile[])
-      sessionStorage.setItem('faculty_cache', JSON.stringify(data))
+    try {
+      const res = await fetch('/api/admin/faculty')
+      const json = await res.json()
+      if (json.success && json.data) {
+        setFaculty(json.data as Profile[])
+        sessionStorage.setItem('faculty_cache', JSON.stringify(json.data))
+        setLoadError('')
+      } else {
+        setLoadError(json.error || 'Failed to load faculty')
+      }
+    } catch (err: any) {
+      setLoadError(err.message || 'Network error loading faculty')
     }
     setLoading(false)
   }
@@ -246,6 +244,11 @@ export default function ManageFacultyPage() {
         </div>
 
         {/* Faculty Table */}
+        {loadError && (
+          <div className="text-xs font-bold text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            ⚠️ {loadError}
+          </div>
+        )}
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center space-y-2">
             <span className="w-8 h-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
