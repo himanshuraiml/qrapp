@@ -25,6 +25,8 @@ export default function StudentDashboard() {
 
   // QR Blocking state — derived from profile.qr_blocked, kept as state for realtime updates
   const [qrBlocked, setQrBlocked] = useState(false)
+  // Global scan window state — fetched from session_settings, default true (optimistic)
+  const [scanOpen, setScanOpen] = useState(true)
 
   // Batch Venue state
   const [batchVenue, setBatchVenue] = useState<string | null>(null)
@@ -107,7 +109,15 @@ const fetchRecords = useCallback(async () => {
     fetchRecords()
     fetchStats()
     fetchHistory()
-  }, [authLoading, profile?.student_id, profile?.qr_blocked, fetchRecords, fetchStats, fetchHistory])
+    supabase
+      .from('session_settings')
+      .select('qr_scan_open')
+      .eq('id', 1)
+      .single()
+      .then(({ data }) => {
+        if (data) setScanOpen(data.qr_scan_open ?? true)
+      })
+  }, [authLoading, profile?.student_id, profile?.qr_blocked, fetchRecords, fetchStats, fetchHistory, supabase])
 
   // Fetch batch venue when profile changes
   useEffect(() => {
@@ -165,9 +175,24 @@ const fetchRecords = useCallback(async () => {
       )
       .subscribe()
 
+    const settingsChannel = supabase
+      .channel('session_settings_scan')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'session_settings', filter: 'id=eq.1' },
+        (payload) => {
+          if (payload.new && 'qr_scan_open' in payload.new) {
+            const val = (payload.new as { qr_scan_open?: boolean }).qr_scan_open
+            setScanOpen(val ?? true)
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(attendanceChannel)
       supabase.removeChannel(profileChannel)
+      supabase.removeChannel(settingsChannel)
     }
   }, [profile?.id, profile?.student_id, authLoading, supabase, fetchRecords, fetchStats, fetchHistory])
 
@@ -372,7 +397,25 @@ const fetchRecords = useCallback(async () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left Column: QR Code Component */}
         <div className="space-y-6">
-          {qrBlocked ? (
+          {!scanOpen ? (
+            <div className="flex flex-col items-center gap-6 py-12 relative overflow-hidden rounded-[2rem] p-6 shadow-lg border border-amber-200/50 bg-amber-50/20">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-400 to-orange-500"></div>
+              <div className="w-16 h-16 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="text-center space-y-2 max-w-sm px-4">
+                <h3 className="text-lg font-bold text-slate-800 font-heading">QR Scanning is Closed</h3>
+                <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                  The QR scan window is currently closed. Please wait for the admin to open the next scan session.
+                </p>
+                <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-100 text-xs text-amber-800 font-semibold mt-2">
+                  Check back when the next session begins.
+                </div>
+              </div>
+            </div>
+          ) : qrBlocked ? (
             <div className="card-premium flex flex-col items-center gap-6 py-12 relative overflow-hidden group border-red-200/50 bg-red-50/10 rounded-[2rem] p-6 shadow-lg border">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-500 to-rose-600"></div>
               <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-3xl font-extrabold shadow-sm animate-pulse">

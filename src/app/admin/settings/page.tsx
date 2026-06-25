@@ -259,6 +259,7 @@ export default function SettingsPage() {
       an2_start:       settings.an2_start,
       an2_end:         settings.an2_end,
       enabled:         settings.enabled,
+      qr_scan_open:    settings.qr_scan_open ?? true,
       block_immediate: settings.block_immediate ?? false,
       qr_blocking_enabled: settings.qr_blocking_enabled ?? false,
       restrict_faculty_batch: settings.restrict_faculty_batch ?? false,
@@ -373,14 +374,20 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="card bg-white/60 hover:bg-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100 flex items-center justify-between p-6">
+        <div className={`card hover:bg-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between p-6 transition-colors ${
+          (settings?.qr_scan_open ?? true) ? 'bg-emerald-50/60 border-emerald-100' : 'bg-red-50/60 border-red-100'
+        }`}>
           <div className="space-y-1">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Scheduling</p>
-            <h3 className="text-2xl font-extrabold text-slate-800 font-heading">{settings?.enabled ? 'Restricted' : 'Open Scanning'}</h3>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">QR Scan Status</p>
+            <h3 className={`text-2xl font-extrabold font-heading ${(settings?.qr_scan_open ?? true) ? 'text-emerald-700' : 'text-red-600'}`}>
+              {(settings?.qr_scan_open ?? true) ? 'Scan Open' : 'Scan Closed'}
+            </h3>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+            (settings?.qr_scan_open ?? true) ? 'bg-emerald-100 border border-emerald-200 text-emerald-600' : 'bg-red-100 border border-red-200 text-red-600'
+          }`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
           </div>
         </div>
@@ -437,7 +444,52 @@ export default function SettingsPage() {
         {activeTab === 'policies' && (
           <form onSubmit={handleSaveSettings} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
+
+              {/* Card 0: QR Scan Open/Close — master switch */}
+              <div className={`md:col-span-2 card transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6 group ${
+                (settings?.qr_scan_open ?? true)
+                  ? 'bg-emerald-50/40 border-emerald-200/60 hover:border-emerald-300'
+                  : 'bg-red-50/40 border-red-200/60 hover:border-red-300'
+              }`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform ${
+                    (settings?.qr_scan_open ?? true)
+                      ? 'bg-emerald-100 border border-emerald-200 text-emerald-600'
+                      : 'bg-red-100 border border-red-200 text-red-600'
+                  }`}>
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-slate-800 font-heading">QR Scan Window</h4>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                        (settings?.qr_scan_open ?? true)
+                          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                          : 'bg-red-100 text-red-700 border border-red-200'
+                      }`}>
+                        {(settings?.qr_scan_open ?? true) ? 'Open' : 'Closed'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-lg">
+                      Master switch for student QR code visibility. Turn <strong>ON</strong> to open the scan window (e.g. 9:00 AM) and <strong>OFF</strong> to close it (e.g. 9:30 AM). When closed, students see a &ldquo;Scanning closed&rdquo; message instead of their QR code.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setField('qr_scan_open', !(settings?.qr_scan_open ?? true))}
+                  className={`relative inline-flex h-7 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    (settings?.qr_scan_open ?? true) ? 'bg-emerald-500' : 'bg-slate-300'
+                  }`}
+                >
+                  <span className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    (settings?.qr_scan_open ?? true) ? 'translate-x-7' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
               {/* Card 1: Enforce session hours */}
               <div className="card bg-white hover:border-indigo-200 transition-all duration-300 flex flex-col justify-between h-full group p-6">
                 <div className="space-y-4">

@@ -81,6 +81,7 @@ export interface SessionSettings {
   an2_start: string
   an2_end: string
   enabled: boolean
+  qr_scan_open?: boolean
   block_immediate?: boolean
   qr_blocking_enabled?: boolean
   qr_blocking_enabled_at?: string | null
