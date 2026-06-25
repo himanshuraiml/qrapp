@@ -21,6 +21,9 @@ DECLARE
   v_absent_count INTEGER;
   v_attendance_pct NUMERIC;
 BEGIN
+  -- Perform check and update QR blocked status dynamically
+  PERFORM check_and_update_student_qr_blocked(p_student_id);
+
   -- Get student profile details
   SELECT department, section, year, batch 
   INTO v_dept, v_sec, v_year, v_batch
@@ -44,14 +47,15 @@ BEGIN
 
   -- 2. Count of total conducted sessions for their group
   -- We count distinct (date, session) where attendance was taken matching their department and year,
-  -- and either their section or their batch (if they belong to a batch).
+  -- and either their batch (if they belong to one) or their section (without a batch).
   SELECT COUNT(DISTINCT (date, session)) INTO v_total_conducted
   FROM attendance
   WHERE department = v_dept 
     AND year = v_year 
     AND (
-      section = v_sec 
-      OR (batch IS NOT NULL AND batch = v_batch AND v_batch IS NOT NULL AND v_batch != '')
+      (v_batch IS NOT NULL AND v_batch != '' AND batch = v_batch)
+      OR
+      ((v_batch IS NULL OR v_batch = '') AND section = v_sec AND (batch IS NULL OR batch = ''))
     );
 
   -- 3. Calculate absent sessions
@@ -96,6 +100,9 @@ DECLARE
   v_year INTEGER;
   v_batch TEXT;
 BEGIN
+  -- Perform check and update QR blocked status dynamically
+  PERFORM check_and_update_student_qr_blocked(p_student_id);
+
   -- Get student profile details
   SELECT department, section, year, batch 
   INTO v_dept, v_sec, v_year, v_batch
@@ -115,8 +122,9 @@ BEGIN
     WHERE a.department = v_dept 
       AND a.year = v_year 
       AND (
-        a.section = v_sec 
-        OR (a.batch IS NOT NULL AND a.batch = v_batch AND v_batch IS NOT NULL AND v_batch != '')
+        (v_batch IS NOT NULL AND v_batch != '' AND a.batch = v_batch)
+        OR
+        ((v_batch IS NULL OR v_batch = '') AND a.section = v_sec AND (a.batch IS NULL OR a.batch = ''))
       )
   )
   SELECT 

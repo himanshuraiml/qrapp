@@ -11,6 +11,7 @@ export async function GET(request: Request) {
     const department = searchParams.get('department') || 'all'
     const year = searchParams.get('year') || 'all'
     const batch = searchParams.get('batch') || 'all'
+    const qrBlocked = searchParams.get('qr_blocked') || 'all'
 
     // Verify caller is Admin
     const supabase = await createClient()
@@ -42,6 +43,11 @@ export async function GET(request: Request) {
     }
     if (batch !== 'all' && batch.trim() !== '') {
       query = query.eq('batch', batch)
+    }
+    if (qrBlocked === 'blocked') {
+      query = query.eq('qr_blocked', true)
+    } else if (qrBlocked === 'active') {
+      query = query.eq('qr_blocked', false)
     }
 
     // Apply sorting (which uses composite index)

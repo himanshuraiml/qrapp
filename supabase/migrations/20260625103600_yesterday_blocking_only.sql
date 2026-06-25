@@ -1,13 +1,6 @@
--- Migration: Track QR blocking activation date to prevent retroactive blocking
--- Created: 2026-06-24
+-- Migration: Restrict Next-Day QR blocking to yesterday's attendance only
+-- Created: 2026-06-25
 
--- 1. Add activation timestamp — set when qr_blocking_enabled is toggled ON
-ALTER TABLE session_settings
-  ADD COLUMN IF NOT EXISTS qr_blocking_enabled_at TIMESTAMPTZ;
-
--- 2. Update check_and_update_student_qr_blocked to use GREATEST(student unblock time,
---    feature activation time) as the baseline, so sessions missed before the feature
---    was enabled are never counted.
 CREATE OR REPLACE FUNCTION check_and_update_student_qr_blocked(p_student_id TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -80,7 +73,7 @@ BEGIN
         )
     ) INTO v_has_missed;
   ELSE
-    -- Next-day mode: only look at fully past dates (date < today),
+    -- Next-day mode: only look at yesterday (CURRENT_DATE - 1),
     -- on or after the effective activation date.
     SELECT EXISTS (
       WITH conducted_sessions AS (

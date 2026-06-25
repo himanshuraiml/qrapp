@@ -20,15 +20,18 @@ CREATE TABLE IF NOT EXISTS batch_venues (
 -- Enable RLS and add policies for batch_venues
 ALTER TABLE batch_venues ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "batch_venues: authenticated read" ON batch_venues;
 CREATE POLICY "batch_venues: authenticated read"
   ON batch_venues FOR SELECT
   USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "batch_venues: admin all" ON batch_venues;
 CREATE POLICY "batch_venues: admin all"
   ON batch_venues FOR ALL
   USING ((SELECT role FROM profiles WHERE id = auth.uid()) = 'Admin');
 
 -- Add updated_at trigger for batch_venues
+DROP TRIGGER IF EXISTS batch_venues_updated_at ON batch_venues;
 CREATE TRIGGER batch_venues_updated_at
   BEFORE UPDATE ON batch_venues
   FOR EACH ROW EXECUTE FUNCTION _set_updated_at();

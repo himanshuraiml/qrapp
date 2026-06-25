@@ -13,6 +13,7 @@ export default function ManageStudentsPage() {
   const [deptFilter, setDeptFilter] = useState('all')
   const [yearFilter, setYearFilter] = useState('all')
   const [batchFilter, setBatchFilter] = useState('all')
+  const [qrBlockedFilter, setQrBlockedFilter] = useState('all')
   const [batches, setBatches] = useState<string[]>([])
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState('')
@@ -105,6 +106,7 @@ export default function ManageStudentsPage() {
         department: deptFilter,
         year: yearFilter,
         batch: batchFilter,
+        qr_blocked: qrBlockedFilter,
         t: String(Date.now())
       })
       const res = await fetch(`/api/admin/students?${queryParams.toString()}`, { cache: 'no-store' })
@@ -113,7 +115,7 @@ export default function ManageStudentsPage() {
         setStudents(json.data)
         setTotalCount(json.count ?? 0)
         
-        const cacheKey = `students_cache_${currentPage}_${search}_${deptFilter}_${yearFilter}_${batchFilter}`
+        const cacheKey = `students_cache_${currentPage}_${search}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
         sessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
       }
     } catch (e) {
@@ -124,7 +126,7 @@ export default function ManageStudentsPage() {
   }
 
   useEffect(() => {
-    const cacheKey = `students_cache_${page}_${search}_${deptFilter}_${yearFilter}_${batchFilter}`
+    const cacheKey = `students_cache_${page}_${search}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       try {
@@ -135,7 +137,7 @@ export default function ManageStudentsPage() {
       } catch (e) {}
     }
     loadStudents(page, !!cached)
-  }, [page, search, deptFilter, yearFilter, batchFilter])
+  }, [page, search, deptFilter, yearFilter, batchFilter, qrBlockedFilter])
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
@@ -197,7 +199,7 @@ export default function ManageStudentsPage() {
   // Clear selection on page/search/filter change
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [page, search, deptFilter, yearFilter, batchFilter])
+  }, [page, search, deptFilter, yearFilter, batchFilter, qrBlockedFilter])
 
   // ── NEW: Edit individual student handlers ──
   const startEdit = (student: Profile) => {
@@ -554,6 +556,16 @@ export default function ManageStudentsPage() {
               {batches.map(b => (
                 <option key={b} value={b}>Batch {b}</option>
               ))}
+            </select>
+
+            <select
+              value={qrBlockedFilter}
+              onChange={(e) => { setQrBlockedFilter(e.target.value); setPage(1) }}
+              className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-36"
+            >
+              <option value="all">All QR Statuses</option>
+              <option value="blocked">Blocked QR</option>
+              <option value="active">Active QR</option>
             </select>
           </div>
         </div>
