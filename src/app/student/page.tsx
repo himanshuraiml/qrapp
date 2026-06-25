@@ -23,9 +23,8 @@ export default function StudentDashboard() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
-  // QR Blocking states
+  // QR Blocking state — derived from profile.qr_blocked, kept as state for realtime updates
   const [qrBlocked, setQrBlocked] = useState(false)
-  const [blockChecking, setBlockChecking] = useState(true)
 
   // Batch Venue state
   const [batchVenue, setBatchVenue] = useState<string | null>(null)
@@ -37,25 +36,7 @@ export default function StudentDashboard() {
   const [histStatus, setHistStatus] = useState('') // '', 'present', 'absent'
   const [histSearch, setHistSearch] = useState('')
 
-  const checkBlockStatus = useCallback(async () => {
-    if (!profile?.student_id) return
-    setBlockChecking(true)
-    try {
-      const { data, error } = await supabase
-        .rpc('check_and_update_student_qr_blocked', { p_student_id: profile.student_id })
-      if (error) {
-        console.error('Failed to check/update QR blocked status:', error)
-      } else {
-        setQrBlocked(!!data)
-      }
-    } catch (err) {
-      console.error('Error checking QR blocked status:', err)
-    } finally {
-      setBlockChecking(false)
-    }
-  }, [profile?.student_id, supabase])
-
-  const fetchRecords = useCallback(async () => {
+const fetchRecords = useCallback(async () => {
     if (!profile?.student_id) return
     setLoading(true)
     try {
@@ -120,14 +101,13 @@ export default function StudentDashboard() {
     if (!profile?.student_id) {
       setLoading(false)
       setStatsLoading(false)
-      setBlockChecking(false)
       return
     }
+    setQrBlocked(!!profile.qr_blocked)
     fetchRecords()
     fetchStats()
     fetchHistory()
-    checkBlockStatus()
-  }, [authLoading, profile?.student_id, fetchRecords, fetchStats, fetchHistory, checkBlockStatus])
+  }, [authLoading, profile?.student_id, profile?.qr_blocked, fetchRecords, fetchStats, fetchHistory])
 
   // Fetch batch venue when profile changes
   useEffect(() => {
@@ -163,7 +143,6 @@ export default function StudentDashboard() {
           fetchRecords()
           fetchStats()
           fetchHistory()
-          checkBlockStatus()
         }
       )
       .subscribe()
@@ -190,7 +169,7 @@ export default function StudentDashboard() {
       supabase.removeChannel(attendanceChannel)
       supabase.removeChannel(profileChannel)
     }
-  }, [profile?.id, profile?.student_id, authLoading, supabase, fetchRecords, fetchStats, fetchHistory, checkBlockStatus])
+  }, [profile?.id, profile?.student_id, authLoading, supabase, fetchRecords, fetchStats, fetchHistory])
 
 
   const today = todayIST()
@@ -393,11 +372,7 @@ export default function StudentDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left Column: QR Code Component */}
         <div className="space-y-6">
-          {blockChecking ? (
-            <div className="card-premium flex flex-col items-center gap-6 py-12 relative overflow-hidden bg-slate-50 animate-pulse rounded-[2rem] p-6 border border-slate-100 shadow-sm">
-              <span className="text-slate-400 text-xs font-semibold">Verifying QR status...</span>
-            </div>
-          ) : qrBlocked ? (
+          {qrBlocked ? (
             <div className="card-premium flex flex-col items-center gap-6 py-12 relative overflow-hidden group border-red-200/50 bg-red-50/10 rounded-[2rem] p-6 shadow-lg border">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-500 to-rose-600"></div>
               <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-3xl font-extrabold shadow-sm animate-pulse">

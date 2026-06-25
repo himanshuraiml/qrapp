@@ -590,23 +590,25 @@ RETURNS TABLE (
   name       TEXT,
   batch      TEXT,
   year       INTEGER,
-  present    BOOLEAN
+  present    BOOLEAN,
+  qr_blocked BOOLEAN
 )
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
   RETURN QUERY
-  SELECT 
+  SELECT
     p.student_id,
     p.name,
     p.batch,
     p.year,
     EXISTS (
-      SELECT 1 
-      FROM attendance a 
-      WHERE a.student_id = p.student_id 
-        AND a.date       = p_date 
+      SELECT 1
+      FROM attendance a
+      WHERE a.student_id = p.student_id
+        AND a.date       = p_date
         AND (p_session IS NULL OR a.session = p_session)
-    ) AS present
+    ) AS present,
+    COALESCE(p.qr_blocked, FALSE) AS qr_blocked
   FROM profiles p
   WHERE p.role   = 'Student'
     AND p.status = 'Active'
@@ -633,7 +635,8 @@ RETURNS TABLE (
   fn1_present  BOOLEAN,
   fn2_present  BOOLEAN,
   an1_present  BOOLEAN,
-  an2_present  BOOLEAN
+  an2_present  BOOLEAN,
+  qr_blocked   BOOLEAN
 )
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -646,7 +649,8 @@ BEGIN
     EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = p.student_id AND a.date = p_date AND a.session = 'FN1') AS fn1_present,
     EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = p.student_id AND a.date = p_date AND a.session = 'FN2') AS fn2_present,
     EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = p.student_id AND a.date = p_date AND a.session = 'AN1') AS an1_present,
-    EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = p.student_id AND a.date = p_date AND a.session = 'AN2') AS an2_present
+    EXISTS (SELECT 1 FROM attendance a WHERE a.student_id = p.student_id AND a.date = p_date AND a.session = 'AN2') AS an2_present,
+    COALESCE(p.qr_blocked, FALSE) AS qr_blocked
   FROM profiles p
   WHERE p.role   = 'Student'
     AND p.status = 'Active'

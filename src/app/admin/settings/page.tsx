@@ -56,6 +56,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SessionSettings | null>(null)
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
+  const [dbQrBlockingEnabled, setDbQrBlockingEnabled] = useState<boolean>(false)
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'policies' | 'schedule' | 'batches'>('policies')
@@ -91,7 +92,10 @@ export default function SettingsPage() {
       try {
         const { data, error } = await supabase.from('session_settings').select('*').eq('id', 1).single()
         if (error) throw error
-        if (data) setSettings(data)
+        if (data) {
+          setSettings(data)
+          setDbQrBlockingEnabled(data.qr_blocking_enabled ?? false)
+        }
       } catch (err) {
         console.error(err)
         showToast('Failed to fetch settings data', 'error')
@@ -238,7 +242,10 @@ export default function SettingsPage() {
     e.preventDefault()
     if (!settings) return
     setSaving(true)
-    const { error } = await supabase.from('session_settings').update({
+
+    const turningOnBlocking = !dbQrBlockingEnabled && (settings.qr_blocking_enabled ?? false)
+
+    const payload: Record<string, unknown> = {
       morning_start:   settings.fn1_start,
       morning_end:     settings.fn2_end,
       afternoon_start: settings.an1_start,
@@ -253,14 +260,26 @@ export default function SettingsPage() {
       an2_end:         settings.an2_end,
       enabled:         settings.enabled,
       block_immediate: settings.block_immediate ?? false,
-      qr_blocking_enabled: settings.qr_blocking_enabled ?? true,
+      qr_blocking_enabled: settings.qr_blocking_enabled ?? false,
       restrict_faculty_batch: settings.restrict_faculty_batch ?? false,
-    }).eq('id', 1)
+    }
+
+    // Stamp the activation time so the SQL function ignores pre-activation missed sessions
+    if (turningOnBlocking) {
+      payload.qr_blocking_enabled_at = new Date().toISOString()
+    }
+
+    const { error } = await supabase.from('session_settings').update(payload).eq('id', 1)
 
     setSaving(false)
     if (error) {
       showToast('Failed to update settings: ' + error.message, 'error')
     } else {
+      if (turningOnBlocking) {
+        setDbQrBlockingEnabled(true)
+      } else if (!(settings.qr_blocking_enabled ?? true)) {
+        setDbQrBlockingEnabled(false)
+      }
       showToast('System configuration saved successfully!', 'success')
     }
   }

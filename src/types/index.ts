@@ -83,6 +83,7 @@ export interface SessionSettings {
   enabled: boolean
   block_immediate?: boolean
   qr_blocking_enabled?: boolean
+  qr_blocking_enabled_at?: string | null
   restrict_faculty_batch?: boolean
   updated_at: string
 }
@@ -134,6 +135,7 @@ export interface BatchRosterRecord {
   batch:       string
   year:        number
   present:     boolean
+  qr_blocked:  boolean
 }
 
 export interface BatchRosterMultiRecord {
@@ -145,6 +147,7 @@ export interface BatchRosterMultiRecord {
   fn2_present:  boolean
   an1_present:  boolean
   an2_present:  boolean
+  qr_blocked:   boolean
 }
 
 export interface StudentAttendanceStats {

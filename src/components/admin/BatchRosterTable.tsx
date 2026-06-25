@@ -24,31 +24,35 @@ interface Props {
 export default function BatchRosterTable({ rows, multiRows, loading, date, session, showExport = true }: Props) {
   const [exporting, setExporting] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [showBlockedOnly, setShowBlockedOnly] = useState(false)
 
   const isMulti = session === 'All Sessions' || session === ''
 
   // Show all standard session columns to avoid layout shift and pagination hiding issues
   const activeCols = SESSION_COLS
 
+  const filteredRows      = useMemo(() => showBlockedOnly ? rows.filter(r => r.qr_blocked)      : rows,      [rows, showBlockedOnly])
+  const filteredMultiRows = useMemo(() => showBlockedOnly ? multiRows.filter(r => r.qr_blocked) : multiRows, [multiRows, showBlockedOnly])
+
   // Group single-session rows by batch
   const singleGroups = useMemo(() => {
     const map = new Map<string, { batch: string; rows: BatchRosterRecord[] }>()
-    rows.forEach((r) => {
+    filteredRows.forEach((r) => {
       if (!map.has(r.batch)) map.set(r.batch, { batch: r.batch, rows: [] })
       map.get(r.batch)!.rows.push(r)
     })
     return [...map.values()].sort((a, b) => a.batch.localeCompare(b.batch))
-  }, [rows])
+  }, [filteredRows])
 
   // Group multi-session rows by batch
   const multiGroups = useMemo(() => {
     const map = new Map<string, { batch: string; rows: BatchRosterMultiRecord[] }>()
-    multiRows.forEach((r) => {
+    filteredMultiRows.forEach((r) => {
       if (!map.has(r.batch)) map.set(r.batch, { batch: r.batch, rows: [] })
       map.get(r.batch)!.rows.push(r)
     })
     return [...map.values()].sort((a, b) => a.batch.localeCompare(b.batch))
-  }, [multiRows])
+  }, [filteredMultiRows])
 
   function toggleGroup(key: string) {
     setCollapsed((prev) => {
@@ -95,6 +99,8 @@ export default function BatchRosterTable({ rows, multiRows, loading, date, sessi
   // ── Summary badge counts ──────────────────────────────────────────────────
   let summaryEl: React.ReactNode
 
+  const blockedCount = isMulti ? multiRows.filter(r => r.qr_blocked).length : rows.filter(r => r.qr_blocked).length
+
   if (isMulti) {
     summaryEl = (
       <div className="flex flex-wrap gap-3">
@@ -117,6 +123,11 @@ export default function BatchRosterTable({ rows, multiRows, loading, date, sessi
             </span>
           )
         })}
+        {blockedCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-xs font-bold text-orange-700">
+            🔒 QR Blocked: <span className="font-extrabold">{blockedCount}</span>
+          </span>
+        )}
       </div>
     )
   } else {
@@ -142,6 +153,11 @@ export default function BatchRosterTable({ rows, multiRows, loading, date, sessi
         )}>
           Attendance Rate: {pct}%
         </span>
+        {blockedCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-xs font-bold text-orange-700">
+            🔒 QR Blocked: <span className="font-extrabold">{blockedCount}</span>
+          </span>
+        )}
       </div>
     )
   }
@@ -151,24 +167,39 @@ export default function BatchRosterTable({ rows, multiRows, loading, date, sessi
       {/* Summary + export row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5">
         {summaryEl}
-        {showExport && (
-          <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {blockedCount > 0 && (
             <button
-              onClick={handleExcel}
-              disabled={exporting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              onClick={() => setShowBlockedOnly(v => !v)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border shadow-sm transition-all active:scale-95',
+                showBlockedOnly
+                  ? 'bg-orange-500 border-orange-500 text-white'
+                  : 'bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100'
+              )}
             >
-              <span>📊</span> Export Excel
+              🔒 {showBlockedOnly ? 'Show All' : 'Show Blocked Only'}
             </button>
-            <button
-              onClick={handlePDF}
-              disabled={exporting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-            >
-              <span>📄</span> Export PDF
-            </button>
-          </div>
-        )}
+          )}
+          {showExport && (
+            <>
+              <button
+                onClick={handleExcel}
+                disabled={exporting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <span>📊</span> Export Excel
+              </button>
+              <button
+                onClick={handlePDF}
+                disabled={exporting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                <span>📄</span> Export PDF
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Batch group accordions */}
@@ -234,7 +265,10 @@ function SingleGroup({
               {g.rows.map((r) => (
                 <tr key={r.student_id} className={cn('transition-colors', r.present ? 'hover:bg-emerald-50/20' : 'hover:bg-red-50/20')}>
                   <td className="px-4 py-2.5 font-mono font-bold text-slate-400">{r.student_id}</td>
-                  <td className="px-4 py-2.5 font-bold text-slate-800 text-sm">{r.name}</td>
+                  <td className="px-4 py-2.5 text-sm">
+                    <span className="font-bold text-slate-800">{r.name}</span>
+                    {r.qr_blocked && <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-md bg-orange-100 border border-orange-200 text-orange-700 text-[9px] font-extrabold">🔒 BLOCKED</span>}
+                  </td>
                   <td className="px-4 py-2.5 text-center font-bold text-slate-600">{r.year}</td>
                   <td className="px-4 py-2.5 text-center">
                     {r.present
@@ -324,7 +358,10 @@ function MultiGroup({
               {g.rows.map((r) => (
                 <tr key={r.student_id} className="hover:bg-slate-50/30 transition-colors">
                   <td className="px-4 py-2.5 font-mono font-bold text-slate-400">{r.student_id}</td>
-                  <td className="px-4 py-2.5 font-bold text-slate-800 text-sm">{r.name}</td>
+                  <td className="px-4 py-2.5 text-sm">
+                    <span className="font-bold text-slate-800">{r.name}</span>
+                    {r.qr_blocked && <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-md bg-orange-100 border border-orange-200 text-orange-700 text-[9px] font-extrabold">🔒 BLOCKED</span>}
+                  </td>
                   <td className="px-4 py-2.5 text-center font-bold text-slate-600">{r.year}</td>
                   {activeCols.map(({ key, label }) => (
                     <td key={label} className="px-4 py-2.5 text-center">
