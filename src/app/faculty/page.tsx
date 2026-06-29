@@ -142,7 +142,12 @@ export default function FacultyDashboard() {
   )
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12 max-w-4xl mx-auto px-4 md:px-0">
+    <div className="relative space-y-8 animate-fade-in pb-12 max-w-4xl mx-auto px-4 md:px-0">
+      {/* Background Decorative Mesh Gradients */}
+      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
+        <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
+      </div>
       {/* Faculty Welcoming Header */}
       <div className="card-premium relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-white/10 shadow-2xl p-6 sm:p-8 rounded-[2rem]">
         <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-brand-500/10 rounded-full blur-[80px] pointer-events-none"></div>

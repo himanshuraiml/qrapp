@@ -1,4 +1,4 @@
-import type { AttendanceRecord, SectionSummary, RosterRecord, RosterMultiRecord, BatchSummary, BatchRosterRecord, BatchRosterMultiRecord } from '@/types'
+import type { AttendanceRecord, SectionSummary, RosterRecord, RosterMultiRecord, BatchSummary, BatchRosterRecord, BatchRosterMultiRecord, UnifiedRosterRecord } from '@/types'
 import { formatTime } from './utils'
 
 // Maps a large array in chunks, yielding to the event loop between chunks so
@@ -562,3 +562,118 @@ export async function exportBatchRosterMultiToPDF(
 
   doc.save(`batch_roster_${date}_all_sessions.pdf`)
 }
+
+export async function exportUnifiedRosterToExcel(
+  rows: UnifiedRosterRecord[],
+  dateRangeText: string,
+  isSingleDay: boolean
+) {
+  const XLSX = await import('xlsx')
+
+  const data = rows.map((r) => {
+    const base: any = {
+      'Student ID': r.student_id,
+      Name:         r.name,
+      Department:   r.department,
+      Year:         r.year,
+      Section:      r.section,
+      Batch:        r.batch || '—',
+    }
+
+    if (isSingleDay) {
+      base['FN1 Today'] = r.fn1_present ? 'Present' : 'Absent'
+      base['FN2 Today'] = r.fn2_present ? 'Present' : 'Absent'
+      base['AN1 Today'] = r.an1_present ? 'Present' : 'Absent'
+      base['AN2 Today'] = r.an2_present ? 'Present' : 'Absent'
+      base['All-time Present'] = r.overall_present
+      base['All-time Total'] = r.overall_conducted
+      base['All-time %'] = `${r.overall_pct}%`
+    } else {
+      base['Range Present'] = r.range_present
+      base['Range Total'] = r.range_conducted
+      base['Range Absent'] = r.range_absent
+      base['Range %'] = `${r.range_pct}%`
+    }
+    return base
+  })
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(data)
+
+  if (isSingleDay) {
+    ws['!cols'] = [18, 28, 12, 6, 10, 10, 12, 12, 12, 12, 16, 16, 12].map((w) => ({ wch: w }))
+  } else {
+    ws['!cols'] = [18, 28, 12, 6, 10, 10, 16, 16, 16, 12].map((w) => ({ wch: w }))
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Student_Roster')
+  XLSX.writeFile(wb, `student_roster_${dateRangeText}.xlsx`)
+}
+
+export async function exportUnifiedRosterToPDF(
+  rows: UnifiedRosterRecord[],
+  dateRangeText: string,
+  isSingleDay: boolean
+) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('Student Attendance Roster — SRMIST Tiruchirappalli Campus', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Period: ${dateRangeText.replace(/_/g, ' ')}`, 14, 23)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
+
+  const head = isSingleDay
+    ? [['Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Batch', 'FN1', 'FN2', 'AN1', 'AN2', 'Overall Present', 'Overall Total', 'Overall %']]
+    : [['Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Batch', 'Range Present', 'Range Total', 'Range Absent', 'Range %']]
+
+  const body = rows.map((r) => {
+    const base: any[] = [
+      r.student_id, r.name, r.department, r.year, r.section, r.batch || '—'
+    ]
+    if (isSingleDay) {
+      base.push(
+        r.fn1_present ? 'P' : 'A',
+        r.fn2_present ? 'P' : 'A',
+        r.an1_present ? 'P' : 'A',
+        r.an2_present ? 'P' : 'A',
+        r.overall_present,
+        r.overall_conducted,
+        `${r.overall_pct}%`
+      )
+    } else {
+      base.push(
+        r.range_present,
+        r.range_conducted,
+        r.range_absent,
+        `${r.range_pct}%`
+      )
+    }
+    return base
+  })
+
+  autoTable(doc, {
+    startY: 35,
+    head: head,
+    body: body,
+    styles: { fontSize: 7.5, cellPadding: 2, halign: 'center' },
+    columnStyles: { 0: { halign: 'left' }, 1: { halign: 'left' } },
+    headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: 'bold' },
+    didParseCell: (data: any) => {
+      if (isSingleDay && data.column.index >= 6 && data.column.index <= 9 && data.section === 'body') {
+        data.cell.styles.textColor = data.cell.raw === 'P' ? [22, 163, 74] : [220, 38, 38]
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+    alternateRowStyles: { fillColor: [238, 242, 255] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`student_roster_${dateRangeText}.pdf`)
+}
+

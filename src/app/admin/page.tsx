@@ -224,7 +224,12 @@ export default function AdminDashboard() {
   const pctBar = pct >= 75 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-500' : 'bg-red-500'
 
   return (
-    <div className="space-y-8 animate-fade-in pb-14">
+    <div className="relative space-y-8 animate-fade-in pb-14">
+      {/* Background Decorative Mesh Gradients */}
+      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
+        <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
+      </div>
 
       {/* ── Hero Header ─────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-neutral-900 via-neutral-800 to-secondary-950 border border-white/10 shadow-2xl p-6 sm:p-8">

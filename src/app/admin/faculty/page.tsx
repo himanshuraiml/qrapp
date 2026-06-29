@@ -161,15 +161,21 @@ export default function ManageFacultyPage() {
   )
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="relative space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Background Decorative Mesh Gradients */}
+      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
+        <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
+      </div>
+
       {/* Title Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 text-xs font-bold uppercase tracking-wider">
             <span>🏫</span> Instructor Registry
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-800 font-heading">Faculty Directory</h1>
-          <p className="text-xs text-slate-400 font-medium">Add, activate, or audit SRMIST Tiruchirappalli Campus faculty members</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 font-heading tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Faculty Directory</h1>
+          <p className="text-xs text-slate-500 font-medium">Add, activate, or audit SRMIST Tiruchirappalli Campus faculty members</p>
         </div>
 
         <button
@@ -228,18 +234,19 @@ export default function ManageFacultyPage() {
       )}
 
       {/* Directory Filter & Data Table */}
-      <div className="card space-y-6">
+      <div className="card bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(15,23,42,0.03)] p-6 space-y-6">
         {/* Filters Panel */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-5">
-          <div className="relative w-full md:max-w-md">
+        <div className="w-full sm:w-1/3 border-b border-slate-100/50 pb-5">
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">SEARCH INSTRUCTOR</label>
+          <div className="relative">
             <input
               type="search"
-              placeholder="Search by faculty name or department..."
+              placeholder="Search by name or department..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold"
+              className="input pl-10 text-xs font-semibold"
             />
-            <span className="absolute right-4 top-3 text-xs text-slate-400">🔍</span>
+            <span className="absolute left-4 top-3.5 text-xs text-slate-400">🔍</span>
           </div>
         </div>
 
@@ -285,10 +292,17 @@ export default function ManageFacultyPage() {
                       )}
                     </td>
                     <td className="p-4">
-                      <span className={`badge border font-bold ${f.status === 'Active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}>{f.status}</span>
+                      {f.status === 'Active' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-slate-50 text-slate-500 border-slate-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          Inactive
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">

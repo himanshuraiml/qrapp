@@ -322,7 +322,12 @@ export default function SettingsPage() {
   )
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto relative pb-12">
+    <div className="relative space-y-8 max-w-6xl mx-auto pb-12">
+      {/* Background Decorative Mesh Gradients */}
+      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
+        <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
+      </div>
       
       {/* Premium Gradient Header Card */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-slate-800 shadow-xl p-8 md:p-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -394,42 +399,39 @@ export default function SettingsPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 gap-1 overflow-x-auto">
+      <div className="flex bg-white/70 backdrop-blur-md p-1.5 rounded-2xl gap-1 border border-slate-200/50 w-fit shadow-[0_8px_30px_rgb(0,0,0,0.01)] overflow-x-auto">
         <button
           onClick={() => setActiveTab('policies')}
-          className={`flex items-center gap-2.5 px-5 py-3.5 border-b-2 font-bold text-xs tracking-wider uppercase whitespace-nowrap transition-all ${
-            activeTab === 'policies'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 whitespace-nowrap
+            ${activeTab === 'policies'
+              ? 'bg-white text-brand-600 shadow-md border border-slate-100/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 font-semibold'}`}
         >
-          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
           Security Policies
         </button>
         <button
           onClick={() => setActiveTab('schedule')}
-          className={`flex items-center gap-2.5 px-5 py-3.5 border-b-2 font-bold text-xs tracking-wider uppercase whitespace-nowrap transition-all ${
-            activeTab === 'schedule'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 whitespace-nowrap
+            ${activeTab === 'schedule'
+              ? 'bg-white text-brand-600 shadow-md border border-slate-100/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 font-semibold'}`}
         >
-          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           Session Schedules
         </button>
         <button
           onClick={() => setActiveTab('batches')}
-          className={`flex items-center gap-2.5 px-5 py-3.5 border-b-2 font-bold text-xs tracking-wider uppercase whitespace-nowrap transition-all ${
-            activeTab === 'batches'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 whitespace-nowrap
+            ${activeTab === 'batches'
+              ? 'bg-white text-brand-600 shadow-md border border-slate-100/80 font-bold'
+              : 'text-slate-600 hover:text-slate-900 font-semibold'}`}
         >
-          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>

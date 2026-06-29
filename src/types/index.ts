@@ -166,4 +166,26 @@ export interface StudentAttendanceHistoryRecord {
   timestamp: string | null
 }
 
+export interface UnifiedRosterRecord {
+  student_id: string
+  name: string
+  department: string
+  year: number
+  section: string
+  batch: string
+  qr_blocked: boolean
+  fn1_present: boolean
+  fn2_present: boolean
+  an1_present: boolean
+  an2_present: boolean
+  range_present: number
+  range_conducted: number
+  range_absent: number
+  range_pct: number
+  overall_present: number
+  overall_conducted: number
+  overall_absent: number
+  overall_pct: number
+}
+
 

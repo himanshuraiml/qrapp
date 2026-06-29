@@ -416,15 +416,21 @@ export default function ManageStudentsPage() {
 
 
   return (
-    <div className="space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="relative space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Background Decorative Mesh Gradients */}
+      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
+        <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
+        <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
+      </div>
+
       {/* Title Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div className="space-y-1">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-600 text-xs font-bold uppercase tracking-wider">
             <span>👥</span> Academic Registry
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-800 font-heading">Student Directory</h1>
-          <p className="text-xs text-slate-400 font-medium">Add, activate, or audit SRMIST Tiruchirappalli classroom students</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 font-heading tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Student Directory</h1>
+          <p className="text-xs text-slate-500 font-medium">Add, activate, or audit SRMIST Tiruchirappalli classroom students</p>
         </div>
 
         <div className="flex flex-wrap gap-3 items-start">
@@ -510,63 +516,81 @@ export default function ManageStudentsPage() {
       )}
 
       {/* Directory Filter & Data Table */}
-      <div className="card space-y-6">
+      <div className="card bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(15,23,42,0.03)] p-6 space-y-6">
         {/* Filters Panel */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-5">
-          <div className="relative w-full md:max-w-md">
-            <input
-              type="search"
-              placeholder="Search by name, roll number, or department..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold"
-            />
-            <span className="absolute right-4 top-3 text-xs text-slate-400">🔍</span>
-          </div>
-
-          <div className="flex items-center gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 border-b border-slate-100/50 pb-5">
+          {/* DEPARTMENT */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">DEPARTMENT</label>
             <select
               value={deptFilter}
               onChange={(e) => { setDeptFilter(e.target.value); setPage(1) }}
-              className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-36"
+              className="input text-xs font-bold text-slate-700 bg-white/60 backdrop-blur-sm border-slate-200/60 hover:border-slate-300 focus:border-brand-500 transition-all w-full"
             >
               <option value="all">All Departments</option>
               {depts.map((d: string) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
+          </div>
 
+          {/* YEAR */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">YEAR</label>
             <select
               value={yearFilter}
               onChange={(e) => { setYearFilter(e.target.value); setPage(1) }}
-              className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-32"
+              className="input text-xs font-bold text-slate-700 bg-white/60 backdrop-blur-sm border-slate-200/60 hover:border-slate-300 focus:border-brand-500 transition-all w-full"
             >
               <option value="all">All Years</option>
               {[1,2,3,4].map(y => (
                 <option key={y} value={String(y)}>Year {y}</option>
               ))}
             </select>
+          </div>
 
+          {/* BATCH */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">BATCH</label>
             <select
               value={batchFilter}
               onChange={(e) => { setBatchFilter(e.target.value); setPage(1) }}
-              className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-32"
+              className="input text-xs font-bold text-slate-700 bg-white/60 backdrop-blur-sm border-slate-200/60 hover:border-slate-300 focus:border-brand-500 transition-all w-full"
             >
               <option value="all">All Batches</option>
               {batches.map(b => (
                 <option key={b} value={b}>Batch {b}</option>
               ))}
             </select>
+          </div>
 
+          {/* QR STATUS */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">QR STATUS</label>
             <select
               value={qrBlockedFilter}
               onChange={(e) => { setQrBlockedFilter(e.target.value); setPage(1) }}
-              className="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 w-36"
+              className="input text-xs font-bold text-slate-700 bg-white/60 backdrop-blur-sm border-slate-200/60 hover:border-slate-300 focus:border-brand-500 transition-all w-full"
             >
               <option value="all">All QR Statuses</option>
               <option value="blocked">Blocked QR</option>
               <option value="active">Active QR</option>
             </select>
+          </div>
+        </div>
+
+        {/* Search row */}
+        <div className="w-full sm:w-1/3">
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">SEARCH STUDENT</label>
+          <div className="relative">
+            <input
+              type="search"
+              placeholder="Search by name, roll number, or department..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              className="input pl-10 text-xs font-semibold"
+            />
+            <span className="absolute left-4 top-3.5 text-xs text-slate-400">🔍</span>
           </div>
         </div>
 
@@ -626,16 +650,30 @@ export default function ManageStudentsPage() {
                       )}
                     </td>
                     <td className="p-4">
-                      <span className={`badge border font-bold ${s.status === 'Active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}>{s.status}</span>
+                      {s.status === 'Active' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-slate-50 text-slate-500 border-slate-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          Inactive
+                        </span>
+                      )}
                     </td>
                     <td className="p-4">
-                      <span className={`badge border font-bold ${!s.qr_blocked
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-red-50 text-red-700 border-red-200'
-                      }`}>{s.qr_blocked ? 'Blocked' : 'Active'}</span>
+                      {!s.qr_blocked ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Active QR
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-red-50 text-red-700 border-red-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                          Blocked
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
