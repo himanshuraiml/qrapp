@@ -41,15 +41,29 @@ export async function GET(request: Request) {
 
     const fetchAll = searchParams.get('all') === 'true'
 
-    let query = admin.rpc('get_unified_student_roster', rpcParams, { count: 'exact' })
-
-    if (!fetchAll) {
-      const fromIndex = (page - 1) * limit
-      const toIndex = fromIndex + limit - 1
-      query = query.range(fromIndex, toIndex)
+    if (fetchAll) {
+      // Supabase caps un-ranged queries at 1000 rows — paginate in chunks
+      const chunkSize = 1000
+      let allData: any[] = []
+      let fromIndex = 0
+      while (true) {
+        const { data: chunk, error } = await admin
+          .rpc('get_unified_student_roster', rpcParams)
+          .range(fromIndex, fromIndex + chunkSize - 1)
+        if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+        if (!chunk || chunk.length === 0) break
+        allData.push(...chunk)
+        if (chunk.length < chunkSize) break
+        fromIndex += chunkSize
+      }
+      return NextResponse.json({ success: true, data: allData, count: allData.length })
     }
 
-    const { data, count, error } = await query
+    const fromIndex = (page - 1) * limit
+    const toIndex = fromIndex + limit - 1
+    const { data, count, error } = await admin
+      .rpc('get_unified_student_roster', rpcParams, { count: 'exact' })
+      .range(fromIndex, toIndex)
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
 
