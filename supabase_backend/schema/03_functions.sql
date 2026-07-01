@@ -38,7 +38,38 @@ DECLARE
   v_restrict_faculty_batch BOOLEAN := FALSE;
   v_faculty_batch          TEXT;
   v_special_login          BOOLEAN := FALSE;
+  v_student_status         TEXT;
+  v_marker_status          TEXT;
 BEGIN
+  -- 0a. Check if student profile is active
+  SELECT status INTO v_student_status
+  FROM   profiles
+  WHERE  student_id = p_student_id AND role = 'Student';
+
+  IF v_student_status IS NULL THEN
+    RETURN json_build_object(
+      'success', FALSE,
+      'message', 'Restricted: Student profile not found.'
+    );
+  ELSIF v_student_status = 'Inactive' THEN
+    RETURN json_build_object(
+      'success', FALSE,
+      'message', 'Restricted: Student account is deactivated.'
+    );
+  END IF;
+
+  -- 0b. Check if the marking user is active
+  SELECT status INTO v_marker_status
+  FROM   profiles
+  WHERE  id = p_marked_by;
+
+  IF v_marker_status = 'Inactive' THEN
+    RETURN json_build_object(
+      'success', FALSE,
+      'message', 'Restricted: Marker account is deactivated.'
+    );
+  END IF;
+
   -- 1. Extract scan time in India Standard Time (IST)
   v_time := (p_timestamp AT TIME ZONE 'Asia/Kolkata')::TIME;
 

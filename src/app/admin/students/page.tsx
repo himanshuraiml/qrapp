@@ -14,6 +14,8 @@ export default function ManageStudentsPage() {
   const [yearFilter, setYearFilter] = useState('all')
   const [batchFilter, setBatchFilter] = useState('all')
   const [qrBlockedFilter, setQrBlockedFilter] = useState('all')
+  const [sortField, setSortField] = useState<'status' | 'qr_blocked' | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [batches, setBatches] = useState<string[]>([])
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState('')
@@ -179,6 +181,8 @@ export default function ManageStudentsPage() {
   const selectedStudentsData = students.filter(s => selectedIds.has(s.id))
   const selectedAllQrActive = selectedStudentsData.length > 0 && selectedStudentsData.every(s => !s.qr_blocked)
   const selectedAllQrBlocked = selectedStudentsData.length > 0 && selectedStudentsData.every(s => s.qr_blocked)
+  const selectedAllActive = selectedStudentsData.length > 0 && selectedStudentsData.every(s => s.status === 'Active')
+  const selectedAllInactive = selectedStudentsData.length > 0 && selectedStudentsData.every(s => s.status === 'Inactive')
   const toggleSelectAll = () => {
     const next = new Set(selectedIds)
     if (isAllSelected) {
@@ -285,6 +289,22 @@ export default function ManageStudentsPage() {
       alert('Failed to enable student QR code: ' + error.message)
     } else {
       setStudents(prev => prev.map(s => s.id === student.id ? { ...s, qr_blocked: false } : s))
+    }
+  }
+
+  async function disableStudentQr(student: Profile) {
+    const confirmMsg = `Are you sure you want to disable QR code generation for ${student.name}?`
+    if (!confirm(confirmMsg)) return
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ qr_blocked: true })
+      .eq('id', student.id)
+    if (error) {
+      console.error('Failed to disable student QR:', error)
+      alert('Failed to disable student QR code: ' + error.message)
+    } else {
+      setStudents(prev => prev.map(s => s.id === student.id ? { ...s, qr_blocked: true } : s))
     }
   }
 
@@ -436,7 +456,19 @@ export default function ManageStudentsPage() {
     }
   }
 
-  const filtered = students
+  const sortedStudents = [...students].sort((a, b) => {
+    if (!sortField) return 0
+    let valA = sortField === 'qr_blocked' ? (a.qr_blocked ? 1 : 0) : (a.status || '')
+    let valB = sortField === 'qr_blocked' ? (b.qr_blocked ? 1 : 0) : (b.status || '')
+    
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA)
+    } else {
+      return sortDirection === 'asc' ? (valA as number) - (valB as number) : (valB as number) - (valA as number)
+    }
+  })
+
+  const filtered = sortedStudents
 
 
   return (
@@ -643,8 +675,42 @@ export default function ManageStudentsPage() {
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Year</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Sec</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Batch</th>
-                  <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Status</th>
-                  <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">QR Status</th>
+                  <th 
+                    onClick={() => {
+                      if (sortField === 'status') {
+                        setSortDirection(d => d === 'asc' ? 'desc' : 'asc')
+                      } else {
+                        setSortField('status')
+                        setSortDirection('asc')
+                      }
+                    }}
+                    className="p-4 font-extrabold text-slate-500 uppercase tracking-widest cursor-pointer hover:bg-slate-100/50 select-none transition-colors"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Status</span>
+                      <span className="text-slate-400">
+                        {sortField === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                      </span>
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => {
+                      if (sortField === 'qr_blocked') {
+                        setSortDirection(d => d === 'asc' ? 'desc' : 'asc')
+                      } else {
+                        setSortField('qr_blocked')
+                        setSortDirection('asc')
+                      }
+                    }}
+                    className="p-4 font-extrabold text-slate-500 uppercase tracking-widest cursor-pointer hover:bg-slate-100/50 select-none transition-colors"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>QR Status</span>
+                      <span className="text-slate-400">
+                        {sortField === 'qr_blocked' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                      </span>
+                    </div>
+                  </th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
@@ -701,14 +767,6 @@ export default function ManageStudentsPage() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {s.qr_blocked && (
-                          <button
-                            onClick={() => enableStudentQr(s)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-95"
-                          >
-                            🔓 Enable QR
-                          </button>
-                        )}
                         <button
                           onClick={() => startEdit(s)}
                           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold transition-all border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 active:scale-95 font-semibold"
@@ -727,14 +785,14 @@ export default function ManageStudentsPage() {
                           🔑 Reset
                         </button>
                         <button
-                          onClick={() => toggleStatus(s)}
+                          onClick={() => s.qr_blocked ? enableStudentQr(s) : disableStudentQr(s)}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all border active:scale-95
-                            ${s.status === 'Active'
-                              ? 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                            ${!s.qr_blocked
+                              ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100'
                               : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                             }`}
                         >
-                          {s.status === 'Active' ? 'Deactivate' : 'Active'}
+                          {s.qr_blocked ? '🔓 Enable QR' : '🔒 Disable QR'}
                         </button>
                       </div>
                     </td>
@@ -1090,19 +1148,23 @@ export default function ManageStudentsPage() {
                 ✏️ Bulk Update
               </button>
               
-              <button
-                onClick={() => handleBulkStatusChange('Active')}
-                className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-emerald-400 hover:text-emerald-300"
-              >
-                ✓ Activate
-              </button>
-              
-              <button
-                onClick={() => handleBulkStatusChange('Inactive')}
-                className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-red-400 hover:text-red-300"
-              >
-                ✕ Deactivate
-              </button>
+              {!selectedAllActive && (
+                <button
+                  onClick={() => handleBulkStatusChange('Active')}
+                  className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-emerald-400 hover:text-emerald-300"
+                >
+                  ✓ Activate
+                </button>
+              )}
+
+              {!selectedAllInactive && (
+                <button
+                  onClick={() => handleBulkStatusChange('Inactive')}
+                  className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-red-400 hover:text-red-300"
+                >
+                  ✕ Deactivate
+                </button>
+              )}
 
               {!selectedAllQrActive && (
                 <button

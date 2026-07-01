@@ -32,17 +32,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Role is needed for redirect decisions — read from JWT metadata to avoid a DB query.
-  // Falls back to a DB query only if metadata is missing (legacy accounts).
+  // Fetch role and status if logged in
   let role = user?.user_metadata?.role?.toLowerCase() ?? ''
+  let status = 'Active'
 
-  if (user && !role && (isProtected || path === '/login')) {
+  if (user && (isProtected || path === '/login')) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, status')
       .eq('id', user.id)
       .single()
-    role = profile?.role?.toLowerCase() ?? ''
+    if (profile) {
+      role = profile.role?.toLowerCase() ?? ''
+      status = profile.status ?? 'Active'
+    }
+  }
+
+  // If user is deactivated, clear session cookies and redirect to login
+  if (user && status === 'Inactive') {
+    const redirectResponse = NextResponse.redirect(new URL('/login?error=deactivated', request.url))
+    request.cookies.getAll().forEach((cookie) => {
+      if (cookie.name.startsWith('sb-')) {
+        redirectResponse.cookies.set(cookie.name, '', { maxAge: 0, path: '/' })
+      }
+    })
+    return redirectResponse
   }
 
   // 2. Logged in → enforce role matches the route prefix

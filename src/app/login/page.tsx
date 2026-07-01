@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -28,6 +28,13 @@ export default function LoginPage() {
   const [tab, setTab] = useState<Tab>('student')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const errorParam = new URLSearchParams(window.location.search).get('error')
+    if (errorParam === 'deactivated') {
+      setError('Your account has been deactivated. Please contact the administrator.')
+    }
+  }, [])
 
   // Staff fields
   const [email, setEmail] = useState('')
@@ -57,21 +64,26 @@ export default function LoginPage() {
       return
     }
 
-    // Fast path: role stored in JWT metadata (new accounts)
-    let role = data.user.user_metadata?.role as string | undefined
+    // Fetch profile to verify role and active status
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('role, status')
+      .eq('id', data.user.id)
+      .single()
 
-    // Fallback: DB query for accounts created before metadata was added
-    if (!role) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
-      role = profile?.role
+    const role = profile?.role
+    const status = profile?.status ?? 'Active'
+
+    if (profileErr || !role) {
+      setError('Account not configured. Contact admin.')
+      await supabase.auth.signOut()
+      setLoading(false)
+      return
     }
 
-    if (!role) {
-      setError('Account not configured. Contact admin.')
+    if (status === 'Inactive') {
+      setError('Your account has been deactivated. Please contact the administrator.')
+      await supabase.auth.signOut()
       setLoading(false)
       return
     }

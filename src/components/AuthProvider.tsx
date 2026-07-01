@@ -95,7 +95,7 @@ export function AuthProvider({
     }
   }, [supabase, fetchProfile])
 
-  const logout = useCallback(async () => {
+  const logout = useCallback(async (errorType?: string) => {
     clearCache()
 
     // Wipe session from every client-side storage so the middleware never
@@ -119,9 +119,42 @@ export function AuthProvider({
     } catch {
       try { await Promise.race([supabase.auth.signOut({ scope: 'local' }), timeout]) } catch {}
     } finally {
-      window.location.href = '/login'
+      const url = errorType ? `/login?error=${errorType}` : '/login'
+      window.location.href = url
     }
   }, [supabase])
+
+  // Listen to profile updates (e.g. status changed to Inactive → real-time logout)
+  useEffect(() => {
+    if (!profile?.id) return
+    let active = true
+
+    const profileChannel = supabase
+      .channel(`user_profile_status_${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${profile.id}`,
+        },
+        (payload) => {
+          if (!active) return
+          if (payload.new && 'status' in payload.new && payload.new.status === 'Inactive') {
+            logout('deactivated')
+          } else if (payload.new) {
+            setProfile(payload.new as Profile)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      active = false
+      supabase.removeChannel(profileChannel)
+    }
+  }, [profile?.id, supabase, logout])
 
   return (
     <AuthContext.Provider value={{ profile, loading, logout }}>
