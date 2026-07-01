@@ -319,7 +319,7 @@ export default function ManageStudentsPage() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ qr_blocked: true, qr_blocking_enabled_at: new Date().toISOString() })
+        .update({ qr_blocked: true })
         .in('id', selectedArray)
       if (error) throw error
       setSelectedIds(new Set())
