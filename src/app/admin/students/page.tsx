@@ -176,6 +176,9 @@ export default function ManageStudentsPage() {
 
   // ── NEW: Selection handlers ──
   const isAllSelected = students.length > 0 && students.every(s => selectedIds.has(s.id))
+  const selectedStudentsData = students.filter(s => selectedIds.has(s.id))
+  const selectedAllQrActive = selectedStudentsData.length > 0 && selectedStudentsData.every(s => !s.qr_blocked)
+  const selectedAllQrBlocked = selectedStudentsData.length > 0 && selectedStudentsData.every(s => s.qr_blocked)
   const toggleSelectAll = () => {
     const next = new Set(selectedIds)
     if (isAllSelected) {
@@ -302,6 +305,27 @@ export default function ManageStudentsPage() {
       loadStudents(page, false)
     } catch (e: any) {
       alert(e.message || 'Failed to enable QR codes')
+      setLoading(false)
+    }
+  }
+
+  async function handleBulkDisableQr() {
+    if (selectedIds.size === 0) return
+    const confirmMsg = `Are you sure you want to disable QR code generation for the ${selectedIds.size} selected students?`
+    if (!confirm(confirmMsg)) return
+
+    setLoading(true)
+    const selectedArray = Array.from(selectedIds)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ qr_blocked: true, qr_blocking_enabled_at: new Date().toISOString() })
+        .in('id', selectedArray)
+      if (error) throw error
+      setSelectedIds(new Set())
+      loadStudents(page, false)
+    } catch (e: any) {
+      alert(e.message || 'Failed to disable QR codes')
       setLoading(false)
     }
   }
@@ -1080,12 +1104,22 @@ export default function ManageStudentsPage() {
                 ✕ Deactivate
               </button>
 
-              <button
-                onClick={handleBulkEnableQr}
-                className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-cyan-400 hover:text-cyan-300"
-              >
-                🔓 Enable QRs
-              </button>
+              {!selectedAllQrActive && (
+                <button
+                  onClick={handleBulkEnableQr}
+                  className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-cyan-400 hover:text-cyan-300"
+                >
+                  🔓 Enable QRs
+                </button>
+              )}
+              {!selectedAllQrBlocked && (
+                <button
+                  onClick={handleBulkDisableQr}
+                  className="px-2.5 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 active:scale-95 transition-all text-[11px] font-bold text-orange-400 hover:text-orange-300"
+                >
+                  🔒 Disable QRs
+                </button>
+              )}
               
               <button
                 onClick={() => setSelectedIds(new Set())}
