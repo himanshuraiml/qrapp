@@ -677,3 +677,171 @@ export async function exportUnifiedRosterToPDF(
   doc.save(`student_roster_${dateRangeText}.pdf`)
 }
 
+// ─────────────────────────────────────────
+// Placement Drive Exporters
+// ─────────────────────────────────────────
+
+export async function downloadPlacementStudentTemplate() {
+  const XLSX = await import('xlsx')
+  const example = [
+    {
+      'S.No': 1,
+      'Reg No': 'RA2311003010001',
+      'Name': 'A. Student One',
+      'DEPT': 'CSE',
+      'Mobile': '9876543210',
+      'Assessment Date': '2026-08-05',
+      'Test Time': '10:00 AM',
+      'Slot': 'Slot 1',
+      'Venue': 'Auditorium',
+    },
+    {
+      'S.No': 2,
+      'Reg No': 'RA2311003010002',
+      'Name': 'B. Student Two',
+      'DEPT': 'ECE',
+      'Mobile': '9876543211',
+      'Assessment Date': '2026-08-05',
+      'Test Time': '11:00 AM',
+      'Slot': 'Slot 2',
+      'Venue': 'Lab 3',
+    },
+  ]
+  const columns = ['S.No', 'Reg No', 'Name', 'DEPT', 'Mobile', 'Assessment Date', 'Test Time', 'Slot', 'Venue']
+  const ws = XLSX.utils.json_to_sheet(example, { header: columns })
+  ws['!cols'] = [6, 20, 24, 10, 14, 16, 12, 10, 20].map((w) => ({ wch: w }))
+
+  const notes = [
+    ['Placement Drive — Eligible Students Template'],
+    [''],
+    ['"Reg No" (or Student ID / Roll No) is required — everything else is optional.'],
+    ['Name / DEPT are read but ignored (pulled live from student profiles instead).'],
+    ['Mobile, Assessment Date, Test Time, Slot, and Venue are stored per-student since'],
+    ['different students can be scheduled at different times/venues in the same drive.'],
+  ]
+  const wsNotes = XLSX.utils.aoa_to_sheet(notes)
+  wsNotes['!cols'] = [{ wch: 80 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Eligible Students')
+  XLSX.utils.book_append_sheet(wb, wsNotes, 'Instructions')
+  XLSX.writeFile(wb, 'placement_drive_students_template.xlsx')
+}
+
+export async function exportPlacementDriveToExcel(
+  drive: { company_name: string; title: string; drive_date: string; venue: string },
+  roster: Array<{
+    student_id: string
+    name?: string
+    department?: string
+    year?: number
+    section?: string
+    batch?: string
+    mobile?: string | null
+    assessment_date?: string | null
+    test_time?: string | null
+    slot?: string | null
+    venue?: string | null
+    status: string
+    marked_at?: string | null
+    marked_by_name?: string | null
+  }>
+) {
+  const XLSX = await import('xlsx')
+  const rows = roster.map((r, i) => ({
+    'S.No': i + 1,
+    'Student ID': r.student_id,
+    'Name': r.name || 'N/A',
+    'Department': r.department || 'N/A',
+    'Year': r.year || 'N/A',
+    'Section': r.section || 'N/A',
+    'Batch': r.batch || 'N/A',
+    'Mobile': r.mobile || '—',
+    'Assessment Date': r.assessment_date || drive.drive_date,
+    'Test Time': r.test_time || '—',
+    'Slot': r.slot || '—',
+    'Venue': r.venue || drive.venue,
+    'Attendance Status': r.status,
+    'Marked At': r.marked_at ? new Date(r.marked_at).toLocaleString('en-IN') : '—',
+    'Marked By': r.marked_by_name || '—',
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [6, 20, 26, 14, 8, 10, 10, 14, 16, 12, 12, 18, 16, 22, 20].map((w) => ({ wch: w }))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Placement Roster')
+
+  const sanitizedCompany = drive.company_name.replace(/[^a-zA-Z0-9]/g, '_')
+  XLSX.writeFile(wb, `Placement_Attendance_${sanitizedCompany}_${drive.drive_date}.xlsx`)
+}
+
+export async function exportPlacementDriveToPDF(
+  drive: { company_name: string; title: string; drive_date: string; venue: string },
+  roster: Array<{
+    student_id: string
+    name?: string
+    department?: string
+    year?: number
+    section?: string
+    batch?: string
+    mobile?: string | null
+    assessment_date?: string | null
+    test_time?: string | null
+    slot?: string | null
+    status: string
+    marked_at?: string | null
+  }>
+) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text(`Placement Drive: ${drive.company_name} — ${drive.title}`, 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date: ${drive.drive_date} | Venue: ${drive.venue}`, 14, 23)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
+
+  const head = [['S.No', 'Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Batch', 'Mobile', 'Assessment Date', 'Time', 'Slot', 'Status', 'Marked Time']]
+  const body = roster.map((r, i) => [
+    i + 1,
+    r.student_id,
+    r.name || 'N/A',
+    r.department || 'N/A',
+    r.year || 'N/A',
+    r.section || 'N/A',
+    r.batch || 'N/A',
+    r.mobile || '—',
+    r.assessment_date || drive.drive_date,
+    r.test_time || '—',
+    r.slot || '—',
+    r.status,
+    r.marked_at ? new Date(r.marked_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'
+  ])
+
+  autoTable(doc, {
+    startY: 34,
+    head: head,
+    body: body,
+    styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+    columnStyles: { 1: { halign: 'left' }, 2: { halign: 'left' } },
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+    didParseCell: (data: any) => {
+      if (data.column.index === 11 && data.section === 'body') {
+        data.cell.styles.textColor = data.cell.raw === 'Present' ? [22, 163, 74] : [220, 38, 38]
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+    alternateRowStyles: { fillColor: [243, 244, 246] },
+    margin: { left: 14, right: 14 },
+  })
+
+  const sanitizedCompany = drive.company_name.replace(/[^a-zA-Z0-9]/g, '_')
+  doc.save(`Placement_Attendance_${sanitizedCompany}_${drive.drive_date}.pdf`)
+}
+
+

@@ -188,4 +188,51 @@ export interface UnifiedRosterRecord {
   overall_pct: number
 }
 
+export interface PlacementDrive {
+  id: string
+  company_name: string
+  title: string
+  drive_date: string
+  venue: string
+  description?: string | null
+  status: 'Upcoming' | 'Active' | 'Completed'
+  total_eligible?: number
+  total_present?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface PlacementDriveStudent {
+  id: string
+  drive_id: string
+  student_id: string
+  status: 'Eligible' | 'Present' | 'Absent'
+  marked_at?: string | null
+  marked_by?: string | null
+  marked_by_name?: string | null
+  created_at: string
+  // Per-student scheduling details (from TPO CSV upload)
+  mobile?: string | null
+  assessment_date?: string | null
+  test_time?: string | null
+  slot?: string | null
+  venue?: string | null
+  // Joined student info
+  name?: string
+  department?: string
+  year?: number
+  section?: string
+  batch?: string
+}
+
+export interface PlacementDriveStudentRow {
+  student_id: string
+  mobile?: string
+  assessment_date?: string
+  test_time?: string
+  slot?: string
+  venue?: string
+}
+
+
 

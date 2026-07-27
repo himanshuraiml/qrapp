@@ -10,6 +10,7 @@ import type { UserRole } from '@/types'
 const NAV_LINKS: Record<UserRole, Array<{ label: string; href: string }>> = {
   Admin: [
     { label: 'Dashboard', href: '/admin' },
+    { label: 'Placements', href: '/admin/placement-drives' },
     { label: 'Reports',   href: '/admin/reports' },
     { label: 'Students',  href: '/admin/students' },
     { label: 'Faculty',   href: '/admin/faculty' },
@@ -18,6 +19,7 @@ const NAV_LINKS: Record<UserRole, Array<{ label: string; href: string }>> = {
   Faculty: [
     { label: 'Dashboard', href: '/faculty' },
     { label: 'Scan QR',   href: '/faculty/scan' },
+    { label: 'Placements', href: '/faculty/placement-drives' },
   ],
   Student: [
     { label: 'My QR & Attendance', href: '/student' },

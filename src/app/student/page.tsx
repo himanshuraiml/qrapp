@@ -31,6 +31,25 @@ export default function StudentDashboard() {
   // Batch Venue state
   const [batchVenue, setBatchVenue] = useState<string | null>(null)
 
+  // Placement Drives state
+  const [placementDrives, setPlacementDrives] = useState<any[]>([])
+  const [placementLoading, setPlacementLoading] = useState(true)
+
+  const fetchPlacementDrives = useCallback(async () => {
+    try {
+      setPlacementLoading(true)
+      const res = await fetch('/api/student/placement-drives')
+      const json = await res.json()
+      if (json.success && Array.isArray(json.data)) {
+        setPlacementDrives(json.data)
+      }
+    } catch (e) {
+      console.error('Failed to fetch placement drives for student:', e)
+    } finally {
+      setPlacementLoading(false)
+    }
+  }, [])
+
   // Filters for detailed history view
   const [histDateFrom, setHistDateFrom] = useState('')
   const [histDateTo, setHistDateTo] = useState('')
@@ -109,6 +128,7 @@ const fetchRecords = useCallback(async () => {
     fetchRecords()
     fetchStats()
     fetchHistory()
+    fetchPlacementDrives()
     supabase
       .from('session_settings')
       .select('qr_scan_open')
@@ -397,6 +417,62 @@ const fetchRecords = useCallback(async () => {
             <p className="text-[10px] font-bold text-slate-400 mt-1">Sessions missed</p>
           </div>
         </div>
+      </div>
+
+      {/* Placement Drives Section */}
+      <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-slate-100 p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-800 tracking-tight flex items-center gap-2 font-heading">
+              🚀 Placement Drives Eligibility & Attendance
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Placement drives assigned to your profile by Placement Coordinators.
+            </p>
+          </div>
+          <span className="text-xs font-extrabold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">
+            {placementDrives.length} Drives
+          </span>
+        </div>
+
+        {placementLoading ? (
+          <p className="text-xs text-slate-400 py-4 text-center">Loading placement drives...</p>
+        ) : placementDrives.length === 0 ? (
+          <div className="text-center py-6 bg-slate-50 rounded-2xl border border-slate-100">
+            <p className="text-xs text-slate-500 font-medium">No placement drives assigned to your profile yet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {placementDrives.map((pd) => (
+              <div key={pd.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition-all flex flex-col justify-between space-y-3">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold uppercase text-brand-700 bg-brand-100 px-2.5 py-0.5 rounded-md">
+                      {pd.company_name}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      pd.student_attendance_status === 'Present'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {pd.student_attendance_status === 'Present' ? '✓ Present' : '⏳ Scheduled / Pending'}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 mt-2">{pd.title}</h4>
+                  <p className="text-xs text-slate-500">
+                    📅 Date: {pd.display_date || pd.drive_date} | 📍 Venue: {pd.display_venue || pd.venue}
+                  </p>
+                  {(pd.test_time || pd.slot) && (
+                    <p className="text-xs text-slate-500">
+                      {pd.test_time && `⏰ Time: ${pd.test_time}`}{pd.test_time && pd.slot ? ' | ' : ''}{pd.slot && `🎟️ Slot: ${pd.slot}`}
+                    </p>
+                  )}
+                  {pd.description && <p className="text-xs text-slate-400 italic line-clamp-1">{pd.description}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

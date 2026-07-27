@@ -29,6 +29,11 @@ export default function ScanPage() {
   const [sessionMode, setSessionMode] = useState<'FN' | 'AN'>('FN')
   const processingRef = useRef(false)
 
+  // Placement Drive scan states
+  const [scanTargetMode, setScanTargetMode] = useState<'session' | 'placement'>('session')
+  const [placementDrives, setPlacementDrives] = useState<any[]>([])
+  const [selectedPlacementDriveId, setSelectedPlacementDriveId] = useState<string>('')
+
   // Batch & Restriction states
   const [facultyProfile, setFacultyProfile] = useState<any>(null)
   const [restrictFaculty, setRestrictFaculty] = useState(false)
@@ -160,6 +165,26 @@ export default function ScanPage() {
           const unique = Array.from(new Set(batches.map((p: any) => p.batch))).filter(Boolean).sort() as string[]
           setBatchesList(unique)
         }
+
+        // Load placement drives
+        fetch('/api/admin/placement-drives')
+          .then((res) => res.json())
+          .then((json) => {
+            if (json.success && Array.isArray(json.data)) {
+              setPlacementDrives(json.data)
+              if (typeof window !== 'undefined') {
+                const params = new URLSearchParams(window.location.search)
+                const urlDriveId = params.get('drive_id')
+                if (urlDriveId) {
+                  setScanTargetMode('placement')
+                  setSelectedPlacementDriveId(urlDriveId)
+                } else if (json.data.length > 0) {
+                  setSelectedPlacementDriveId(json.data[0].id)
+                }
+              }
+            }
+          })
+          .catch((e) => console.error("Error loading placement drives:", e))
       } catch (e) {
         console.error(e)
       } finally {
@@ -469,6 +494,69 @@ export default function ScanPage() {
         return
       }
 
+      // Handling Placement Drive scanning
+      if (scanTargetMode === 'placement') {
+        if (!selectedPlacementDriveId) {
+          const errResult: ScanResult = { type: 'error', message: 'Please select an active Placement Drive to scan.' }
+          setResult(errResult)
+          triggerHaptic([400])
+          addToRecentScans(payload.student_id, payload.name, 'Placement', 'error', 'No Placement Drive selected')
+          scheduleClear(1200)
+          return
+        }
+
+        try {
+          const res = await fetch(`/api/admin/placement-drives/${selectedPlacementDriveId}/attendance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ student_id: payload.student_id, status: 'Present' }),
+          })
+          const json = await res.json()
+
+          const activeDrive = placementDrives.find((d) => d.id === selectedPlacementDriveId)
+          const driveLabel = activeDrive ? activeDrive.company_name : 'Placement Drive'
+
+          if (json.success) {
+            if (json.already_marked) {
+              setResult({
+                type: 'duplicate',
+                message: `${json.student_name} is ALREADY marked Present`,
+                studentName: json.student_name,
+                studentId: json.student_id,
+              })
+              triggerHaptic([400])
+              addToRecentScans(json.student_id, json.student_name, driveLabel, 'duplicate', 'Already Verified')
+            } else {
+              setScanCount((c) => c + 1)
+              setResult({
+                type: 'success',
+                message: `Marked Present for ${driveLabel}`,
+                studentName: json.student_name,
+                studentId: json.student_id,
+                session: driveLabel,
+              })
+              triggerHaptic([100, 50, 100])
+              addToRecentScans(json.student_id, json.student_name, driveLabel, 'success', 'Marked Present')
+            }
+          } else {
+            setResult({
+              type: 'error',
+              message: json.error || `Student is NOT eligible for ${driveLabel}`,
+              studentName: json.student_name || payload.name,
+              studentId: payload.student_id,
+            })
+            triggerHaptic([400])
+            addToRecentScans(payload.student_id, payload.name, driveLabel, 'error', json.error || 'Not Eligible')
+          }
+        } catch (err: any) {
+          setResult({ type: 'error', message: err.message || 'Error processing placement drive attendance' })
+          triggerHaptic([400])
+        } finally {
+          scheduleClear(1200)
+        }
+        return
+      }
+
       // Client-side Faculty Batch Restriction check
       if (restrictFaculty && !facultyProfile?.special_login) {
         if (!facultyProfile?.batch) {
@@ -669,7 +757,56 @@ export default function ScanPage() {
         </button>
       </div>
 
-      {/* Assigned Batch Info & Switcher Card */}
+      {/* Mode Switcher: Daily Class Session vs Placement Drive */}
+      <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 p-2 rounded-2xl shadow-sm flex items-center gap-2">
+        <button
+          onClick={() => setScanTargetMode('session')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+            scanTargetMode === 'session'
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          📅 Daily Class Session
+        </button>
+        <button
+          onClick={() => setScanTargetMode('placement')}
+          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+            scanTargetMode === 'placement'
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          🚀 Placement Drive
+        </button>
+      </div>
+
+      {scanTargetMode === 'placement' && (
+        <div className="bg-white/80 backdrop-blur-md border border-brand-200 p-4 rounded-3xl shadow-sm space-y-2">
+          <label className="block text-[10px] font-bold text-brand-900 uppercase tracking-wider">
+            Select Placement Drive to Scan *
+          </label>
+          {placementDrives.length === 0 ? (
+            <p className="text-xs text-slate-500 font-medium">No active placement drives found. Create drives in Admin Portal.</p>
+          ) : (
+            <select
+              value={selectedPlacementDriveId}
+              onChange={(e) => setSelectedPlacementDriveId(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 font-bold text-slate-800"
+            >
+              {placementDrives.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.company_name} — {d.title} ({d.drive_date})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {scanTargetMode === 'session' && (
+        <>
+
       <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm space-y-3">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -737,6 +874,8 @@ export default function ScanPage() {
             {isSyncing ? 'Syncing...' : 'Sync Now'}
           </button>
         </div>
+      )}
+      </>
       )}
 
       <div className="card overflow-hidden p-0 rounded-[2rem] bg-slate-950 border border-white/5 relative">
