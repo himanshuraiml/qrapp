@@ -93,21 +93,28 @@ export default function PlacementDrivesPage() {
       const hasHeader = idIdx !== -1 || mobileIdx !== -1 || dateIdx !== -1 || timeIdx !== -1 || slotIdx !== -1 || venueIdx !== -1
       const startRow = hasHeader ? 1 : 0
 
+      // SheetJS builds Date objects for date/time cells using LOCAL Date component
+      // setters (not Date.UTC), so reading them back with local getters — not UTC
+      // ones — correctly recovers the value exactly as entered in Excel, regardless
+      // of the (sometimes historically odd) offset the JS engine applies for the
+      // 1899-12-30 anchor date. This assumes the browser doing the upload is in IST,
+      // which holds for this app.
       const cellToText = (val: any): string | undefined => {
         if (val === undefined || val === null || val === '') return undefined
-        if (val instanceof Date) return val.toISOString().split('T')[0]
+        if (val instanceof Date) {
+          const y = val.getFullYear()
+          const mo = String(val.getMonth() + 1).padStart(2, '0')
+          const d = String(val.getDate()).padStart(2, '0')
+          return `${y}-${mo}-${d}`
+        }
         return String(val).trim().replace(/\s+/g, ' ')
       }
 
-      // Excel time-only cells (e.g. "4:38 AM") get parsed by the xlsx library as a
-      // Date anchored to 1899-12-30 (Excel's zero-date). Extract via UTC getters —
-      // not local ones — since SheetJS constructs these with Date.UTC(...), and
-      // reading local components would shift the hour by the browser's timezone offset.
       const cellToTimeText = (val: any): string | undefined => {
         if (val === undefined || val === null || val === '') return undefined
         if (val instanceof Date) {
-          const h = val.getUTCHours()
-          const m = val.getUTCMinutes()
+          const h = val.getHours()
+          const m = val.getMinutes()
           const period = h >= 12 ? 'PM' : 'AM'
           const h12 = h % 12 === 0 ? 12 : h % 12
           return `${h12}:${String(m).padStart(2, '0')} ${period}`
