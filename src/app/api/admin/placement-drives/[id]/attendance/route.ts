@@ -67,21 +67,8 @@ export async function POST(
       }, { status: 400 })
     }
 
-    if (targetStatus === 'Present' && record.status === 'Present') {
-      return NextResponse.json({
-        success: true,
-        already_marked: true,
-        message: `${studentName} is ALREADY marked Present`,
-        student_id: studentId,
-        student_name: studentName,
-        department: studentProfile?.department || 'N/A',
-        section: studentProfile?.section || 'N/A',
-        mobile: record.mobile || null,
-        marked_at: record.marked_at,
-      })
-    }
-
-    // Update status
+    // Update status and timestamp (allows multiple scans for the same day, updating timestamp each time)
+    const isReScan = record.status === 'Present' && targetStatus === 'Present'
     const updatePayload = {
       status: targetStatus,
       marked_at: targetStatus === 'Present' ? new Date().toISOString() : null,
@@ -100,7 +87,9 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: `Marked ${targetStatus} for ${studentName} (${studentId})`,
+      message: isReScan 
+        ? `Re-scanned & Verified Present for ${studentName} (${studentId})`
+        : `Marked ${targetStatus} for ${studentName} (${studentId})`,
       student_id: studentId,
       student_name: studentName,
       department: studentProfile?.department || 'N/A',
@@ -108,6 +97,7 @@ export async function POST(
       mobile: record.mobile || null,
       status: targetStatus,
       marked_at: updatePayload.marked_at,
+      is_rescan: isReScan,
     })
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 })

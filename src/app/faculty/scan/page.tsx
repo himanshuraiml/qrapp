@@ -517,27 +517,22 @@ export default function ScanPage() {
           const driveLabel = activeDrive ? activeDrive.company_name : 'Placement Drive'
 
           if (json.success) {
-            if (json.already_marked) {
-              setResult({
-                type: 'duplicate',
-                message: `${json.student_name} is ALREADY marked Present`,
-                studentName: json.student_name,
-                studentId: json.student_id,
-              })
-              triggerHaptic([400])
-              addToRecentScans(json.student_id, json.student_name, driveLabel, 'duplicate', 'Already Verified')
-            } else {
-              setScanCount((c) => c + 1)
-              setResult({
-                type: 'success',
-                message: `Marked Present for ${driveLabel}`,
-                studentName: json.student_name,
-                studentId: json.student_id,
-                session: driveLabel,
-              })
-              triggerHaptic([100, 50, 100])
-              addToRecentScans(json.student_id, json.student_name, driveLabel, 'success', 'Marked Present')
-            }
+            setScanCount((c) => c + 1)
+            setResult({
+              type: 'success',
+              message: json.message || `Marked Present for ${driveLabel}`,
+              studentName: json.student_name,
+              studentId: json.student_id,
+              session: driveLabel,
+            })
+            triggerHaptic([100, 50, 100])
+            addToRecentScans(
+              json.student_id,
+              json.student_name,
+              driveLabel,
+              'success',
+              json.is_rescan ? 'Re-verified Present' : 'Marked Present'
+            )
           } else {
             setResult({
               type: 'error',
