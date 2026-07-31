@@ -1,0 +1,12 @@
+# Block crawling of private routes and API endpoints to save edge requests and server resources
+User-agent: *
+Disallow: /admin/
+Disallow: /faculty/
+Disallow: /student/
+Disallow: /api/
+Disallow: /login
+Disallow: /change-password
+Disallow: /forgot-password
+
+# Allow indexing of main landing page if public
+Allow: /$

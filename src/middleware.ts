@@ -1,7 +1,32 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Common scraper / bot User-Agents to block at the edge
+const KNOWN_BOT_UAS = [
+  'scrapy',
+  'python-requests',
+  'python-urllib',
+  'curl',
+  'wget',
+  'httpx',
+  'sqlmap',
+  'nikto',
+  'zgrab',
+  'nmap',
+  'masscan',
+  'gobuster',
+  'dirbuster',
+]
+
 export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname
+  const userAgent = (request.headers.get('user-agent') || '').toLowerCase()
+
+  // Edge bot / scraper blocking for non-static assets
+  if (KNOWN_BOT_UAS.some((bot) => userAgent.includes(bot))) {
+    return new NextResponse('Access Denied (Automated Client Detected)', { status: 403 })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -22,12 +47,11 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const path = request.nextUrl.pathname
 
   const protectedPrefixes = ['/admin', '/faculty', '/student']
   const isProtected = protectedPrefixes.some((p) => path.startsWith(p))
 
-  // 1. Not logged in → redirect to login
+  // 1. Not logged in → redirect UI routes to login
   if (!user && isProtected) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
@@ -36,7 +60,7 @@ export async function middleware(request: NextRequest) {
   let role = user?.user_metadata?.role?.toLowerCase() ?? ''
   let status = 'Active'
 
-  if (user && (isProtected || path === '/login')) {
+  if (user && (isProtected || path === '/login' || path.startsWith('/api/'))) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, status')
@@ -50,6 +74,9 @@ export async function middleware(request: NextRequest) {
 
   // If user is deactivated, clear session cookies and redirect to login
   if (user && status === 'Inactive') {
+    if (path.startsWith('/api/')) {
+      return NextResponse.json({ success: false, error: 'Account deactivated' }, { status: 403 })
+    }
     const redirectResponse = NextResponse.redirect(new URL('/login?error=deactivated', request.url))
     request.cookies.getAll().forEach((cookie) => {
       if (cookie.name.startsWith('sb-')) {
@@ -59,7 +86,7 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
-  // 2. Logged in → enforce role matches the route prefix
+  // 2. Logged in → enforce role matches the route prefix for UI pages
   if (user && isProtected) {
     const targetSection = protectedPrefixes.find((p) => path.startsWith(p))?.slice(1)
     if (targetSection && role !== targetSection) {
@@ -76,5 +103,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/faculty/:path*', '/student/:path*', '/login'],
+  matcher: ['/admin/:path*', '/faculty/:path*', '/student/:path*', '/login', '/api/:path*'],
 }
+

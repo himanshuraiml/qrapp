@@ -1,42 +1,48 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { QrPayload } from '@/types'
 
 const QR_TTL = 30 // seconds before auto-refresh
 
-interface Props {
-  basePayload: QrPayload
-}
-
-export default function QrDisplay({ basePayload }: Props) {
+export default function QrDisplay() {
   const [qrValue, setQrValue] = useState('')
   const [countdown, setCountdown] = useState(QR_TTL)
   const [QRCode, setQRCode] = useState<any>(null)
   const [lastGenerated, setLastGenerated] = useState<number>(0)
+  const [error, setError] = useState('')
 
   // Lazy-load qrcode library (client-only)
   useEffect(() => {
     import('qrcode').then((mod) => setQRCode(() => mod.default ?? mod))
   }, [])
 
+  // Payload is fetched fresh from the server on every refresh — it is
+  // signed there (see /api/attendance/qr-token) so the browser never gets
+  // to construct or influence the value that will later be trusted by the
+  // faculty scanner.
   const generateQr = useCallback(async () => {
     if (!QRCode) return
-    const nowSec = Math.floor(Date.now() / 1000)
-    const payload: QrPayload = {
-      ...basePayload,
-      ts: nowSec,
+    try {
+      const res = await fetch('/api/attendance/qr-token', { cache: 'no-store' })
+      if (!res.ok) {
+        setError('Could not load your QR code. Try refreshing.')
+        return
+      }
+      const payload = await res.json()
+      const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
+        width: 280,
+        margin: 2,
+        color: { dark: '#0f172a', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
+      })
+      setQrValue(dataUrl)
+      setError('')
+      setLastGenerated(Math.floor(Date.now() / 1000))
+      setCountdown(QR_TTL)
+    } catch {
+      setError('Could not load your QR code. Try refreshing.')
     }
-    const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
-      width: 280,
-      margin: 2,
-      color: { dark: '#0f172a', light: '#ffffff' },
-      errorCorrectionLevel: 'M',
-    })
-    setQrValue(dataUrl)
-    setLastGenerated(nowSec)
-    setCountdown(QR_TTL)
-  }, [QRCode, basePayload])
+  }, [QRCode])
 
   // Generate initial QR when library loads
   useEffect(() => {
@@ -91,6 +97,7 @@ export default function QrDisplay({ basePayload }: Props) {
       <div className="text-center space-y-1">
         <h3 className="text-lg font-bold text-slate-800 font-heading">Your Attendance QR</h3>
         <p className="text-xs text-slate-500">Present this QR code to the faculty to mark your attendance</p>
+        {error && <p className="text-xs font-bold text-red-500">{error}</p>}
       </div>
 
       {qrValue ? (

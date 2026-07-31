@@ -17,6 +17,7 @@ function ReportContent() {
   const [loadingRoster, setLoadingRoster] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | 'Present' | 'Absent'>('All')
+  const [dateFilter, setDateFilter] = useState<string>('All')
 
   useEffect(() => {
     async function loadDrives() {
@@ -48,7 +49,10 @@ function ReportContent() {
         setLoadingRoster(true)
         const res = await fetch(`/api/admin/placement-drives/${selectedDriveId}`)
         const json = await res.json()
-        if (json.success) setDriveDetail(json.data)
+        if (json.success) {
+          setDriveDetail(json.data)
+          setDateFilter('All')
+        }
       } finally {
         setLoadingRoster(false)
       }
@@ -58,17 +62,38 @@ function ReportContent() {
 
   const roster = driveDetail?.roster || []
 
+  // Extract unique assessment dates
+  const uniqueDates = useMemo(() => {
+    const datesSet = new Set<string>()
+    for (const r of roster) {
+      if (r.assessment_date) datesSet.add(r.assessment_date)
+    }
+    if (datesSet.size === 0 && driveDetail?.drive_date) {
+      datesSet.add(driveDetail.drive_date)
+    }
+    return Array.from(datesSet).sort()
+  }, [roster, driveDetail])
+
+  // Roster filtered by selected Date
+  const dateFilteredRoster = useMemo(() => {
+    if (!dateFilter || dateFilter === 'All') return roster
+    return roster.filter((r) => {
+      const itemDate = r.assessment_date || driveDetail?.drive_date
+      return itemDate === dateFilter
+    })
+  }, [roster, dateFilter, driveDetail])
+
   const summary = useMemo(() => {
-    const total = roster.length
-    const present = roster.filter((r) => r.status === 'Present').length
+    const total = dateFilteredRoster.length
+    const present = dateFilteredRoster.filter((r) => r.status === 'Present').length
     const absent = total - present
     const pct = total > 0 ? Math.round((present / total) * 100) : 0
     return { total, present, absent, pct }
-  }, [roster])
+  }, [dateFilteredRoster])
 
   const deptBreakdown = useMemo(() => {
     const map = new Map<string, { department: string; eligible: number; present: number }>()
-    for (const r of roster) {
+    for (const r of dateFilteredRoster) {
       const dept = r.department || 'N/A'
       const entry = map.get(dept) || { department: dept, eligible: 0, present: 0 }
       entry.eligible += 1
@@ -78,11 +103,11 @@ function ReportContent() {
     return Array.from(map.values())
       .map((e) => ({ ...e, absent: e.eligible - e.present, pct: e.eligible > 0 ? Math.round((e.present / e.eligible) * 100) : 0 }))
       .sort((a, b) => a.department.localeCompare(b.department))
-  }, [roster])
+  }, [dateFilteredRoster])
 
   const filteredRoster = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return roster.filter((item) => {
+    return dateFilteredRoster.filter((item) => {
       const matchesStatus =
         statusFilter === 'All'
           ? true
@@ -96,16 +121,16 @@ function ReportContent() {
         (item.department && item.department.toLowerCase().includes(q))
       return matchesStatus && matchesSearch
     })
-  }, [roster, search, statusFilter])
+  }, [dateFilteredRoster, search, statusFilter])
 
   async function handleExportExcel() {
     if (!driveDetail) return
-    await exportPlacementDriveToExcel(driveDetail, roster)
+    await exportPlacementDriveToExcel(driveDetail, dateFilteredRoster, dateFilter)
   }
 
   async function handleExportPDF() {
     if (!driveDetail) return
-    await exportPlacementDriveToPDF(driveDetail, roster)
+    await exportPlacementDriveToPDF(driveDetail, dateFilteredRoster, dateFilter)
   }
 
   return (
@@ -127,36 +152,59 @@ function ReportContent() {
         </Link>
       </div>
 
-      {/* Drive selector */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
-        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Drive</label>
-        <select
-          value={selectedDriveId}
-          onChange={(e) => setSelectedDriveId(e.target.value)}
-          disabled={loadingDrives}
-          className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-brand-500 outline-none"
-        >
-          {drives.length === 0 && <option value="">No drives available</option>}
-          {drives.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.company_name} — {d.title} ({d.drive_date})
-            </option>
-          ))}
-        </select>
-        <div className="flex items-center gap-2">
+      {/* Drive selector & Date filter */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
+        <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest min-w-max">Drive</label>
+            <select
+              value={selectedDriveId}
+              onChange={(e) => setSelectedDriveId(e.target.value)}
+              disabled={loadingDrives}
+              className="px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold focus:ring-2 focus:ring-brand-500 outline-none w-full sm:w-auto"
+            >
+              {drives.length === 0 && <option value="">No drives available</option>}
+              {drives.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.company_name} — {d.title} ({d.drive_date})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {uniqueDates.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest min-w-max">📅 Date / Day</label>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-brand-300 bg-brand-50/30 text-slate-800 text-sm font-bold focus:ring-2 focus:ring-brand-500 outline-none"
+              >
+                <option value="All">All Dates ({uniqueDates.length} Days Total)</option>
+                {uniqueDates.map((dt) => (
+                  <option key={dt} value={dt}>
+                    📅 {dt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 justify-end">
           <button
             onClick={handleExportPDF}
             disabled={!driveDetail || roster.length === 0}
             className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all disabled:opacity-50"
           >
-            📄 Export PDF
+            📄 Export PDF {dateFilter !== 'All' ? `(${dateFilter})` : ''}
           </button>
           <button
             onClick={handleExportExcel}
             disabled={!driveDetail || roster.length === 0}
             className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50"
           >
-            📊 Export Excel
+            📊 Export Excel {dateFilter !== 'All' ? `(${dateFilter})` : ''}
           </button>
         </div>
       </div>
@@ -172,11 +220,26 @@ function ReportContent() {
         </div>
       ) : (
         <>
+          {/* Date Filter Indicator Banner */}
+          {dateFilter !== 'All' && (
+            <div className="bg-brand-50 border border-brand-200 p-3.5 rounded-xl flex items-center justify-between text-xs font-semibold text-brand-900">
+              <span>📅 Showing metrics and report for Assessment Date: <strong>{dateFilter}</strong></span>
+              <button
+                onClick={() => setDateFilter('All')}
+                className="text-brand-700 hover:text-brand-900 underline font-bold"
+              >
+                Clear Date Filter (View All Dates)
+              </button>
+            </div>
+          )}
+
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm text-center">
               <p className="text-2xl font-extrabold text-slate-900">{summary.total}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Total Eligible</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                {dateFilter !== 'All' ? `Scheduled on ${dateFilter}` : 'Total Eligible'}
+              </p>
             </div>
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm text-center">
               <p className="text-2xl font-extrabold text-emerald-600">{summary.present}</p>
@@ -184,11 +247,11 @@ function ReportContent() {
             </div>
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm text-center">
               <p className="text-2xl font-extrabold text-rose-600">{summary.absent}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Absent</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Absent / Unattended</p>
             </div>
             <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm text-center">
               <p className="text-2xl font-extrabold text-brand-600">{summary.pct}%</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Attendance</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Attendance Rate</p>
             </div>
           </div>
 

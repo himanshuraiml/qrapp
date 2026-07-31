@@ -15,6 +15,8 @@ interface OfflineScan {
   section: string
   year: number
   batch: string | null
+  ts: number   // original QR issuance time — needed to re-verify its signature at sync time
+  sig: string  // server-issued HMAC signature from the scanned QR payload
   timestamp: string // ISO timestamp of scan
   date: string // YYYY-MM-DD
 }
@@ -357,8 +359,6 @@ export default function ScanPage() {
         return
       }
 
-      const facultyName = facultyProfile?.name ?? 'Faculty'
-
       let successCount = 0
       let duplicateCount = 0
       let failureCount = 0
@@ -367,24 +367,27 @@ export default function ScanPage() {
 
       for (const scan of offlineQueueRef.current) {
         try {
-          const { data, error: rpcError } = await supabase.rpc('mark_attendance_safe', {
-            p_student_id: scan.student_id,
-            p_student_name: scan.name,
-            p_department: scan.department,
-            p_section: scan.section,
-            p_year: scan.year,
-            p_batch: scan.batch,
-            p_session: null,
-            p_marked_by: user.id,
-            p_marked_by_name: facultyName,
-            p_date: scan.date,
-            p_timestamp: scan.timestamp,
+          const res = await fetch('/api/attendance/mark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              student_id: scan.student_id,
+              name: scan.name,
+              department: scan.department,
+              section: scan.section,
+              year: scan.year,
+              batch: scan.batch,
+              ts: scan.ts,
+              sig: scan.sig,
+              mode: 'offline',
+              scan_timestamp: scan.timestamp,
+              scan_date: scan.date,
+            }),
           })
 
-          if (rpcError) {
-            if (rpcError.message?.includes('fetch') || rpcError.message?.includes('network') || rpcError.message?.includes('Failed to fetch')) {
-              throw new Error('Network error during sync')
-            }
+          const data = await res.json()
+
+          if (!res.ok) {
             failureCount++
             remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
             continue
@@ -576,7 +579,6 @@ export default function ScanPage() {
         }
       }
 
-      let userProfile: { name: string; id: string } | null = null
       let dbResult: any = null
       let networkErrorOccurred = false
 
@@ -585,9 +587,25 @@ export default function ScanPage() {
           throw new TypeError('Failed to fetch (offline)')
         }
 
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
-        if (userError) throw userError
-        if (!user) {
+        const res = await fetch('/api/attendance/mark', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_id: payload.student_id,
+            name: payload.name,
+            department: payload.department,
+            section: payload.section,
+            year: payload.year,
+            batch: payload.batch,
+            ts: payload.ts,
+            sig: payload.sig,
+            mode: 'online',
+          }),
+        })
+
+        const data = await res.json()
+
+        if (res.status === 401) {
           const errResult: ScanResult = { type: 'error', message: 'Session expired. Please log out and log in again.' }
           setResult(errResult)
           triggerHaptic([400])
@@ -596,31 +614,11 @@ export default function ScanPage() {
           return
         }
 
-        userProfile = { name: facultyProfile?.name ?? 'Faculty', id: user.id }
-
-        const today = todayIST()
-        const { data, error: rpcError } = await supabase.rpc('mark_attendance_safe', {
-          p_student_id: payload.student_id,
-          p_student_name: payload.name,
-          p_department: payload.department,
-          p_section: payload.section,
-          p_year: payload.year,
-          p_batch: payload.batch,
-          p_session: null,
-          p_marked_by: user.id,
-          p_marked_by_name: userProfile.name,
-          p_date: today,
-          p_timestamp: new Date().toISOString(),
-        })
-
-        if (rpcError) {
-          if (rpcError.message?.includes('fetch') || rpcError.message?.includes('network') || rpcError.message?.includes('Failed to fetch')) {
-            throw new TypeError('Failed to fetch (RPC network)')
-          }
-          const errResult: ScanResult = { type: 'error', message: `Database error: ${rpcError.message}` }
+        if (!res.ok) {
+          const errResult: ScanResult = { type: 'error', message: data?.message || 'Database error' }
           setResult(errResult)
           triggerHaptic([400])
-          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', rpcError.message)
+          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', data?.message)
           scheduleClear(1200)
           return
         }
@@ -661,6 +659,8 @@ export default function ScanPage() {
           section: payload.section,
           year: payload.year,
           batch: payload.batch || null,
+          ts: payload.ts,
+          sig: payload.sig ?? '',
           timestamp: new Date().toISOString(),
           date: todayIST()
         }

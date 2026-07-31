@@ -745,7 +745,8 @@ export async function exportPlacementDriveToExcel(
     status: string
     marked_at?: string | null
     marked_by_name?: string | null
-  }>
+  }>,
+  selectedDate?: string
 ) {
   const XLSX = await import('xlsx')
   const rows = roster.map((r, i) => ({
@@ -773,7 +774,8 @@ export async function exportPlacementDriveToExcel(
   XLSX.utils.book_append_sheet(wb, ws, 'Placement Roster')
 
   const sanitizedCompany = drive.company_name.replace(/[^a-zA-Z0-9]/g, '_')
-  XLSX.writeFile(wb, `Placement_Attendance_${sanitizedCompany}_${drive.drive_date}.xlsx`)
+  const dateSuffix = selectedDate && selectedDate !== 'All' ? selectedDate : drive.drive_date
+  XLSX.writeFile(wb, `Placement_Attendance_${sanitizedCompany}_${dateSuffix}.xlsx`)
 }
 
 export async function exportPlacementDriveToPDF(
@@ -791,19 +793,22 @@ export async function exportPlacementDriveToPDF(
     slot?: string | null
     status: string
     marked_at?: string | null
-  }>
+  }>,
+  selectedDate?: string
 ) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
+  const dateSub = selectedDate && selectedDate !== 'All' ? `Assessment Date: ${selectedDate}` : `Overall Date: ${drive.drive_date}`
+
   doc.setFontSize(16)
   doc.setTextColor(30, 27, 75)
   doc.text(`Placement Drive: ${drive.company_name} — ${drive.title}`, 14, 16)
   doc.setFontSize(10)
   doc.setTextColor(100, 100, 100)
-  doc.text(`Date: ${drive.drive_date} | Venue: ${drive.venue}`, 14, 23)
+  doc.text(`${dateSub} | Venue: ${drive.venue}`, 14, 23)
   doc.text(`Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 29)
 
   const head = [['S.No', 'Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Batch', 'Mobile', 'Assessment Date', 'Time', 'Slot', 'Status', 'Marked Time']]
@@ -841,7 +846,8 @@ export async function exportPlacementDriveToPDF(
   })
 
   const sanitizedCompany = drive.company_name.replace(/[^a-zA-Z0-9]/g, '_')
-  doc.save(`Placement_Attendance_${sanitizedCompany}_${drive.drive_date}.pdf`)
+  const dateSuffix = selectedDate && selectedDate !== 'All' ? selectedDate : drive.drive_date
+  doc.save(`Placement_Attendance_${sanitizedCompany}_${dateSuffix}.pdf`)
 }
 
 

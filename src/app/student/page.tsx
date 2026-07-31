@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate, formatTime, sessionColor } from '@/lib/utils'
 import QrDisplay from '@/components/student/QrDisplay'
 import AboutApp from '@/components/AboutApp'
-import type { AttendanceRecord, QrPayload, StudentAttendanceStats, StudentAttendanceHistoryRecord } from '@/types'
+import type { AttendanceRecord, StudentAttendanceStats, StudentAttendanceHistoryRecord } from '@/types'
 
 export default function StudentDashboard() {
   const { profile, loading: authLoading } = useAuth()
@@ -258,19 +258,6 @@ const fetchRecords = useCallback(async () => {
   }, [history, histDateFrom, histDateTo, histSession, histStatus, histSearch])
 
 
-  const qrPayload: QrPayload | null = useMemo(() => profile?.student_id
-    ? {
-      student_id: profile.student_id,
-      name: profile.name,
-      department: profile.department ?? '',
-      year: profile.year ?? 1,
-      section: profile.section ?? '',
-      batch: profile.batch ?? '',
-      ts: 0,
-    }
-    : null,
-    [profile?.student_id, profile?.name, profile?.department, profile?.year, profile?.section, profile?.batch])
-
   const initials = useMemo(() => {
     if (!profile?.name) return 'ST'
     return profile.name
@@ -514,7 +501,7 @@ const fetchRecords = useCallback(async () => {
             </div>
           ) : (
             <>
-              {qrPayload && <QrDisplay basePayload={qrPayload} />}
+              {profile?.student_id && <QrDisplay />}
               {profile?.batch && batchVenue && (
                 <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm flex items-center gap-3 animate-fade-in mt-4">
                   <div className="w-10 h-10 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-lg shadow-sm">

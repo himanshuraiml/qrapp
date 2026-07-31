@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, FormEvent, useEffect } from 'react'
+import { useState, FormEvent, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { createClient } from '@/lib/supabase/client'
 import { studentEmail } from '@/lib/utils'
 
@@ -22,12 +23,16 @@ const LABELS = {
   rollPlaceholder: 'RA2311003010001',
 }
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
   const [tab, setTab] = useState<Tab>('student')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileInstance>(null)
 
   useEffect(() => {
     const errorParam = new URLSearchParams(window.location.search).get('error')
@@ -45,21 +50,56 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showStuPass, setShowStuPass] = useState(false)
 
+  async function loginGuard(email: string, action: 'check' | 'fail' | 'success') {
+    try {
+      const res = await fetch('/api/auth/login-guard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, action }),
+      })
+      return await res.json()
+    } catch {
+      // Guard endpoint being unreachable must never itself block a legitimate
+      // login — fail open on the lockout check.
+      return { locked: false }
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
 
+    // If Turnstile key is configured, enforce captcha token presence
+    if (TURNSTILE_SITE_KEY && !captchaToken) {
+      setError('Please complete the security check (CAPTCHA).')
+      setLoading(false)
+      return
+    }
+
     const authEmail = tab === 'staff' ? email : studentEmail(rollNo)
     const authPassword = tab === 'staff' ? password : stuPass
+
+    const guardStatus = await loginGuard(authEmail, 'check')
+    if (guardStatus?.locked) {
+      const retryAt = guardStatus.locked_until ? new Date(guardStatus.locked_until) : null
+      const mins = retryAt ? Math.max(1, Math.ceil((retryAt.getTime() - Date.now()) / 60000)) : 15
+      setError(`Too many failed attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`)
+      setLoading(false)
+      return
+    }
 
     const { data, error: authErr } = await supabase.auth.signInWithPassword({
       email: authEmail,
       password: authPassword,
+      options: captchaToken ? { captchaToken } : undefined,
     })
 
     if (authErr || !data.user) {
+      await loginGuard(authEmail, 'fail')
       setError(authErr?.message ?? 'Login failed. Check your credentials.')
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       setLoading(false)
       return
     }
@@ -77,6 +117,8 @@ export default function LoginPage() {
     if (profileErr || !role) {
       setError('Account not configured. Contact admin.')
       await supabase.auth.signOut()
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       setLoading(false)
       return
     }
@@ -84,10 +126,13 @@ export default function LoginPage() {
     if (status === 'Inactive') {
       setError('Your account has been deactivated. Please contact the administrator.')
       await supabase.auth.signOut()
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       setLoading(false)
       return
     }
 
+    await loginGuard(authEmail, 'success')
     router.push(`/${role.toLowerCase()}`)
   }
 
@@ -121,6 +166,8 @@ export default function LoginPage() {
                   setError('')
                   setShowPassword(false)
                   setShowStuPass(false)
+                  turnstileRef.current?.reset()
+                  setCaptchaToken(null)
                 }}
                 className={`flex-1 py-3 text-sm font-semibold rounded-2xl transition-all duration-500
                   ${tab === t
@@ -226,6 +273,19 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* Cloudflare Turnstile CAPTCHA Widget */}
+            {TURNSTILE_SITE_KEY && (
+              <div className="flex justify-center my-2">
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={TURNSTILE_SITE_KEY}
+                  onSuccess={(token) => setCaptchaToken(token)}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                />
+              </div>
+            )}
+
             {error && (
               <div className="text-xs font-bold text-red-500 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-start gap-2.5 shadow-sm animate-fade-in">
                 <span className="text-base mt-0.5">⚠️</span>
@@ -235,7 +295,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!!TURNSTILE_SITE_KEY && !captchaToken)}
               className="w-full py-4 rounded-2xl text-white font-bold bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 transition-all duration-300 shadow-xl shadow-brand-500/20 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -253,3 +313,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

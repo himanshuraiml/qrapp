@@ -97,6 +97,7 @@ export interface QrPayload {
   section: string
   batch?: string | null
   ts: number   // unix seconds — freshness check
+  sig?: string // server-issued HMAC signature, see src/lib/qrSignature.ts
 }
 
 export interface ReportFilters {

@@ -13,6 +13,7 @@ export default function FacultyPlacementDrivesPage() {
   const [loadingRoster, setLoadingRoster] = useState(false)
   const [rosterSearch, setRosterSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | 'Present' | 'Absent'>('All')
+  const [dateFilter, setDateFilter] = useState<string>('All')
 
   useEffect(() => {
     fetchDrives()
@@ -37,6 +38,7 @@ export default function FacultyPlacementDrivesPage() {
 
   async function openRosterModal(drive: PlacementDrive) {
     setSelectedDrive(drive)
+    setDateFilter('All')
     try {
       setLoadingRoster(true)
       const res = await fetch(`/api/admin/placement-drives/${drive.id}`)
@@ -85,7 +87,19 @@ export default function FacultyPlacementDrivesPage() {
     }
   }
 
-  const filteredRoster = (selectedDrive?.roster || []).filter((item) => {
+  // Unique assessment dates
+  const uniqueDates = (selectedDrive?.roster || []).reduce<string[]>((acc, r) => {
+    if (r.assessment_date && !acc.includes(r.assessment_date)) acc.push(r.assessment_date)
+    return acc
+  }, []).sort()
+
+  const dateFilteredRoster = (selectedDrive?.roster || []).filter((r) => {
+    if (!dateFilter || dateFilter === 'All') return true
+    const itemDate = r.assessment_date || selectedDrive?.drive_date
+    return itemDate === dateFilter
+  })
+
+  const filteredRoster = dateFilteredRoster.filter((item) => {
     const matchesStatus =
       statusFilter === 'All'
         ? true
@@ -217,7 +231,7 @@ export default function FacultyPlacementDrivesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
               <input
                 type="text"
                 placeholder="Search student ID, name, dept..."
@@ -225,12 +239,26 @@ export default function FacultyPlacementDrivesPage() {
                 onChange={(e) => setRosterSearch(e.target.value)}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-2 focus:ring-brand-500 outline-none"
               />
+              {uniqueDates.length > 0 && (
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg border border-brand-300 bg-brand-50/50 text-slate-800 text-xs font-bold focus:ring-2 focus:ring-brand-500 outline-none"
+                >
+                  <option value="All">📅 All Dates ({uniqueDates.length} Days)</option>
+                  {uniqueDates.map((dt) => (
+                    <option key={dt} value={dt}>
+                      📅 {dt}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 value={statusFilter}
                 onChange={(e: any) => setStatusFilter(e.target.value)}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-brand-500 outline-none"
               >
-                <option value="All">All Students ({selectedDrive.roster?.length || 0})</option>
+                <option value="All">All Students ({dateFilteredRoster.length})</option>
                 <option value="Present">Present Only</option>
                 <option value="Absent">Absent / Pending</option>
               </select>
@@ -298,11 +326,18 @@ export default function FacultyPlacementDrivesPage() {
               )}
             </div>
 
-            <div className="flex justify-between items-center text-xs font-bold text-slate-600 pt-2 border-t border-slate-100">
-              <span>Showing {filteredRoster.length} of {selectedDrive.roster?.length || 0} students</span>
-              <span className="text-brand-700">
-                Total Present: {selectedDrive.total_present || 0} / {selectedDrive.total_eligible || 0}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-bold text-slate-600 pt-2 border-t border-slate-100">
+              <span>
+                Showing {filteredRoster.length} of {dateFilteredRoster.length} students {dateFilter !== 'All' ? `(Date: ${dateFilter})` : ''}
               </span>
+              <div className="flex items-center gap-3">
+                <span className="text-emerald-600">
+                  Present: {dateFilteredRoster.filter((r) => r.status === 'Present').length} / {dateFilteredRoster.length}
+                </span>
+                <span className="text-rose-600">
+                  Absent: {dateFilteredRoster.filter((r) => r.status !== 'Present').length}
+                </span>
+              </div>
             </div>
           </div>
         </div>

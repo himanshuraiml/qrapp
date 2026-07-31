@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import {
   exportPlacementDriveToExcel,
@@ -33,6 +33,7 @@ export default function PlacementDrivesPage() {
   const [loadingRoster, setLoadingRoster] = useState(false)
   const [rosterSearch, setRosterSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | 'Present' | 'Absent' | 'Eligible'>('All')
+  const [dateFilter, setDateFilter] = useState<string>('All')
   const [manualAddId, setManualAddId] = useState('')
   const [addingManual, setAddingManual] = useState(false)
 
@@ -210,6 +211,7 @@ export default function PlacementDrivesPage() {
   // View Drive Roster
   async function openRosterModal(drive: PlacementDrive) {
     setSelectedDrive(drive)
+    setDateFilter('All')
     try {
       setLoadingRoster(true)
       const res = await fetch(`/api/admin/placement-drives/${drive.id}`)
@@ -318,8 +320,29 @@ export default function PlacementDrivesPage() {
     }
   }
 
+  // Unique assessment dates
+  const uniqueDates = useMemo(() => {
+    const datesSet = new Set<string>()
+    for (const r of selectedDrive?.roster || []) {
+      if (r.assessment_date) datesSet.add(r.assessment_date)
+    }
+    if (datesSet.size === 0 && selectedDrive?.drive_date) {
+      datesSet.add(selectedDrive.drive_date)
+    }
+    return Array.from(datesSet).sort()
+  }, [selectedDrive])
+
+  const dateFilteredRoster = useMemo(() => {
+    const roster = selectedDrive?.roster || []
+    if (!dateFilter || dateFilter === 'All') return roster
+    return roster.filter((r: PlacementDriveStudent) => {
+      const itemDate = r.assessment_date || selectedDrive?.drive_date
+      return itemDate === dateFilter
+    })
+  }, [selectedDrive, dateFilter])
+
   // Filtered Roster
-  const filteredRoster = (selectedDrive?.roster || []).filter((item) => {
+  const filteredRoster = dateFilteredRoster.filter((item: PlacementDriveStudent) => {
     const matchesStatus =
       statusFilter === 'All'
         ? true
@@ -660,16 +683,16 @@ export default function PlacementDrivesPage() {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => exportPlacementDriveToExcel(selectedDrive, selectedDrive.roster || [])}
+                  onClick={() => exportPlacementDriveToExcel(selectedDrive, dateFilteredRoster, dateFilter)}
                   className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all"
                 >
-                  📊 Excel
+                  📊 Excel {dateFilter !== 'All' ? `(${dateFilter})` : ''}
                 </button>
                 <button
-                  onClick={() => exportPlacementDriveToPDF(selectedDrive, selectedDrive.roster || [])}
+                  onClick={() => exportPlacementDriveToPDF(selectedDrive, dateFilteredRoster, dateFilter)}
                   className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs transition-all"
                 >
-                  📄 PDF
+                  📄 PDF {dateFilter !== 'All' ? `(${dateFilter})` : ''}
                 </button>
                 <Link
                   href={`/faculty/scan?drive_id=${selectedDrive.id}`}
@@ -687,7 +710,7 @@ export default function PlacementDrivesPage() {
             </div>
 
             {/* Filter Bar & Manual Add */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
               <input
                 type="text"
                 placeholder="Search student ID, name, dept..."
@@ -696,12 +719,27 @@ export default function PlacementDrivesPage() {
                 className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-2 focus:ring-brand-500 outline-none"
               />
 
+              {uniqueDates.length > 0 && (
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg border border-brand-300 bg-brand-50/50 text-slate-800 text-xs font-bold focus:ring-2 focus:ring-brand-500 outline-none"
+                >
+                  <option value="All">📅 All Dates ({uniqueDates.length} Days)</option>
+                  {uniqueDates.map((dt: string) => (
+                    <option key={dt} value={dt}>
+                      📅 {dt}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               <select
                 value={statusFilter}
                 onChange={(e: any) => setStatusFilter(e.target.value)}
                 className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-brand-500 outline-none"
               >
-                <option value="All">All Students ({selectedDrive.roster?.length || 0})</option>
+                <option value="All">All Students ({dateFilteredRoster.length})</option>
                 <option value="Present">Present Only</option>
                 <option value="Absent">Absent / Pending</option>
               </select>
@@ -752,7 +790,7 @@ export default function PlacementDrivesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {filteredRoster.map((item, idx) => (
+                    {filteredRoster.map((item: PlacementDriveStudent, idx: number) => (
                       <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3 text-slate-400">{idx + 1}</td>
                         <td className="p-3 font-mono font-bold text-slate-900">{item.student_id}</td>
@@ -798,11 +836,18 @@ export default function PlacementDrivesPage() {
             </div>
 
             {/* Footer Summary */}
-            <div className="flex justify-between items-center text-xs font-bold text-slate-600 pt-2 border-t border-slate-100">
-              <span>Showing {filteredRoster.length} of {selectedDrive.roster?.length || 0} students</span>
-              <span className="text-brand-700">
-                Total Present: {selectedDrive.total_present || 0} / {selectedDrive.total_eligible || 0}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-bold text-slate-600 pt-2 border-t border-slate-100">
+              <span>
+                Showing {filteredRoster.length} of {dateFilteredRoster.length} students {dateFilter !== 'All' ? `(Date: ${dateFilter})` : ''}
               </span>
+              <div className="flex items-center gap-3">
+                <span className="text-emerald-600">
+                  Present: {dateFilteredRoster.filter((r: PlacementDriveStudent) => r.status === 'Present').length} / {dateFilteredRoster.length}
+                </span>
+                <span className="text-rose-600">
+                  Absent: {dateFilteredRoster.filter((r: PlacementDriveStudent) => r.status !== 'Present').length}
+                </span>
+              </div>
             </div>
           </div>
         </div>
