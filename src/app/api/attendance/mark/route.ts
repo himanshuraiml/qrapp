@@ -67,11 +67,10 @@ export async function POST(request: Request) {
     }
 
     // Live scans must be fresh (30s TTL, matches QrDisplay's refresh cycle).
-    // Offline-queued scans are verified at sync time, potentially hours
-    // later, so they get a coarser 24h bound instead — the signature check
-    // above is what actually prevents forgery either way.
+    // Offline-queued scans are allowed up to 5 minutes (300s) to account for brief connection drops,
+    // preventing replay attacks with tokens captured earlier in the day.
     const nowSec = Math.floor(Date.now() / 1000)
-    const maxAgeSeconds = mode === 'offline' ? 60 * 60 * 24 : 30
+    const maxAgeSeconds = mode === 'offline' ? 300 : 30
     if (nowSec - payload.ts > maxAgeSeconds || payload.ts > nowSec + 5) {
       return NextResponse.json({ success: false, message: 'QR code expired. Ask student to refresh their code.' }, { status: 400 })
     }

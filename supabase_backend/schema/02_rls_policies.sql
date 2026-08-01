@@ -44,10 +44,10 @@ CREATE POLICY "profiles: admin delete"
 -- ATTENDANCE
 -- ─────────────────────────────────────────
 
--- Faculty/Admin can insert
-CREATE POLICY "attendance: faculty insert"
-  ON attendance FOR INSERT
-  WITH CHECK (_my_role() IN ('Faculty', 'Admin'));
+-- Direct INSERT on attendance is revoked for all client roles.
+-- Attendance rows MUST ONLY be inserted via the SECURITY DEFINER RPC `mark_attendance_safe`
+-- or via service-role backend API routes to enforce HMAC signatures & session controls.
+REVOKE INSERT ON TABLE attendance FROM authenticated, anon, PUBLIC;
 
 -- Admin sees everything; Faculty sees what they marked
 CREATE POLICY "attendance: staff read"

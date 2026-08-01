@@ -54,8 +54,8 @@ CREATE POLICY "placement_drive_students: authenticated read"
   ON placement_drive_students FOR SELECT
   USING (auth.role() = 'authenticated');
 
-CREATE POLICY "placement_drive_students: admin and faculty modify"
+CREATE POLICY "placement_drive_students: admin modify"
   ON placement_drive_students FOR ALL
   USING (
-    (SELECT role FROM profiles WHERE id = auth.uid()) IN ('Admin', 'Faculty')
+    (SELECT role FROM profiles WHERE id = auth.uid()) = 'Admin'
   );

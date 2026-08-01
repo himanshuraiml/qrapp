@@ -512,7 +512,17 @@ export default function ScanPage() {
           const res = await fetch(`/api/admin/placement-drives/${selectedPlacementDriveId}/attendance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ student_id: payload.student_id, status: 'Present' }),
+            body: JSON.stringify({
+              student_id: payload.student_id,
+              name: payload.name,
+              department: payload.department,
+              section: payload.section,
+              year: payload.year,
+              batch: payload.batch,
+              ts: payload.ts,
+              sig: payload.sig,
+              status: 'Present',
+            }),
           })
           const json = await res.json()
 

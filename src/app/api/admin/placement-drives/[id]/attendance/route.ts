@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { verifyQrSignature } from '@/lib/qrSignature'
 
 export async function POST(
   request: Request,
@@ -19,7 +20,8 @@ export async function POST(
     }
 
     const body = await request.json()
-    const rawStudentId = body.student_id
+    const { sig, is_manual_override, ...payload } = body ?? {}
+    const rawStudentId = payload.student_id
     const targetStatus = body.status || 'Present' // 'Present', 'Eligible', or 'Absent'
 
     if (!rawStudentId) {
@@ -27,6 +29,32 @@ export async function POST(
     }
 
     const studentId = String(rawStudentId).trim().toUpperCase()
+
+    // Unless an Admin explicitly performs a manual override, enforce QR HMAC signature verification.
+    if (!is_manual_override || callerProfile?.role !== 'Admin') {
+      if (!sig || typeof payload.ts !== 'number') {
+        return NextResponse.json({ success: false, error: 'Invalid or missing QR signature payload.' }, { status: 400 })
+      }
+
+      if (!verifyQrSignature({
+        student_id: payload.student_id,
+        name: payload.name ?? '',
+        department: payload.department ?? '',
+        year: Number(payload.year ?? 1),
+        section: payload.section ?? '',
+        batch: payload.batch ?? null,
+        ts: payload.ts,
+      }, sig)) {
+        return NextResponse.json({ success: false, error: 'Invalid or tampered QR code.' }, { status: 400 })
+      }
+
+      // Freshness check (5-minute TTL bound to prevent stale replay)
+      const nowSec = Math.floor(Date.now() / 1000)
+      if (nowSec - payload.ts > 300 || payload.ts > nowSec + 5) {
+        return NextResponse.json({ success: false, error: 'QR code expired. Ask student to refresh their code.' }, { status: 400 })
+      }
+    }
+
     const admin = createAdminClient()
 
     // 1. Verify if drive exists

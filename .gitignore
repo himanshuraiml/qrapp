@@ -1,4 +1,15 @@
-.env.local
+# Environment & Secrets
+.env
+.env*.local
+.env.development
+.env.production
+*.env
+*.pem
+*.key
+*.secret
+*.log
+
+# Next.js & Dependencies
 .next/
 node_modules/
 out/
