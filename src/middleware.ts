@@ -18,16 +18,26 @@ const KNOWN_BOT_UAS = [
   'dirbuster',
 ]
 
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  return response
+}
+
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   const userAgent = (request.headers.get('user-agent') || '').toLowerCase()
 
   // Edge bot / scraper blocking for non-static assets
   if (KNOWN_BOT_UAS.some((bot) => userAgent.includes(bot))) {
-    return new NextResponse('Access Denied (Automated Client Detected)', { status: 403 })
+    return applySecurityHeaders(new NextResponse('Access Denied (Automated Client Detected)', { status: 403 }))
   }
 
   let supabaseResponse = NextResponse.next({ request })
+  applySecurityHeaders(supabaseResponse)
+
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

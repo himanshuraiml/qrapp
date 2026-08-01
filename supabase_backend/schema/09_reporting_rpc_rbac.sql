@@ -561,10 +561,11 @@ BEGIN IF _my_role() NOT IN ('Faculty', 'Admin') AND p_student_id IS DISTINCT FRO
       OR (batch IS NOT NULL AND batch = v_batch AND v_batch IS NOT NULL AND v_batch != '')
     );
 
+  v_total_conducted := GREATEST(COALESCE(v_total_conducted, 0), v_present_count);
   v_absent_count := GREATEST(0, v_total_conducted - v_present_count);
 
   IF v_total_conducted > 0 THEN
-    v_attendance_pct := ROUND((v_present_count::NUMERIC / v_total_conducted) * 100, 1);
+    v_attendance_pct := LEAST(100.0, ROUND((v_present_count::NUMERIC / v_total_conducted) * 100, 1));
   ELSE
     v_attendance_pct := 0;
   END IF;
