@@ -9,6 +9,10 @@
 *.secret
 *.log
 
+# OS & Build files
+.DS_Store
+*.DS_Store
+
 # Next.js & Dependencies
 .next/
 node_modules/
