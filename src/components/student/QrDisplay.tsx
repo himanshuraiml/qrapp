@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 
-const QR_TTL = 30 // seconds before auto-refresh
+const QR_TTL = 60 // seconds before auto-refresh
 
 export default function QrDisplay() {
   const [qrValue, setQrValue] = useState('')
@@ -10,11 +10,45 @@ export default function QrDisplay() {
   const [QRCode, setQRCode] = useState<any>(null)
   const [lastGenerated, setLastGenerated] = useState<number>(0)
   const [error, setError] = useState('')
+  const [isOfflinePass, setIsOfflinePass] = useState(false)
+  const [currentTimeStr, setCurrentTimeStr] = useState('')
 
   // Lazy-load qrcode library (client-only)
   useEffect(() => {
     import('qrcode').then((mod) => setQRCode(() => mod.default ?? mod))
   }, [])
+
+  // Live anti-screenshot clock ticker
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTimeStr(new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Render QR from offline pass cached in localStorage
+  const renderOfflineFallback = useCallback(async () => {
+    if (!QRCode) return false
+    try {
+      const cached = localStorage.getItem('student_daily_offline_pass')
+      if (cached) {
+        const offlinePass = JSON.parse(cached)
+        const dataUrl = await QRCode.toDataURL(JSON.stringify(offlinePass), {
+          width: 280,
+          margin: 2,
+          color: { dark: '#1e1b4b', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        })
+        setQrValue(dataUrl)
+        setIsOfflinePass(true)
+        setError('')
+        return true
+      }
+    } catch (e) {
+      console.warn("Failed to render offline QR fallback:", e)
+    }
+    return false
+  }, [QRCode])
 
   // Payload is fetched fresh from the server on every refresh — it is
   // signed there (see /api/attendance/qr-token) so the browser never gets
@@ -22,27 +56,49 @@ export default function QrDisplay() {
   // faculty scanner.
   const generateQr = useCallback(async () => {
     if (!QRCode) return
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const rendered = await renderOfflineFallback()
+      if (rendered) return
+    }
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000)
+
     try {
-      const res = await fetch('/api/attendance/qr-token', { cache: 'no-store' })
+      const res = await fetch('/api/attendance/qr-token', { cache: 'no-store', signal: controller.signal })
+      clearTimeout(timeoutId)
       if (!res.ok) {
-        setError('Could not load your QR code. Try refreshing.')
+        const rendered = await renderOfflineFallback()
+        if (!rendered) setError('Could not load your QR code. Try refreshing.')
         return
       }
-      const payload = await res.json()
-      const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
+      const data = await res.json()
+      
+      // Auto-cache offline pass for today
+      if (data.offline_pass && typeof window !== 'undefined') {
+        localStorage.setItem('student_daily_offline_pass', JSON.stringify(data.offline_pass))
+      }
+
+      // Remove offline_pass from payload rendered in QR (only need core + sig)
+      const { offline_pass, ...livePayload } = data
+
+      const dataUrl = await QRCode.toDataURL(JSON.stringify(livePayload), {
         width: 280,
         margin: 2,
         color: { dark: '#0f172a', light: '#ffffff' },
         errorCorrectionLevel: 'M',
       })
       setQrValue(dataUrl)
+      setIsOfflinePass(false)
       setError('')
       setLastGenerated(Math.floor(Date.now() / 1000))
       setCountdown(QR_TTL)
     } catch {
-      setError('Could not load your QR code. Try refreshing.')
+      const rendered = await renderOfflineFallback()
+      if (!rendered) setError('Could not load your QR code. Try refreshing.')
     }
-  }, [QRCode])
+  }, [QRCode, renderOfflineFallback])
 
   // Generate initial QR when library loads
   useEffect(() => {
@@ -51,7 +107,7 @@ export default function QrDisplay() {
 
   // Countdown + auto-refresh based on physical elapsed time
   useEffect(() => {
-    if (!QRCode || !lastGenerated) return
+    if (!QRCode || !lastGenerated || isOfflinePass) return
     const tick = setInterval(() => {
       const nowSec = Math.floor(Date.now() / 1000)
       const elapsed = nowSec - lastGenerated
@@ -64,7 +120,7 @@ export default function QrDisplay() {
       }
     }, 1000)
     return () => clearInterval(tick)
-  }, [QRCode, lastGenerated, generateQr])
+  }, [QRCode, lastGenerated, generateQr, isOfflinePass])
 
   // Refresh QR code automatically on tab visibility change or window focus
   useEffect(() => {
@@ -97,7 +153,15 @@ export default function QrDisplay() {
       <div className="text-center space-y-1">
         <h3 className="text-lg font-bold text-slate-800 font-heading">Your Attendance QR</h3>
         <p className="text-xs text-slate-500">Present this QR code to the faculty to mark your attendance</p>
-        {error && <p className="text-xs font-bold text-red-500">{error}</p>}
+        
+        {isOfflinePass ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 mt-1 rounded-full text-xs font-extrabold text-amber-800 bg-amber-100 border border-amber-300 shadow-sm animate-pulse">
+            <span>⚡</span>
+            <span>Offline Pass Active (Valid Today)</span>
+          </div>
+        ) : (
+          error && <p className="text-xs font-bold text-red-500">{error}</p>
+        )}
       </div>
 
       {qrValue ? (
@@ -110,39 +174,41 @@ export default function QrDisplay() {
 
           <img src={qrValue} alt="Student QR Code" className="rounded-2xl" width={240} height={240} />
 
-          {/* Premium Countdown circle ring overlay */}
-          <div className="absolute -bottom-2.5 -right-2.5">
-            <svg width={48} height={48} className="drop-shadow-[0_4px_10px_rgba(0,0,0,0.08)]">
-              <circle cx={24} cy={24} r={20} fill="white" />
-              <circle
-                cx={24} cy={24} r={20}
-                fill="none"
-                stroke="#f1f5f9"
-                strokeWidth={3.5}
-              />
-              <circle
-                cx={24} cy={24} r={20}
-                fill="none"
-                stroke={strokeColor}
-                strokeWidth={3.5}
-                strokeDasharray={`${2 * Math.PI * 20}`}
-                strokeDashoffset={`${2 * Math.PI * 20 * (1 - pct / 100)}`}
-                strokeLinecap="round"
-                transform="rotate(-90 24 24)"
-                style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }}
-              />
-              <text
-                x={24} y={28}
-                textAnchor="middle"
-                fontSize={11}
-                fontWeight={800}
-                fill={strokeColor}
-                className="font-sans"
-              >
-                {countdown}s
-              </text>
-            </svg>
-          </div>
+          {/* Premium Countdown circle ring overlay (Live mode) */}
+          {!isOfflinePass && (
+            <div className="absolute -bottom-2.5 -right-2.5">
+              <svg width={48} height={48} className="drop-shadow-[0_4px_10px_rgba(0,0,0,0.08)]">
+                <circle cx={24} cy={24} r={20} fill="white" />
+                <circle
+                  cx={24} cy={24} r={20}
+                  fill="none"
+                  stroke="#f1f5f9"
+                  strokeWidth={3.5}
+                />
+                <circle
+                  cx={24} cy={24} r={20}
+                  fill="none"
+                  stroke={strokeColor}
+                  strokeWidth={3.5}
+                  strokeDasharray={`${2 * Math.PI * 20}`}
+                  strokeDashoffset={`${2 * Math.PI * 20 * (1 - pct / 100)}`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 24 24)"
+                  style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }}
+                />
+                <text
+                  x={24} y={28}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={800}
+                  fill={strokeColor}
+                  className="font-sans"
+                >
+                  {countdown}s
+                </text>
+              </svg>
+            </div>
+          )}
         </div>
       ) : (
         <div className="w-[240px] h-[240px] bg-slate-50 border border-slate-100 rounded-3xl animate-pulse flex items-center justify-center">
@@ -150,9 +216,22 @@ export default function QrDisplay() {
         </div>
       )}
 
+      {/* Anti-screenshot live verification badge */}
+      {currentTimeStr && (
+        <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-full border border-slate-200 text-[11px] text-slate-500 font-mono">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>Live Verified Screen · {currentTimeStr}</span>
+        </div>
+      )}
+
       <div className="text-center space-y-3">
         <p className="text-xs text-slate-400 font-medium">
-          QR refreshes automatically · Fresh code ensures validity
+          {isOfflinePass
+            ? 'Using pre-fetched offline pass · Will reconnect automatically'
+            : 'QR refreshes automatically · Fresh code ensures validity'}
         </p>
         <button
           onClick={generateQr}

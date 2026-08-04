@@ -58,25 +58,58 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { sig, mode, scan_timestamp, scan_date, ...payload } = body ?? {}
 
-    if (!payload?.student_id || !payload?.ts) {
+    if (!payload?.student_id || payload?.ts === undefined) {
       return NextResponse.json({ success: false, message: 'Invalid QR code structure.' }, { status: 400 })
     }
 
-    if (!verifyQrSignature(payload, sig)) {
+    const isOfflineMode = mode === 'offline' || payload.mode === 'offline'
+    const payloadToVerify = {
+      student_id: payload.student_id,
+      name: payload.name,
+      department: payload.department ?? '',
+      year: payload.year ?? 1,
+      section: payload.section ?? '',
+      batch: payload.batch ?? '',
+      ts: Number(payload.ts ?? 0),
+      ...(payload.date ? { date: payload.date } : {}),
+      ...(isOfflineMode ? { mode: 'offline' as const } : {}),
+    }
+
+    let isSigValid = verifyQrSignature(payloadToVerify, sig)
+    if (!isSigValid) {
+      isSigValid = verifyQrSignature({
+        student_id: payload.student_id,
+        name: payload.name,
+        department: payload.department ?? '',
+        year: payload.year ?? 1,
+        section: payload.section ?? '',
+        batch: payload.batch ?? '',
+        ts: Number(payload.ts ?? 0),
+      }, sig)
+    }
+
+    if (!isSigValid) {
       return NextResponse.json({ success: false, message: 'Invalid or tampered QR code.' }, { status: 400 })
     }
 
-    // Live scans must be fresh (30s TTL, matches QrDisplay's refresh cycle).
-    // Offline-queued scans are allowed up to 5 minutes (300s) to account for brief connection drops,
-    // preventing replay attacks with tokens captured earlier in the day.
     const nowSec = Math.floor(Date.now() / 1000)
-    const maxAgeSeconds = mode === 'offline' ? 300 : 30
-    if (nowSec - payload.ts > maxAgeSeconds || payload.ts > nowSec + 5) {
-      return NextResponse.json({ success: false, message: 'QR code expired. Ask student to refresh their code.' }, { status: 400 })
+    const effectiveDate = typeof scan_date === 'string' ? scan_date : (payload.date || todayIST())
+
+    if (isOfflineMode) {
+      // Offline mode check: Must be for today's date in IST (or recorded within 12 hours)
+      const isToday = effectiveDate === todayIST()
+      const isRecentTs = payload.ts > 0 ? (nowSec - payload.ts <= 43200) : true
+      if (!isToday && !isRecentTs) {
+        return NextResponse.json({ success: false, message: 'Offline QR pass has expired (must be from today).' }, { status: 400 })
+      }
+    } else {
+      // Live scan check (120s TTL to handle poor mobile network latency and clock skew)
+      if (nowSec - payload.ts > 120 || payload.ts > nowSec + 10) {
+        return NextResponse.json({ success: false, message: 'QR code expired. Ask student to refresh their code.' }, { status: 400 })
+      }
     }
 
     const effectiveTimestamp = typeof scan_timestamp === 'string' ? scan_timestamp : new Date().toISOString()
-    const effectiveDate = typeof scan_date === 'string' ? scan_date : todayIST()
 
     const { data, error } = await supabase.rpc('mark_attendance_safe', {
       p_student_id: payload.student_id,

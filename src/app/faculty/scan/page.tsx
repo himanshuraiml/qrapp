@@ -5,21 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { todayIST, isQrFresh } from '@/lib/utils'
 import type { QrPayload } from '@/types'
+import { saveOfflineScan, getOfflineQueue, removeOfflineScan, clearOfflineQueue, type OfflineScan } from '@/lib/offlineStore'
 
 type ScanResult = { type: 'success' | 'error' | 'duplicate'; message: string; studentName?: string; studentId?: string; session?: string }
-
-interface OfflineScan {
-  student_id: string
-  name: string
-  department: string
-  section: string
-  year: number
-  batch: string | null
-  ts: number   // original QR issuance time — needed to re-verify its signature at sync time
-  sig: string  // server-issued HMAC signature from the scanned QR payload
-  timestamp: string // ISO timestamp of scan
-  date: string // YYYY-MM-DD
-}
 
 export default function ScanPage() {
   const router = useRouter()
@@ -44,7 +32,8 @@ export default function ScanPage() {
   const [loadingConfig, setLoadingConfig] = useState(true)
   const [updatingBatch, setUpdatingBatch] = useState(false)
 
-  // Fast scan states and refs
+  // Network & Offline Queue states
+  const [isOnline, setIsOnline] = useState(true)
   const [recentScans, setRecentScans] = useState<Array<{
     id: string
     name: string
@@ -57,6 +46,7 @@ export default function ScanPage() {
 
   // Haptic feedback & Offline queue states
   const [hapticsEnabled, setHapticsEnabled] = useState(true)
+  const [forceOffline, setForceOffline] = useState(false)
   const [offlineQueue, setOfflineQueue] = useState<OfflineScan[]>([])
   const [isSyncing, setIsSyncing] = useState(false)
 
@@ -70,6 +60,21 @@ export default function ScanPage() {
   useEffect(() => {
     isSyncingRef.current = isSyncing
   }, [isSyncing])
+
+  // Track physical online/offline status
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsOnline(navigator.onLine)
+      const handleOnline = () => setIsOnline(true)
+      const handleOffline = () => setIsOnline(false)
+      window.addEventListener('online', handleOnline)
+      window.addEventListener('offline', handleOffline)
+      return () => {
+        window.removeEventListener('online', handleOnline)
+        window.removeEventListener('offline', handleOffline)
+      }
+    }
+  }, [])
 
   async function fetchVenue(batchName: string) {
     const { data } = await supabase
@@ -102,7 +107,7 @@ export default function ScanPage() {
     setUpdatingBatch(false)
   }
 
-  // Get active session mode and load settings/queue on mount
+  // Get active session mode and load settings/queue on mount from IndexedDB
   useEffect(() => {
     const hour = new Date().getHours()
     setSessionMode(hour < 12 ? 'FN' : 'AN')
@@ -112,14 +117,13 @@ export default function ScanPage() {
       if (savedHaptics !== null) {
         setHapticsEnabled(savedHaptics === 'true')
       }
-      const savedQueue = localStorage.getItem('offline_scans_queue')
-      if (savedQueue) {
-        try {
-          setOfflineQueue(JSON.parse(savedQueue))
-        } catch (e) {
-          console.error("Failed to parse offline scans queue", e)
+      
+      // Load offline queue from IndexedDB
+      getOfflineQueue().then((queue) => {
+        if (queue && queue.length > 0) {
+          setOfflineQueue(queue)
         }
-      }
+      }).catch((e) => console.warn('Error fetching IndexedDB queue:', e))
     }
 
     async function loadConfig() {
@@ -389,6 +393,7 @@ export default function ScanPage() {
 
           if (!res.ok) {
             failureCount++
+            await removeOfflineScan(scan.student_id)
             remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
             continue
           }
@@ -414,6 +419,7 @@ export default function ScanPage() {
             })
           }
 
+          await removeOfflineScan(scan.student_id)
           remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
         } catch (e) {
           console.error("Error syncing scan for student:", scan.student_id, e)
@@ -422,7 +428,9 @@ export default function ScanPage() {
       }
 
       setOfflineQueue(remainingQueue)
-      localStorage.setItem('offline_scans_queue', JSON.stringify(remainingQueue))
+      if (remainingQueue.length === 0) {
+        clearOfflineQueue().catch(() => {})
+      }
 
       if (successCount > 0) {
         setScanCount(c => c + successCount)
@@ -592,57 +600,63 @@ export default function ScanPage() {
       let dbResult: any = null
       let networkErrorOccurred = false
 
-      try {
-        if (!navigator.onLine) {
-          throw new TypeError('Failed to fetch (offline)')
-        }
+      if (forceOffline || !navigator.onLine) {
+        networkErrorOccurred = true
+      } else {
+        const controller = new AbortController()
+        const fetchTimeout = setTimeout(() => controller.abort(), 1500) // 1.5s max wait for poor network
 
-        const res = await fetch('/api/attendance/mark', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            student_id: payload.student_id,
-            name: payload.name,
-            department: payload.department,
-            section: payload.section,
-            year: payload.year,
-            batch: payload.batch,
-            ts: payload.ts,
-            sig: payload.sig,
-            mode: 'online',
-          }),
-        })
+        try {
+          const res = await fetch('/api/attendance/mark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              student_id: payload.student_id,
+              name: payload.name,
+              department: payload.department,
+              section: payload.section,
+              year: payload.year,
+              batch: payload.batch,
+              ts: payload.ts,
+              sig: payload.sig,
+              mode: 'online',
+            }),
+          })
+          clearTimeout(fetchTimeout)
 
-        const data = await res.json()
+          const data = await res.json()
 
-        if (res.status === 401) {
-          const errResult: ScanResult = { type: 'error', message: 'Session expired. Please log out and log in again.' }
-          setResult(errResult)
-          triggerHaptic([400])
-          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Session expired')
-          scheduleClear(1200)
-          return
-        }
+          if (res.status === 401) {
+            const errResult: ScanResult = { type: 'error', message: 'Session expired. Please log out and log in again.' }
+            setResult(errResult)
+            triggerHaptic([400])
+            addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Session expired')
+            scheduleClear(1200)
+            return
+          }
 
-        if (!res.ok) {
-          const errResult: ScanResult = { type: 'error', message: data?.message || 'Database error' }
-          setResult(errResult)
-          triggerHaptic([400])
-          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', data?.message)
-          scheduleClear(1200)
-          return
-        }
-        dbResult = data
-      } catch (err: any) {
-        if (err instanceof TypeError || err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Failed to fetch') || err.status === 0 || !navigator.onLine) {
-          networkErrorOccurred = true
-        } else {
-          const errMsg = err?.message ?? 'An unexpected error occurred'
-          setResult({ type: 'error', message: errMsg })
-          triggerHaptic([400])
-          addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', errMsg)
-          scheduleClear(1200)
-          return
+          if (!res.ok) {
+            const errResult: ScanResult = { type: 'error', message: data?.message || 'Database error' }
+            setResult(errResult)
+            triggerHaptic([400])
+            addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', data?.message)
+            scheduleClear(1200)
+            return
+          }
+          dbResult = data
+        } catch (err: any) {
+          clearTimeout(fetchTimeout)
+          if (err?.name === 'AbortError' || err instanceof TypeError || err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Failed to fetch') || err.status === 0 || !navigator.onLine) {
+            networkErrorOccurred = true
+          } else {
+            const errMsg = err?.message ?? 'An unexpected error occurred'
+            setResult({ type: 'error', message: errMsg })
+            triggerHaptic([400])
+            addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', errMsg)
+            scheduleClear(1200)
+            return
+          }
         }
       }
 
@@ -677,7 +691,7 @@ export default function ScanPage() {
 
         const updatedQueue = [...offlineQueueRef.current, newScan]
         setOfflineQueue(updatedQueue)
-        localStorage.setItem('offline_scans_queue', JSON.stringify(updatedQueue))
+        saveOfflineScan(newScan).catch((e) => console.warn("Error saving scan to IndexedDB:", e))
 
         triggerHaptic([100, 50, 100])
 
@@ -747,6 +761,61 @@ export default function ScanPage() {
             </p>
           </div>
         </div>
+
+      {/* Offline Status & Pending Queue Banner */}
+      {(!isOnline || offlineQueue.length > 0) && (
+        <div className={`p-4 rounded-3xl border shadow-sm flex items-center justify-between gap-3 transition-all ${
+          !isOnline 
+            ? 'bg-amber-50 border-amber-200 text-amber-900' 
+            : 'bg-indigo-50 border-indigo-200 text-indigo-900'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">{!isOnline ? '⚡' : '📡'}</span>
+            <div>
+              <p className="text-xs font-extrabold font-heading">
+                {!isOnline ? 'Offline Scanning Active' : 'Online · Sync Available'}
+              </p>
+              <p className="text-[11px] font-medium opacity-80">
+                {offlineQueue.length > 0
+                  ? `${offlineQueue.length} ${offlineQueue.length === 1 ? 'scan' : 'scans'} saved offline`
+                  : 'Scans will save to device until network returns'}
+              </p>
+            </div>
+          </div>
+
+          {offlineQueue.length > 0 && (
+            <button
+              onClick={syncOfflineScans}
+              disabled={isSyncing || !isOnline}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50 transition-all flex items-center gap-1.5"
+            >
+              {isSyncing ? (
+                <>
+                  <span className="animate-spin text-xs">⏳</span>
+                  <span>Syncing...</span>
+                </>
+              ) : (
+                <>
+                  <span>🔄</span>
+                  <span>Sync Now ({offlineQueue.length})</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+        {/* Fast Offline Mode Toggle */}
+        <button 
+          onClick={() => setForceOffline((prev) => !prev)} 
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl border transition-all text-xs font-bold ${
+            forceOffline 
+              ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-sm shadow-amber-500/10 animate-pulse' 
+              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+          }`}
+          title="Toggle Instant High-Speed Offline Scan Mode for poor network zones"
+        >
+          <span>{forceOffline ? '⚡ Fast Offline Mode' : '📡 Auto Mode'}</span>
+        </button>
 
         {/* Haptic Feedback Toggle */}
         <button 

@@ -9,6 +9,8 @@ export interface QrPayloadCore {
   section: string
   batch?: string | null
   ts: number
+  date?: string
+  mode?: 'online' | 'offline'
 }
 
 function getSecret(): string {
@@ -20,7 +22,7 @@ function getSecret(): string {
 }
 
 function canonicalize(payload: QrPayloadCore): string {
-  return [
+  const parts: Array<string | number> = [
     payload.student_id,
     payload.name,
     payload.department,
@@ -28,7 +30,12 @@ function canonicalize(payload: QrPayloadCore): string {
     payload.section,
     payload.batch ?? '',
     payload.ts,
-  ].join('|')
+  ]
+  if (payload.date || payload.mode) {
+    parts.push(payload.date ?? '')
+    parts.push(payload.mode ?? '')
+  }
+  return parts.join('|')
 }
 
 export function signQrPayload(payload: QrPayloadCore): string {

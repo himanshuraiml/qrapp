@@ -7,6 +7,8 @@ import { signQrPayload } from '@/lib/qrSignature'
 // built the entire QR payload (including the "ts" freshness field) itself
 // with no signature — which let anyone decode a captured QR, swap in any
 // student_id, regenerate ts, and re-encode a forged code (VAPT Vuln 1).
+import { todayIST } from '@/lib/utils'
+
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -39,5 +41,26 @@ export async function GET() {
 
   const sig = signQrPayload(payload)
 
-  return NextResponse.json({ ...payload, sig })
+  const today = todayIST()
+  const offlinePayload = {
+    student_id: profile.student_id,
+    name: profile.name,
+    department: profile.department ?? '',
+    year: profile.year ?? 1,
+    section: profile.section ?? '',
+    batch: profile.batch ?? '',
+    ts: 0,
+    date: today,
+    mode: 'offline' as const,
+  }
+  const offlineSig = signQrPayload(offlinePayload)
+
+  return NextResponse.json({
+    ...payload,
+    sig,
+    offline_pass: {
+      ...offlinePayload,
+      sig: offlineSig,
+    },
+  })
 }
