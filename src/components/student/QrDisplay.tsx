@@ -63,14 +63,16 @@ export default function QrDisplay() {
     }
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 2000)
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
 
     try {
       const res = await fetch('/api/attendance/qr-token', { cache: 'no-store', signal: controller.signal })
       clearTimeout(timeoutId)
       if (!res.ok) {
+        const errJson = await res.json().catch(() => null)
+        console.warn('QR token fetch failed:', res.status, errJson)
         const rendered = await renderOfflineFallback()
-        if (!rendered) setError('Could not load your QR code. Try refreshing.')
+        if (!rendered) setError(errJson?.error || 'Could not load your QR code. Try refreshing.')
         return
       }
       const data = await res.json()
@@ -94,7 +96,8 @@ export default function QrDisplay() {
       setError('')
       setLastGenerated(Math.floor(Date.now() / 1000))
       setCountdown(QR_TTL)
-    } catch {
+    } catch (e) {
+      console.warn('QR token fetch exception:', e)
       const rendered = await renderOfflineFallback()
       if (!rendered) setError('Could not load your QR code. Try refreshing.')
     }
