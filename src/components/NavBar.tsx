@@ -79,9 +79,9 @@ export default function NavBar({ role }: { role: UserRole }) {
           <div className="flex items-center gap-3">
             <Link href={`/${role.toLowerCase()}`} className="flex items-center gap-2">
               <img
-                src="https://www.facultyplus.com/wp-content/uploads/2024/01/cropped-srm-trp-logo.png"
-                alt="SRMIST Logo"
-                className="h-7 w-auto object-contain filter drop-shadow-sm hover:scale-105 transition-transform duration-300"
+                src="/srm-trp-logo.png"
+                alt="SRMIST Tiruchirappalli Logo"
+                className="h-7 w-auto object-contain filter drop-shadow-sm hover:scale-105 transition-transform duration-300 mix-blend-multiply"
               />
               <span className="font-semibold text-slate-800 text-sm hidden sm:block">QR Attendance</span>
             </Link>

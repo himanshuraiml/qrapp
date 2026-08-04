@@ -49,11 +49,13 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md relative z-10 animate-slide-up">
         {/* Branding */}
         <div className="text-center mb-6 flex flex-col items-center">
-          <img
-            src="https://www.facultyplus.com/wp-content/uploads/2024/01/cropped-srm-trp-logo.png"
-            alt="SRMIST Logo"
-            className="h-16 w-auto object-contain mb-3 bg-white/10 backdrop-blur-sm p-2 rounded-2xl border border-white/10 hover:scale-105 transition-transform duration-300"
-          />
+          <div className="mb-3 p-2.5 bg-white/90 backdrop-blur-md rounded-2xl shadow-md border border-white/60 inline-block hover:scale-105 transition-transform duration-300">
+            <img
+              src="/srm-trp-logo.png"
+              alt="SRMIST Tiruchirappalli Logo"
+              className="h-14 w-auto object-contain mix-blend-multiply"
+            />
+          </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight font-heading">Reset Password</h1>
           <p className="text-brand-300 text-xs font-semibold mt-1 tracking-widest uppercase">SRMIST Tiruchirappalli Campus</p>
         </div>

@@ -1,8 +1,8 @@
 const withPWA = require('@ducanh2912/next-pwa').default({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
-  cacheOnFrontEndNav: false,
-  aggressiveFrontEndNavCaching: false,
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
   reloadOnOnline: false,
   workboxOptions: {
     skipWaiting: true,
@@ -16,6 +16,11 @@ const withPWA = require('@ducanh2912/next-pwa').default({
       {
         // Never cache internal API routes
         urlPattern: /^\/api\//,
+        handler: 'NetworkOnly',
+      },
+      {
+        // Authenticated routes MUST NEVER be cached in service worker Cache Storage
+        urlPattern: /\/(faculty|student|admin|login|change-password)/,
         handler: 'NetworkOnly',
       },
     ],

@@ -61,8 +61,9 @@ export function sessionColor(session: string): string {
     : 'bg-amber-100 text-amber-700'
 }
 
-// Validate QR payload freshness (max 30 seconds old)
-export function isQrFresh(tsUnix: number): boolean {
+// Validate QR payload freshness (max 30 seconds old, or valid offline pass)
+export function isQrFresh(tsUnix: number, isOffline: boolean = false): boolean {
+  if (isOffline || tsUnix === 0) return true
   return Math.floor(Date.now() / 1000) - tsUnix <= 30
 }
 

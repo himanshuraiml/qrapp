@@ -270,46 +270,48 @@ const fetchRecords = useCallback(async () => {
   }, [profile?.name])
 
   return (
-    <div className="relative space-y-8 animate-fade-in pb-12 max-w-4xl mx-auto px-4 md:px-0">
-      {/* Background Decorative Mesh Gradients */}
-      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
-        <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
-        <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
+    <div className="relative space-y-8 animate-fade-in pb-16 max-w-4xl mx-auto px-4 md:px-0">
+      {/* Soft Ambient Clay Background Spheres */}
+      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-60 overflow-hidden">
+        <div className="absolute top-[-5%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-indigo-200/40 blur-[120px] mix-blend-multiply animate-pulse" style={{ animationDuration: '8s' }}></div>
+        <div className="absolute top-[30%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-purple-200/40 blur-[120px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
+        <div className="absolute bottom-[-5%] left-[20%] w-[40vw] h-[40vw] rounded-full bg-pink-200/40 blur-[120px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
       </div>
-      {/* Premium Profile Banner Card */}
-      <div className="card-premium relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-white/10 shadow-2xl p-6 sm:p-8 rounded-[2rem]">
-        <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] bg-brand-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-        <div className="absolute bottom-[-50%] left-[-10%] w-[300px] h-[300px] bg-indigo-500/10 rounded-full blur-[70px] pointer-events-none"></div>
+
+      {/* Flagship Claymorphic Student Profile Banner */}
+      <div className="clay-card-indigo relative overflow-hidden p-6 sm:p-8 rounded-[2.5rem]">
+        <div className="absolute top-[-40%] right-[-10%] w-[320px] h-[320px] bg-white/10 rounded-full blur-[60px] pointer-events-none"></div>
+        <div className="absolute bottom-[-40%] left-[-10%] w-[300px] h-[300px] bg-purple-500/20 rounded-full blur-[60px] pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start md:items-center justify-between gap-6">
-          {/* Left Side: Avatar + Info */}
+          {/* Left Side: Avatar Emblem + Student Info */}
           <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 text-center sm:text-left">
-            {/* Avatar Initials Circle */}
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br from-brand-600/20 to-indigo-600/30 border-2 border-white/15 flex items-center justify-center text-white text-2xl sm:text-3xl font-extrabold shadow-inner shadow-brand-500/20 transition-all duration-300 hover:scale-105 select-none">
+            {/* Raised 3D Clay Avatar Badge */}
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[2.25rem] bg-white/20 border-2 border-white/30 flex items-center justify-center text-white text-2xl sm:text-3xl font-black clay-badge-dark shadow-2xl transition-all duration-300 hover:scale-105 select-none tracking-wider">
               {initials}
             </div>
 
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/25 text-brand-300 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/15 border border-white/25 text-white text-[10px] sm:text-xs font-extrabold uppercase tracking-wider clay-badge-dark">
                 <span>🎓</span> Student Profile
               </div>
 
-              <div className="space-y-1">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-heading leading-tight">{profile?.name}</h1>
+              <div className="space-y-1.5">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight font-heading leading-tight">{profile?.name}</h1>
 
-                {/* Responsive Badges */}
+                {/* Clay Attribute Pills */}
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
-                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
+                  <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-xs font-bold text-white/90 clay-badge-dark">
                     {profile?.department}
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
+                  <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-xs font-bold text-white/90 clay-badge-dark">
                     Year {profile?.year}
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[10px] sm:text-xs font-bold text-slate-300">
+                  <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-xs font-bold text-white/90 clay-badge-dark">
                     Sec {profile?.section}
                   </span>
                   {profile?.batch && (
-                    <span className="px-2.5 py-1 rounded-lg bg-brand-500/15 border border-brand-500/30 text-[10px] sm:text-xs font-bold text-brand-200">
+                    <span className="px-3 py-1 rounded-full bg-amber-300/30 border border-amber-200/40 text-[10px] sm:text-xs font-extrabold text-amber-100 clay-badge-dark">
                       Batch {profile.batch} {batchVenue ? `(Venue: ${batchVenue})` : ''}
                     </span>
                   )}
@@ -318,43 +320,44 @@ const fetchRecords = useCallback(async () => {
             </div>
           </div>
 
-          {/* Right Side: Roll Number ID Card */}
-          <div className="w-full sm:w-auto text-center sm:text-right flex flex-col items-center sm:items-end justify-center gap-1">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SRMIST ROLL NO</span>
-            <div className="inline-block bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl font-mono text-xs sm:text-sm text-brand-300 select-all shadow-inner tracking-wider font-bold">
+          {/* Right Side: Tactile Roll Number Badge */}
+          <div className="w-full sm:w-auto text-center sm:text-right flex flex-col items-center sm:items-end justify-center gap-1.5">
+            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">SRMIST ROLL NO</span>
+            <div className="inline-block bg-white/20 border border-white/30 px-4 py-2.5 rounded-2xl font-mono text-xs sm:text-sm text-white select-all clay-badge-dark tracking-wider font-extrabold">
               {profile?.student_id}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Premium Statistics Row */}
+      {/* Tactile Clay Statistics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 animate-fade-in">
         {/* Overall Percentage Card */}
-        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+        <div className="clay-card-emerald p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-start justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Attendance Rate</span>
+            <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest font-heading">Attendance Rate</span>
             <span className="text-xl">📈</span>
           </div>
-          <div className="mt-4 space-y-1">
-            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+          <div className="mt-4 space-y-1.5">
+            <p className="text-2xl sm:text-3xl font-black text-emerald-950 tracking-tight font-heading">
               {statsLoading ? '—' : `${stats?.attendance_pct ?? 0}%`}
             </p>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className={`w-2 h-2 rounded-full ${statsLoading ? 'bg-slate-300 animate-pulse' :
-                  (stats?.attendance_pct ?? 0) >= 75 ? 'bg-emerald-500' :
-                    (stats?.attendance_pct ?? 0) >= 50 ? 'bg-amber-500' : 'bg-red-500'
+              <span className={`w-2.5 h-2.5 rounded-full ${statsLoading ? 'bg-slate-400 animate-pulse' :
+                  (stats?.attendance_pct ?? 0) >= 75 ? 'bg-emerald-600' :
+                    (stats?.attendance_pct ?? 0) >= 50 ? 'bg-amber-600' : 'bg-red-600'
                 }`} />
-              <span className="text-[10px] font-bold text-slate-400">
+              <span className="text-[10px] font-extrabold text-emerald-800">
                 {statsLoading ? 'Calculating...' :
                   (stats?.attendance_pct ?? 0) >= 75 ? 'Excellent Standing' :
                     (stats?.attendance_pct ?? 0) >= 50 ? 'Good Standing' : 'Below Target'}
               </span>
             </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-3">
+            {/* Tactile 3D Inset Progress Bar */}
+            <div className="h-2 bg-emerald-900/10 rounded-full overflow-hidden mt-3 shadow-[inset_1px_1px_3px_rgba(0,0,0,0.15)]">
               <div
-                className={`h-full rounded-full transition-all duration-1000 ${statsLoading ? 'w-1/3 animate-pulse bg-slate-200' :
-                    (stats?.attendance_pct ?? 0) >= 75 ? 'bg-emerald-500' :
+                className={`h-full rounded-full transition-all duration-1000 ${statsLoading ? 'w-1/3 animate-pulse bg-emerald-300' :
+                    (stats?.attendance_pct ?? 0) >= 75 ? 'bg-emerald-600' :
                       (stats?.attendance_pct ?? 0) >= 50 ? 'bg-amber-500' : 'bg-red-500'
                   }`}
                 style={{ width: statsLoading ? undefined : `${stats?.attendance_pct ?? 0}%` }}
@@ -364,93 +367,93 @@ const fetchRecords = useCallback(async () => {
         </div>
 
         {/* Sessions Scanned Card */}
-        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+        <div className="clay-card-blue p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-start justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading font-heading">Sessions Scanned</span>
+            <span className="text-[10px] font-black text-blue-800 uppercase tracking-widest font-heading">Sessions Scanned</span>
             <span className="text-xl">📁</span>
           </div>
           <div className="mt-4">
-            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+            <p className="text-2xl sm:text-3xl font-black text-blue-950 tracking-tight font-heading">
               {statsLoading ? '—' : stats?.total_conducted ?? 0}
             </p>
-            <p className="text-[10px] font-bold text-slate-400 mt-1">Conducted sessions</p>
+            <p className="text-[10px] font-extrabold text-blue-700/80 mt-1">Conducted sessions</p>
           </div>
         </div>
 
         {/* Present Sessions Card */}
-        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+        <div className="clay-card-purple p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-start justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Present</span>
-            <span className="text-xl text-emerald-500">✓</span>
+            <span className="text-[10px] font-black text-purple-800 uppercase tracking-widest font-heading">Present</span>
+            <span className="text-xl text-purple-600">✓</span>
           </div>
           <div className="mt-4">
-            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+            <p className="text-2xl sm:text-3xl font-black text-purple-950 tracking-tight font-heading">
               {statsLoading ? '—' : stats?.present_count ?? 0}
             </p>
-            <p className="text-[10px] font-bold text-slate-400 mt-1">Scans verified</p>
+            <p className="text-[10px] font-extrabold text-purple-700/80 mt-1">Scans verified</p>
           </div>
         </div>
 
         {/* Absent Sessions Card */}
-        <div className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-100 p-5 flex flex-col justify-between shadow-sm group hover:border-brand-300 hover:shadow-lg transition-all duration-300">
+        <div className="clay-card-rose p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-start justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Absent</span>
-            <span className="text-xl text-red-500">✕</span>
+            <span className="text-[10px] font-black text-rose-800 uppercase tracking-widest font-heading">Absent</span>
+            <span className="text-xl text-rose-600">✕</span>
           </div>
           <div className="mt-4">
-            <p className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-heading">
+            <p className="text-2xl sm:text-3xl font-black text-rose-950 tracking-tight font-heading">
               {statsLoading ? '—' : stats?.absent_count ?? 0}
             </p>
-            <p className="text-[10px] font-bold text-slate-400 mt-1">Sessions missed</p>
+            <p className="text-[10px] font-extrabold text-rose-700/80 mt-1">Sessions missed</p>
           </div>
         </div>
       </div>
 
-      {/* Placement Drives Section */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-slate-100 p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Placement Drives Clay Container */}
+      <div className="clay-card p-6 sm:p-8 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-base font-extrabold text-slate-800 tracking-tight flex items-center gap-2 font-heading">
+            <h3 className="text-base font-black text-slate-800 tracking-tight flex items-center gap-2 font-heading">
               🚀 Placement Drives Eligibility & Attendance
             </h3>
             <p className="text-xs text-slate-500 font-medium">
               Placement drives assigned to your profile by Placement Coordinators.
             </p>
           </div>
-          <span className="text-xs font-extrabold text-brand-600 bg-brand-50 px-3 py-1 rounded-full">
+          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-extrabold text-brand-700 bg-brand-50 border border-brand-200 clay-badge self-start sm:self-auto">
             {placementDrives.length} Drives
           </span>
         </div>
 
         {placementLoading ? (
-          <p className="text-xs text-slate-400 py-4 text-center">Loading placement drives...</p>
+          <p className="text-xs text-slate-400 py-6 text-center font-semibold">Loading placement drives...</p>
         ) : placementDrives.length === 0 ? (
-          <div className="text-center py-6 bg-slate-50 rounded-2xl border border-slate-100">
-            <p className="text-xs text-slate-500 font-medium">No placement drives assigned to your profile yet.</p>
+          <div className="text-center py-6 bg-slate-50/80 rounded-2xl border border-slate-100 clay-badge">
+            <p className="text-xs text-slate-500 font-bold">No placement drives assigned to your profile yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {placementDrives.map((pd) => (
-              <div key={pd.id} className="p-4 rounded-2xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition-all flex flex-col justify-between space-y-3">
-                <div className="space-y-1">
+              <div key={pd.id} className="p-5 rounded-[1.75rem] border border-slate-200/60 bg-gradient-to-br from-white to-slate-50/80 clay-card hover:-translate-y-0.5 transition-all flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold uppercase text-brand-700 bg-brand-100 px-2.5 py-0.5 rounded-md">
+                    <span className="text-xs font-black uppercase text-brand-700 bg-brand-100/80 px-3 py-1 rounded-full clay-badge">
                       {pd.company_name}
                     </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full clay-badge ${
                       pd.student_attendance_status === 'Present'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-amber-100 text-amber-700'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : 'bg-amber-100 text-amber-800 border border-amber-200'
                     }`}>
-                      {pd.student_attendance_status === 'Present' ? '✓ Present' : '⏳ Scheduled / Pending'}
+                      {pd.student_attendance_status === 'Present' ? '✓ Present' : '⏳ Scheduled'}
                     </span>
                   </div>
-                  <h4 className="text-sm font-bold text-slate-900 mt-2">{pd.title}</h4>
-                  <p className="text-xs text-slate-500">
+                  <h4 className="text-sm font-extrabold text-slate-900 mt-2">{pd.title}</h4>
+                  <p className="text-xs text-slate-600 font-semibold">
                     📅 Date: {pd.display_date || pd.drive_date} | 📍 Venue: {pd.display_venue || pd.venue}
                   </p>
                   {(pd.test_time || pd.slot) && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 font-medium">
                       {pd.test_time && `⏰ Time: ${pd.test_time}`}{pd.test_time && pd.slot ? ' | ' : ''}{pd.slot && `🎟️ Slot: ${pd.slot}`}
                     </p>
                   )}
@@ -466,36 +469,34 @@ const fetchRecords = useCallback(async () => {
         {/* Left Column: QR Code Component */}
         <div className="space-y-6">
           {!scanOpen ? (
-            <div className="flex flex-col items-center gap-6 py-12 relative overflow-hidden rounded-[2rem] p-6 shadow-lg border border-amber-200/50 bg-amber-50/20">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-400 to-orange-500"></div>
-              <div className="w-16 h-16 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+            <div className="clay-card-amber p-6 sm:p-8 flex flex-col items-center gap-5 text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-200/70 border border-amber-300 flex items-center justify-center text-amber-800 shadow-md clay-badge">
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <div className="text-center space-y-2 max-w-sm px-4">
-                <h3 className="text-lg font-bold text-slate-800 font-heading">QR Scanning is Closed</h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                  The QR scan window is currently closed. Please wait for the admin to open the next scan session.
+              <div className="space-y-2 max-w-sm">
+                <h3 className="text-lg font-black text-amber-950 font-heading">QR Scanning is Closed</h3>
+                <p className="text-xs text-amber-900/80 leading-relaxed font-semibold">
+                  The QR scan window is currently closed. Please wait for the faculty or admin to open the next scan session.
                 </p>
-                <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-100 text-xs text-amber-800 font-semibold mt-2">
-                  Check back when the next session begins.
+                <div className="p-3 rounded-2xl bg-amber-200/50 border border-amber-300/80 text-xs text-amber-950 font-extrabold mt-2 clay-badge">
+                  Check back when the next session starts.
                 </div>
               </div>
             </div>
           ) : qrBlocked ? (
-            <div className="card-premium flex flex-col items-center gap-6 py-12 relative overflow-hidden group border-red-200/50 bg-red-50/10 rounded-[2rem] p-6 shadow-lg border">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-500 to-rose-600"></div>
-              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-3xl font-extrabold shadow-sm animate-pulse">
+            <div className="clay-card-rose p-6 sm:p-8 flex flex-col items-center gap-5 text-center">
+              <div className="w-16 h-16 rounded-full bg-rose-200/70 border border-rose-300 flex items-center justify-center text-rose-800 text-3xl font-black shadow-md clay-badge animate-pulse">
                 🔒
               </div>
-              <div className="text-center space-y-2 max-w-sm px-4">
-                <h3 className="text-lg font-bold text-slate-800 font-heading">QR Code Generation Blocked</h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-medium">
+              <div className="space-y-2 max-w-sm">
+                <h3 className="text-lg font-black text-rose-950 font-heading">QR Code Generation Blocked</h3>
+                <p className="text-xs text-rose-900/80 leading-relaxed font-semibold">
                   Your QR code generation has been disabled because you missed a scheduled attendance session.
                 </p>
-                <div className="p-3.5 rounded-xl bg-red-50/80 border border-red-100/80 text-xs text-red-700 font-bold mt-2 shadow-inner">
-                  Please contact the admin (IST 118) to enable your QR code.
+                <div className="p-3 rounded-2xl bg-rose-200/50 border border-rose-300/80 text-xs text-rose-950 font-extrabold mt-2 clay-badge">
+                  Please contact the admin (IST 118) to unlock your QR code.
                 </div>
               </div>
             </div>
@@ -503,50 +504,50 @@ const fetchRecords = useCallback(async () => {
             <>
               {profile?.student_id && <QrDisplay />}
               {profile?.batch && batchVenue && (
-                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm flex items-center gap-3 animate-fade-in mt-4">
-                  <div className="w-10 h-10 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-lg shadow-sm">
+                <div className="clay-card p-4 sm:p-5 rounded-[2rem] bg-gradient-to-r from-indigo-50/80 to-purple-50/80 border border-indigo-100 flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-xl shadow-sm clay-badge">
                     📍
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-heading">Classroom Venue</p>
-                    <p className="text-xs font-extrabold text-slate-800 mt-0.5">Batch {profile.batch} · {batchVenue}</p>
+                    <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest font-heading">Classroom Venue</p>
+                    <p className="text-xs font-black text-slate-800 mt-0.5">Batch {profile.batch} · {batchVenue}</p>
                   </div>
                 </div>
               )}
             </>
           )}
 
-          {/* Today's scan verification status */}
-          <div className="card space-y-4">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Today's Attendance Status</h3>
+          {/* Today's scan verification status card */}
+          <div className="clay-card p-6 space-y-4">
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Today's Attendance Status</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-lg">🌅</span>
+              <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/80 border border-slate-100 clay-badge">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🌅</span>
                   <div>
-                    <p className="text-xs font-bold text-slate-800">Forenoon Session</p>
-                    <p className="text-[10px] text-slate-400 font-medium">FN1 / FN2</p>
+                    <p className="text-xs font-black text-slate-800">Forenoon Session</p>
+                    <p className="text-[10px] text-slate-400 font-bold">FN1 / FN2</p>
                   </div>
                 </div>
                 {fnToday.length > 0 ? (
-                  <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">Present</span>
+                  <span className="clay-badge bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-1 text-xs font-black">Present</span>
                 ) : (
-                  <span className="badge bg-slate-100 text-slate-400 border border-slate-200">Pending</span>
+                  <span className="clay-badge bg-slate-100 text-slate-400 border border-slate-200 px-3.5 py-1 text-xs font-bold">Pending</span>
                 )}
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-lg">🌇</span>
+              <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/80 border border-slate-100 clay-badge">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🌇</span>
                   <div>
-                    <p className="text-xs font-bold text-slate-800">Afternoon Session</p>
-                    <p className="text-[10px] text-slate-400 font-medium">AN1 / AN2</p>
+                    <p className="text-xs font-black text-slate-800">Afternoon Session</p>
+                    <p className="text-[10px] text-slate-400 font-bold">AN1 / AN2</p>
                   </div>
                 </div>
                 {anToday.length > 0 ? (
-                  <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-200">Present</span>
+                  <span className="clay-badge bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-1 text-xs font-black">Present</span>
                 ) : (
-                  <span className="badge bg-slate-100 text-slate-400 border border-slate-200">Pending</span>
+                  <span className="clay-badge bg-slate-100 text-slate-400 border border-slate-200 px-3.5 py-1 text-xs font-bold">Pending</span>
                 )}
               </div>
             </div>
@@ -556,22 +557,22 @@ const fetchRecords = useCallback(async () => {
         {/* Right Column: History Lists */}
         <div className="space-y-6">
           {/* Full History Feed */}
-          <div className="card space-y-5">
+          <div className="clay-card p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
-                <h3 className="text-sm font-extrabold text-slate-800 font-heading">Recent Attendance Logs</h3>
-                <p className="text-xs text-slate-400">List of your recent verified scans</p>
+                <h3 className="text-sm font-black text-slate-800 font-heading">Recent Attendance Logs</h3>
+                <p className="text-xs text-slate-400 font-medium">List of your recent verified scans</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setHistoryOpen(true)}
-                  className="text-xs text-brand-600 hover:text-brand-700 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 transition-all duration-300 border border-brand-200/50 shadow-sm"
+                  className="clay-button-secondary text-xs text-brand-700 font-extrabold flex items-center gap-1.5 px-3.5 py-2"
                 >
                   <span>📅</span> History
                 </button>
                 <button
                   onClick={() => fetchRecords()}
-                  className="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/50 shadow-sm transition-all duration-300"
+                  className="clay-button-secondary text-xs text-slate-600 font-extrabold flex items-center gap-1.5 px-3.5 py-2"
                   disabled={loading}
                 >
                   {loading ? (
@@ -592,22 +593,22 @@ const fetchRecords = useCallback(async () => {
             ) : Object.keys(byDate).length === 0 ? (
               <div className="text-center py-12 space-y-2">
                 <span className="text-3xl">📭</span>
-                <p className="text-xs font-bold text-slate-400">No attendance logs registered yet</p>
+                <p className="text-xs font-extrabold text-slate-400">No attendance logs registered yet</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100 max-h-[320px] overflow-y-auto pr-2 space-y-3.5">
+              <div className="divide-y divide-slate-100 max-h-[340px] overflow-y-auto pr-2 space-y-3.5">
                 {Object.entries(byDate).map(([date, recs]) => (
                   <div key={date} className="pt-3.5 first:pt-0">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">
                       📅 {formatDate(date)}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {(recs as AttendanceRecord[]).map((r: AttendanceRecord) => (
-                        <div key={r.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-slate-100 shadow-sm text-xs font-semibold">
-                          <span className={`w-2.5 h-2.5 rounded-full ${r.session.startsWith('FN') ? 'bg-blue-500 shadow-sm shadow-blue-500/20' : 'bg-amber-500 shadow-sm shadow-amber-500/20'}`}></span>
-                          <span className="text-slate-700">{r.session}</span>
+                        <div key={r.id} className="clay-badge bg-white border border-slate-200/80 inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-700">
+                          <span className={`w-2.5 h-2.5 rounded-full ${r.session.startsWith('FN') ? 'bg-blue-500 shadow-sm shadow-blue-500/30' : 'bg-amber-500 shadow-sm shadow-amber-500/30'}`}></span>
+                          <span className="text-slate-800">{r.session}</span>
                           <span className="text-slate-300">|</span>
-                          <span className="text-slate-400 text-[10px] font-medium">Marked by {r.marked_by_name || r.marked_by}</span>
+                          <span className="text-slate-500 text-[10px] font-semibold">Marked by {r.marked_by_name || r.marked_by}</span>
                         </div>
                       ))}
                     </div>
@@ -621,50 +622,50 @@ const fetchRecords = useCallback(async () => {
 
       <AboutApp />
 
-      {/* Attendance History Drawer / Modal */}
+      {/* Tactile Clay Attendance History Drawer / Modal */}
       {historyOpen && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6 animate-fade-in animate-duration-200">
-          <div className="w-full max-w-3xl bg-white rounded-[2rem] border border-slate-100 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
+          <div className="w-full max-w-3xl clay-card bg-white rounded-[2.5rem] border border-white shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-6 sm:p-8 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-extrabold text-slate-800 font-heading">Complete Attendance History</h3>
-                <p className="text-xs text-slate-400">Total {filteredHistory.length} sessions matching filters</p>
+                <h3 className="text-xl font-black text-slate-800 font-heading">Complete Attendance History</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">Total {filteredHistory.length} sessions matching active filters</p>
               </div>
               <button
                 onClick={() => setHistoryOpen(false)}
-                className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all font-bold"
+                className="clay-button-secondary w-10 h-10 rounded-full flex items-center justify-center text-slate-600 font-black text-sm"
               >
                 ✕
               </button>
             </div>
 
             {/* Filters Row */}
-            <div className="p-6 bg-slate-50/50 border-b border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-6 bg-slate-50/70 border-b border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">From Date</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">From Date</label>
                 <input
                   type="date"
                   value={histDateFrom}
                   onChange={(e) => setHistDateFrom(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold"
+                  className="clay-input w-full px-3.5 py-2 text-xs font-bold text-slate-700"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">To Date</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">To Date</label>
                 <input
                   type="date"
                   value={histDateTo}
                   onChange={(e) => setHistDateTo(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold"
+                  className="clay-input w-full px-3.5 py-2 text-xs font-bold text-slate-700"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Session</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Session</label>
                 <select
                   value={histSession}
                   onChange={(e) => setHistSession(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold text-slate-700"
+                  className="clay-input w-full px-3.5 py-2 text-xs font-bold text-slate-700"
                 >
                   <option value="">All Sessions</option>
                   <option value="FN1">FN1</option>
@@ -674,11 +675,11 @@ const fetchRecords = useCallback(async () => {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
                 <select
                   value={histStatus}
                   onChange={(e) => setHistStatus(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold text-slate-700"
+                  className="clay-input w-full px-3.5 py-2 text-xs font-bold text-slate-700"
                 >
                   <option value="">All Statuses</option>
                   <option value="present">🟢 Present</option>
@@ -688,13 +689,13 @@ const fetchRecords = useCallback(async () => {
             </div>
 
             {/* Quick Search */}
-            <div className="px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div className="px-6 py-3 border-b border-slate-100 bg-white">
               <input
                 type="text"
                 placeholder="Search by faculty name or date..."
                 value={histSearch}
                 onChange={(e) => setHistSearch(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                className="clay-input w-full px-4 py-2.5 text-xs font-medium"
               />
             </div>
 
@@ -708,44 +709,44 @@ const fetchRecords = useCallback(async () => {
               ) : filteredHistory.length === 0 ? (
                 <div className="text-center py-12 space-y-2">
                   <span className="text-3xl">📭</span>
-                  <p className="text-xs font-bold text-slate-400">No matching attendance logs found</p>
+                  <p className="text-xs font-extrabold text-slate-400">No matching attendance logs found</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-slate-50/20">
+                <div className="overflow-x-auto rounded-[1.75rem] border border-slate-200/70 bg-slate-50/50 p-2">
                   <table className="w-full text-xs text-left">
                     <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50">
-                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Session</th>
-                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Marked Time</th>
-                        <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Verified By</th>
+                      <tr className="border-b border-slate-200/60 bg-slate-100/70">
+                        <th className="p-3.5 font-black text-slate-600 uppercase tracking-wider">Date</th>
+                        <th className="p-3.5 font-black text-slate-600 uppercase tracking-wider">Session</th>
+                        <th className="p-3.5 font-black text-slate-600 uppercase tracking-wider">Status</th>
+                        <th className="p-3.5 font-black text-slate-600 uppercase tracking-wider">Marked Time</th>
+                        <th className="p-3.5 font-black text-slate-600 uppercase tracking-wider">Verified By</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
+                    <tbody className="divide-y divide-slate-100 bg-white rounded-xl">
                       {filteredHistory.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="p-4 font-semibold text-slate-700">{formatDate(item.date)}</td>
-                          <td className="p-4">
-                            <span className={`badge ${sessionColor(item.session)} text-[10px]`}>
+                        <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5 font-extrabold text-slate-800">{formatDate(item.date)}</td>
+                          <td className="p-3.5">
+                            <span className={`badge ${sessionColor(item.session)} text-[10px] clay-badge`}>
                               {item.session}
                             </span>
                           </td>
-                          <td className="p-4">
+                          <td className="p-3.5">
                             {item.present ? (
-                              <span className="badge bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold animate-fade-in">
+                              <span className="clay-badge bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-0.5 text-[10px] font-black">
                                 🟢 Present
                               </span>
                             ) : (
-                              <span className="badge bg-red-50 text-red-700 border border-red-100 text-[10px] font-bold animate-fade-in">
+                              <span className="clay-badge bg-red-100 text-red-800 border border-red-200 px-3 py-0.5 text-[10px] font-black">
                                 🔴 Absent
                               </span>
                             )}
                           </td>
-                          <td className="p-4 font-semibold text-slate-400">
+                          <td className="p-3.5 font-bold text-slate-500">
                             {item.timestamp ? formatTime(item.timestamp) : '—'}
                           </td>
-                          <td className="p-4 font-semibold text-slate-500">
+                          <td className="p-3.5 font-extrabold text-slate-600">
                             {item.marked_by_name || (item.present ? 'Faculty' : '—')}
                           </td>
                         </tr>
@@ -767,14 +768,14 @@ const fetchRecords = useCallback(async () => {
                     setHistStatus('')
                     setHistSearch('')
                   }}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-black text-slate-500 hover:text-slate-800 transition-colors"
                 >
                   Clear Filters
                 </button>
               )}
               <button
                 onClick={() => setHistoryOpen(false)}
-                className="btn-primary px-5 py-2 text-xs font-bold"
+                className="clay-button px-6 py-2.5 text-xs font-extrabold"
               >
                 Close
               </button>

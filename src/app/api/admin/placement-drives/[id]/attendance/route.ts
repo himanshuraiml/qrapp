@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { verifyQrSignature } from '@/lib/qrSignature'
+import { decryptQrPayload } from '@/lib/qrSignature'
 
 export async function POST(
   request: Request,
@@ -20,31 +20,17 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { sig, is_manual_override, ...payload } = body ?? {}
-    const rawStudentId = payload.student_id
-    const targetStatus = body.status || 'Present' // 'Present', 'Eligible', or 'Absent'
+    const { token, is_manual_override, status } = body ?? {}
+    const targetStatus = status || 'Present' // 'Present', 'Eligible', or 'Absent'
 
-    if (!rawStudentId) {
-      return NextResponse.json({ success: false, error: 'Student ID is required' }, { status: 400 })
-    }
+    let rawStudentId: string | undefined
 
-    const studentId = String(rawStudentId).trim().toUpperCase()
-
-    // Unless an Admin explicitly performs a manual override, enforce QR HMAC signature verification.
+    // Unless an Admin explicitly performs a manual override, the scan must
+    // decrypt to a valid, fresh QR payload — every identity field comes
+    // from the decrypted token, never from client-supplied fields.
     if (!is_manual_override || callerProfile?.role !== 'Admin') {
-      if (!sig || typeof payload.ts !== 'number') {
-        return NextResponse.json({ success: false, error: 'Invalid or missing QR signature payload.' }, { status: 400 })
-      }
-
-      if (!verifyQrSignature({
-        student_id: payload.student_id,
-        name: payload.name ?? '',
-        department: payload.department ?? '',
-        year: Number(payload.year ?? 1),
-        section: payload.section ?? '',
-        batch: payload.batch ?? null,
-        ts: payload.ts,
-      }, sig)) {
+      const payload = decryptQrPayload(token)
+      if (!payload) {
         return NextResponse.json({ success: false, error: 'Invalid or tampered QR code.' }, { status: 400 })
       }
 
@@ -53,7 +39,17 @@ export async function POST(
       if (nowSec - payload.ts > 300 || payload.ts > nowSec + 5) {
         return NextResponse.json({ success: false, error: 'QR code expired. Ask student to refresh their code.' }, { status: 400 })
       }
+
+      rawStudentId = payload.student_id
+    } else {
+      rawStudentId = body.student_id
     }
+
+    if (!rawStudentId) {
+      return NextResponse.json({ success: false, error: 'Student ID is required' }, { status: 400 })
+    }
+
+    const studentId = String(rawStudentId).trim().toUpperCase()
 
     const admin = createAdminClient()
 

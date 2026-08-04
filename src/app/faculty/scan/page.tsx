@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { todayIST, isQrFresh } from '@/lib/utils'
 import type { QrPayload } from '@/types'
 import { saveOfflineScan, getOfflineQueue, removeOfflineScan, clearOfflineQueue, type OfflineScan } from '@/lib/offlineStore'
+import { decryptQrToken } from '@/lib/qrCryptoClient'
 
 type ScanResult = { type: 'success' | 'error' | 'duplicate'; message: string; studentName?: string; studentId?: string; session?: string }
 
@@ -16,7 +17,11 @@ export default function ScanPage() {
   const [active, setActive] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
   const [scanCount, setScanCount] = useState(0)
-  const [sessionMode, setSessionMode] = useState<'FN' | 'AN'>('FN')
+  const [sessionMode, setSessionMode] = useState<'FN' | 'AN'>(() => {
+    if (typeof window === 'undefined') return 'FN'
+    const currentHourIST = parseInt(new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit' }), 10)
+    return currentHourIST < 13 ? 'FN' : 'AN'
+  })
   const processingRef = useRef(false)
 
   // Placement Drive scan states
@@ -50,6 +55,15 @@ export default function ScanPage() {
   const [offlineQueue, setOfflineQueue] = useState<OfflineScan[]>([])
   const [isSyncing, setIsSyncing] = useState(false)
 
+  // QR payloads are encrypted (AES-256-GCM) — a generic scanner app only
+  // ever sees ciphertext. Decrypting to show a name/ID requires this key,
+  // which is only ever handed to an authenticated Faculty/Admin session
+  // (see /api/attendance/scan-key). It's cached in localStorage so scanning
+  // keeps working across full offline stretches (poor-network blocks) once
+  // fetched at least once while online.
+  const [scanKey, setScanKey] = useState<string | null>(null)
+  const scanKeyRef = useRef<string | null>(null)
+
   const offlineQueueRef = useRef(offlineQueue)
   const isSyncingRef = useRef(isSyncing)
 
@@ -60,6 +74,36 @@ export default function ScanPage() {
   useEffect(() => {
     isSyncingRef.current = isSyncing
   }, [isSyncing])
+
+  useEffect(() => {
+    scanKeyRef.current = scanKey
+  }, [scanKey])
+
+  const fetchScanKey = useCallback(async () => {
+    try {
+      const res = await fetch('/api/attendance/scan-key', { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (data?.key) {
+        setScanKey(data.key)
+        localStorage.setItem('faculty_scan_key', data.key)
+      }
+    } catch (e) {
+      console.warn('Could not refresh scan key:', e)
+    }
+  }, [])
+
+  // Load any cached key immediately (covers app launch while offline), then
+  // try to refresh it whenever we have connectivity.
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('faculty_scan_key')
+      if (cached) setScanKey(cached)
+    }
+    fetchScanKey()
+    window.addEventListener('online', fetchScanKey)
+    return () => window.removeEventListener('online', fetchScanKey)
+  }, [fetchScanKey])
 
   // Track physical online/offline status
   useEffect(() => {
@@ -375,14 +419,7 @@ export default function ScanPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              student_id: scan.student_id,
-              name: scan.name,
-              department: scan.department,
-              section: scan.section,
-              year: scan.year,
-              batch: scan.batch,
-              ts: scan.ts,
-              sig: scan.sig,
+              token: scan.token,
               mode: 'offline',
               scan_timestamp: scan.timestamp,
               scan_date: scan.date,
@@ -475,10 +512,18 @@ export default function ScanPage() {
     }
 
     try {
-      let payload: QrPayload
-      try {
-        payload = JSON.parse(text)
-      } catch {
+      const key = scanKeyRef.current
+      if (!key) {
+        const errResult: ScanResult = { type: 'error', message: 'Scanner not ready — connect to the internet once, then it will work fully offline.' }
+        setResult(errResult)
+        triggerHaptic([400])
+        addToRecentScans('N/A', 'Scanner Not Ready', 'N/A', 'error', 'No scan key cached yet')
+        scheduleClear(1200)
+        return
+      }
+
+      const payload: QrPayload | null = await decryptQrToken(text, key)
+      if (!payload) {
         const errResult: ScanResult = { type: 'error', message: 'Could not read QR code. Re-align code.' }
         setResult(errResult)
         triggerHaptic([400])
@@ -487,7 +532,7 @@ export default function ScanPage() {
         return
       }
 
-      if (!payload.student_id || !payload.ts) {
+      if (!payload.student_id || payload.ts === undefined || payload.ts === null) {
         const errResult: ScanResult = { type: 'error', message: 'Invalid academic QR code structure' }
         setResult(errResult)
         triggerHaptic([400])
@@ -496,7 +541,8 @@ export default function ScanPage() {
         return
       }
 
-      if (!isQrFresh(payload.ts)) {
+      const isOfflinePass = payload.mode === 'offline' || payload.ts === 0
+      if (!isQrFresh(payload.ts, isOfflinePass)) {
         const errResult: ScanResult = { type: 'error', message: 'QR code expired. Ask student to tap refresh on dashboard.' }
         setResult(errResult)
         triggerHaptic([400])
@@ -521,14 +567,7 @@ export default function ScanPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              student_id: payload.student_id,
-              name: payload.name,
-              department: payload.department,
-              section: payload.section,
-              year: payload.year,
-              batch: payload.batch,
-              ts: payload.ts,
-              sig: payload.sig,
+              token: text,
               status: 'Present',
             }),
           })
@@ -611,17 +650,7 @@ export default function ScanPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             signal: controller.signal,
-            body: JSON.stringify({
-              student_id: payload.student_id,
-              name: payload.name,
-              department: payload.department,
-              section: payload.section,
-              year: payload.year,
-              batch: payload.batch,
-              ts: payload.ts,
-              sig: payload.sig,
-              mode: 'online',
-            }),
+            body: JSON.stringify({ token: text }),
           })
           clearTimeout(fetchTimeout)
 
@@ -684,7 +713,7 @@ export default function ScanPage() {
           year: payload.year,
           batch: payload.batch || null,
           ts: payload.ts,
-          sig: payload.sig ?? '',
+          token: text,
           timestamp: new Date().toISOString(),
           date: todayIST()
         }
@@ -743,112 +772,116 @@ export default function ScanPage() {
   }
 
   return (
-    <div className="relative space-y-6 max-w-lg mx-auto px-4 pb-12">
-      {/* Background Decorative Mesh Gradients */}
-      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
-        <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
-        <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
+    <div className="relative space-y-6 animate-fade-in pb-16 max-w-2xl mx-auto px-4 md:px-0">
+      {/* Soft Ambient Background Spheres */}
+      <div className="absolute inset-0 z-[-1] pointer-events-none opacity-60 overflow-hidden">
+        <div className="absolute top-[-5%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-indigo-200/40 blur-[120px] mix-blend-multiply animate-pulse" style={{ animationDuration: '8s' }}></div>
+        <div className="absolute bottom-[-5%] right-[-10%] w-[45vw] h-[45vw] rounded-full bg-purple-200/40 blur-[120px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
       </div>
-      <div className="flex items-center justify-between gap-4 bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm">
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-colors">
-            <span className="text-slate-600 font-bold text-sm">←</span>
-          </button>
-          <div>
-            <h1 className="text-base font-extrabold text-slate-800 font-heading">QR Scanner</h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Active: <span className="font-bold text-brand-600">Auto ({sessionMode})</span>
-            </p>
-          </div>
-        </div>
 
-      {/* Offline Status & Pending Queue Banner */}
-      {(!isOnline || offlineQueue.length > 0) && (
-        <div className={`p-4 rounded-3xl border shadow-sm flex items-center justify-between gap-3 transition-all ${
-          !isOnline 
-            ? 'bg-amber-50 border-amber-200 text-amber-900' 
-            : 'bg-indigo-50 border-indigo-200 text-indigo-900'
-        }`}>
+      {/* Header bar with Back button */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => router.push('/faculty')}
+          className="clay-button-secondary inline-flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold text-slate-700 min-h-[44px]"
+        >
+          <span>←</span>
+          <span>Faculty Dashboard</span>
+        </button>
+
+        {/* Network & Encryption Key Status Indicator */}
+        <div className="flex items-center gap-2">
+          {!scanKey ? (
+            <span className="clay-badge bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-extrabold px-3 py-1.5" title="No encryption key cached. Online connection required for first scan.">
+              🔑 Key Syncing...
+            </span>
+          ) : isOnline ? (
+            <span className="clay-badge bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-black px-3 py-1.5 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+              Online
+            </span>
+          ) : (
+            <span className="clay-badge bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-black px-3 py-1.5 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              Offline Mode
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile-Optimized Scanner Settings Control Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Offline / Online Sync Mode Toggle */}
+        <button
+          onClick={() => setForceOffline((prev) => !prev)}
+          className={`clay-card p-3.5 flex items-center justify-between text-left transition-all min-h-[52px] ${
+            forceOffline
+              ? 'clay-card-amber text-amber-950 border-amber-300'
+              : 'bg-white text-slate-800 border-slate-200/80'
+          }`}
+        >
           <div className="flex items-center gap-2.5">
-            <span className="text-lg">{!isOnline ? '⚡' : '📡'}</span>
+            <span className="text-xl">{forceOffline ? '⚡' : '📡'}</span>
             <div>
-              <p className="text-xs font-extrabold font-heading">
-                {!isOnline ? 'Offline Scanning Active' : 'Online · Sync Available'}
+              <p className="text-xs font-black leading-tight">
+                {forceOffline ? 'Fast Offline Mode' : 'Auto Online Sync'}
               </p>
-              <p className="text-[11px] font-medium opacity-80">
-                {offlineQueue.length > 0
-                  ? `${offlineQueue.length} ${offlineQueue.length === 1 ? 'scan' : 'scans'} saved offline`
-                  : 'Scans will save to device until network returns'}
+              <p className="text-[10px] opacity-75 font-semibold">
+                {forceOffline ? 'Instant save (poor network)' : 'Live server verification'}
               </p>
             </div>
           </div>
-
-          {offlineQueue.length > 0 && (
-            <button
-              onClick={syncOfflineScans}
-              disabled={isSyncing || !isOnline}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm hover:bg-brand-700 disabled:opacity-50 transition-all flex items-center gap-1.5"
-            >
-              {isSyncing ? (
-                <>
-                  <span className="animate-spin text-xs">⏳</span>
-                  <span>Syncing...</span>
-                </>
-              ) : (
-                <>
-                  <span>🔄</span>
-                  <span>Sync Now ({offlineQueue.length})</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      )}
-        {/* Fast Offline Mode Toggle */}
-        <button 
-          onClick={() => setForceOffline((prev) => !prev)} 
-          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl border transition-all text-xs font-bold ${
-            forceOffline 
-              ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-sm shadow-amber-500/10 animate-pulse' 
-              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-          }`}
-          title="Toggle Instant High-Speed Offline Scan Mode for poor network zones"
-        >
-          <span>{forceOffline ? '⚡ Fast Offline Mode' : '📡 Auto Mode'}</span>
+          <span className={`clay-badge px-2.5 py-1 text-[10px] font-black ${
+            forceOffline ? 'bg-amber-200/80 text-amber-950' : 'bg-emerald-100 text-emerald-800'
+          }`}>
+            {forceOffline ? 'OFFLINE' : 'ONLINE'}
+          </span>
         </button>
 
-        {/* Haptic Feedback Toggle */}
-        <button 
-          onClick={toggleHaptics} 
-          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl border transition-all text-xs font-bold ${
-            hapticsEnabled 
-              ? 'bg-brand-50 border-brand-200 text-brand-700 shadow-sm shadow-brand-500/5' 
-              : 'bg-slate-50 border-slate-200 text-slate-400'
+        {/* Haptic Vibration Feedback Toggle */}
+        <button
+          onClick={toggleHaptics}
+          className={`clay-card p-3.5 flex items-center justify-between text-left transition-all min-h-[52px] ${
+            hapticsEnabled
+              ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-950 border-indigo-200'
+              : 'bg-white text-slate-400 border-slate-200/80'
           }`}
-          title="Toggle vibration feedback"
         >
-          <span>{hapticsEnabled ? '📳 Haptics On' : '📴 Haptics Off'}</span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">{hapticsEnabled ? '📳' : '📴'}</span>
+            <div>
+              <p className="text-xs font-black text-slate-800 leading-tight">Vibration Feedback</p>
+              <p className="text-[10px] text-slate-500 font-semibold">
+                {hapticsEnabled ? 'Haptics active on scan' : 'Haptic vibration disabled'}
+              </p>
+            </div>
+          </div>
+          <span className={`clay-badge px-2.5 py-1 text-[10px] font-black ${
+            hapticsEnabled ? 'bg-indigo-100 text-indigo-900 border border-indigo-200' : 'bg-slate-100 text-slate-500'
+          }`}>
+            {hapticsEnabled ? 'ON' : 'OFF'}
+          </span>
         </button>
       </div>
 
-      {/* Mode Switcher: Daily Class Session vs Placement Drive */}
-      <div className="bg-white/80 backdrop-blur-md border border-slate-200/60 p-2 rounded-2xl shadow-sm flex items-center gap-2">
+      {/* Target Mode Switcher: Daily Class Session vs Placement Drive */}
+      <div className="clay-card p-2 rounded-[1.75rem] flex items-center gap-2 min-h-[52px]">
         <button
           onClick={() => setScanTargetMode('session')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+          className={`flex-1 py-2.5 px-4 rounded-2xl text-xs font-extrabold transition-all min-h-[44px] ${
             scanTargetMode === 'session'
-              ? 'bg-brand-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'clay-button text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-50'
           }`}
         >
           📅 Daily Class Session
         </button>
         <button
           onClick={() => setScanTargetMode('placement')}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+          className={`flex-1 py-2.5 px-4 rounded-2xl text-xs font-extrabold transition-all min-h-[44px] ${
             scanTargetMode === 'placement'
-              ? 'bg-brand-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'clay-button text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-50'
           }`}
         >
           🚀 Placement Drive
@@ -856,17 +889,17 @@ export default function ScanPage() {
       </div>
 
       {scanTargetMode === 'placement' && (
-        <div className="bg-white/80 backdrop-blur-md border border-brand-200 p-4 rounded-3xl shadow-sm space-y-2">
-          <label className="block text-[10px] font-bold text-brand-900 uppercase tracking-wider">
+        <div className="clay-card p-6 space-y-3">
+          <label className="block text-xs font-black text-brand-900 uppercase tracking-wider">
             Select Placement Drive to Scan *
           </label>
           {placementDrives.length === 0 ? (
-            <p className="text-xs text-slate-500 font-medium">No active placement drives found. Create drives in Admin Portal.</p>
+            <p className="text-xs text-slate-500 font-semibold">No active placement drives found. Create drives in Admin Portal.</p>
           ) : (
             <select
               value={selectedPlacementDriveId}
               onChange={(e) => setSelectedPlacementDriveId(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 font-bold text-slate-800"
+              className="clay-input w-full min-h-[48px] px-4 py-3 text-xs font-extrabold text-slate-800"
             >
               {placementDrives.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -880,79 +913,77 @@ export default function ScanPage() {
 
       {scanTargetMode === 'session' && (
         <>
+          <div className="clay-card p-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Scanning Target</p>
+                {loadingConfig ? (
+                  <p className="text-xs text-slate-400 font-semibold">Loading batch details...</p>
+                ) : facultyProfile?.special_login ? (
+                  <p className="text-xs font-black text-purple-700 mt-0.5">⭐️ Special Login (All Batches Allowed)</p>
+                ) : facultyProfile?.batch ? (
+                  <p className="text-xs font-black text-slate-800 mt-0.5">
+                    Batch <span className="text-brand-700 font-black">{facultyProfile.batch}</span> {batchVenue ? `· Venue: ${batchVenue}` : ''}
+                  </p>
+                ) : (
+                  <p className="text-xs font-black text-amber-700 mt-0.5">⚠️ No Batch Selected</p>
+                )}
+              </div>
 
-      <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm space-y-3">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Scanning Target</p>
-            {loadingConfig ? (
-              <p className="text-xs text-slate-400 font-medium">Loading batch details...</p>
-            ) : facultyProfile?.special_login ? (
-              <p className="text-xs font-extrabold text-purple-700 mt-0.5">⭐️ Special Login (All Batches Allowed)</p>
-            ) : facultyProfile?.batch ? (
-              <p className="text-xs font-extrabold text-slate-800 mt-0.5">
-                Batch <span className="text-brand-600 font-extrabold">{facultyProfile.batch}</span> {batchVenue ? `· Venue: ${batchVenue}` : ''}
-              </p>
-            ) : (
-              <p className="text-xs font-extrabold text-amber-600 mt-0.5">⚠️ No Batch Selected</p>
+              {!loadingConfig && !facultyProfile?.special_login && (
+                <select
+                  disabled={updatingBatch}
+                  value={facultyProfile?.batch || ''}
+                  onChange={(e) => handleAssignBatch(e.target.value)}
+                  className="clay-input min-h-[44px] px-3.5 py-2 text-xs font-extrabold text-slate-800 w-full sm:w-44"
+                >
+                  <option value="">Select Batch</option>
+                  {batchesList.map((b) => (
+                    <option key={b} value={b}>Batch {b}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login && (
+              <div className="p-3 bg-amber-100/90 border border-amber-300 rounded-2xl text-xs font-extrabold text-amber-950 clay-badge">
+                ⚠️ Restricted: Select a batch above to enable the camera scanner.
+              </div>
             )}
           </div>
 
-          {!loadingConfig && !facultyProfile?.special_login && (
-            <select
-              disabled={updatingBatch}
-              value={facultyProfile?.batch || ''}
-              onChange={(e) => handleAssignBatch(e.target.value)}
-              className="border border-slate-200 rounded-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-bold text-slate-700 max-w-[150px]"
-            >
-              <option value="">Select Batch</option>
-              {batchesList.map((b) => (
-                <option key={b} value={b}>Batch {b}</option>
-              ))}
-            </select>
+          {/* Offline Queue Sync Card */}
+          {offlineQueue.length > 0 && (
+            <div className="clay-card-amber p-5 flex items-center justify-between gap-4 animate-slide-up">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-200/80 border border-amber-300 flex items-center justify-center text-lg animate-pulse flex-shrink-0 clay-badge">
+                  ☁️
+                </div>
+                <div>
+                  <p className="text-xs font-black text-amber-950">
+                    {offlineQueue.length} Pending Scan{offlineQueue.length > 1 ? 's' : ''} Offline
+                  </p>
+                  <p className="text-[10px] text-amber-900 font-bold mt-0.5">
+                    Saved locally. Will sync when connection is restored.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={syncOfflineScans}
+                disabled={isSyncing}
+                className={`clay-button px-4 py-2.5 text-xs font-extrabold flex-shrink-0 min-h-[44px] ${
+                  isSyncing ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {isSyncing ? 'Syncing...' : 'Sync Now'}
+              </button>
+            </div>
           )}
-        </div>
-
-        {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login && (
-          <div className="p-2.5 bg-amber-50 border border-amber-100 rounded-2xl text-[10px] font-bold text-amber-700">
-            ⚠️ Restricted: You must assign a batch to start the camera scanner.
-          </div>
-        )}
-      </div>
-
-      {/* Offline Queue Sync Card */}
-      {offlineQueue.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200/60 p-4 rounded-3xl shadow-sm flex items-center justify-between gap-4 animate-slide-up">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-lg animate-pulse flex-shrink-0">
-              ☁️
-            </div>
-            <div>
-              <p className="text-xs font-extrabold text-amber-800">
-                {offlineQueue.length} Pending Scan{offlineQueue.length > 1 ? 's' : ''} Offline
-              </p>
-              <p className="text-[10px] text-amber-600 font-medium mt-0.5">
-                Saved locally. Sync when connection is restored.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={syncOfflineScans}
-            disabled={isSyncing}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold border transition-all flex-shrink-0 ${
-              isSyncing
-                ? 'bg-amber-100/50 border-amber-200 text-amber-400 cursor-not-allowed'
-                : 'bg-amber-600 hover:bg-amber-700 border-amber-700 text-white shadow-sm active:scale-95'
-            }`}
-          >
-            {isSyncing ? 'Syncing...' : 'Sync Now'}
-          </button>
-        </div>
-      )}
-      </>
+        </>
       )}
 
-      <div className="card overflow-hidden p-0 rounded-[2rem] bg-slate-950 border border-white/5 relative">
+      {/* Live Camera Viewfinder (Clay Rounded Box) */}
+      <div className="clay-card p-0 rounded-[2.25rem] bg-slate-950 border border-white/10 relative overflow-hidden shadow-2xl">
         {active && (
           <div className="absolute inset-0 z-20 pointer-events-none neon-scanner-border">
             <div className="scanner-laser"></div>
@@ -963,39 +994,39 @@ export default function ScanPage() {
 
         {!active ? (
           <div className="p-8 text-center space-y-4 relative z-20 bg-slate-950">
-            <div className="w-16 h-16 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 flex items-center justify-center text-3xl mx-auto mb-2 animate-pulse">
+            <div className="w-16 h-16 rounded-full bg-brand-500/20 border border-brand-500/30 text-brand-400 flex items-center justify-center text-3xl mx-auto mb-2 animate-pulse clay-badge-dark">
               📷
             </div>
             <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white font-heading">Camera Access Required</h4>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Permissions are required to access camera device to sweep student QR codes.
+              <h4 className="text-base font-black text-white font-heading">Camera Access Required</h4>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto font-medium">
+                Grant camera permission to sweep student QR codes in real-time.
               </p>
             </div>
             {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login ? (
               <button
                 disabled
-                className="btn-primary w-full py-3.5 font-bold opacity-40 cursor-not-allowed shadow-none animate-pulse"
+                className="clay-button w-full min-h-[56px] py-4 text-sm font-extrabold opacity-40 cursor-not-allowed shadow-none"
               >
                 Select Batch to Start Scanner
               </button>
             ) : (
               <button
                 onClick={() => setActive(true)}
-                className="btn-primary w-full py-3.5 font-bold shadow-xl shadow-brand-500/10 active:scale-98"
+                className="clay-button w-full min-h-[56px] py-4 text-sm font-extrabold text-white"
               >
                 Start Attendance Scanner
               </button>
             )}
           </div>
         ) : (
-          <div className="p-6 text-center bg-slate-950/80 backdrop-blur-md border-t border-white/5 relative z-20">
+          <div className="p-6 text-center bg-slate-950/90 backdrop-blur-md border-t border-white/10 relative z-20">
             <button
               onClick={() => {
                 if (scannerRef.current?.isScanning) scannerRef.current.stop()
                 setActive(false)
               }}
-              className="btn-danger w-full py-3 font-bold"
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-black min-h-[48px] shadow-lg shadow-red-600/30 active:translate-y-0.5 transition-all"
             >
               Stop Camera Feed
             </button>
@@ -1003,72 +1034,72 @@ export default function ScanPage() {
         )}
       </div>
 
+      {/* Tactile Scan Result Feedback Modal */}
       {result && (
         <div 
           onClick={dismissPopup}
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in"
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-fade-in"
           style={{ animationDuration: '150ms' }}
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm glass-dark p-6 rounded-[2rem] border border-white/10 shadow-2xl text-center space-y-4 transform scale-100 animate-slide-up"
-            style={{ animationDuration: '150ms' }}
+            className="w-full max-w-sm clay-card bg-slate-900 border border-white/20 p-6 rounded-[2.25rem] shadow-2xl text-center space-y-4 animate-scale-in"
           >
             {result.type === 'success' && (
               <>
-                <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto mb-1 animate-bounce">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-3xl mx-auto mb-1 animate-bounce clay-badge-dark">
                   ✓
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white font-heading">Marked Present</h3>
-                  <p className="text-brand-300 text-[10px] font-semibold tracking-wider uppercase bg-brand-500/10 border border-brand-500/25 px-2.5 py-0.5 rounded-md inline-block">
+                  <h3 className="text-lg font-black text-white font-heading">Marked Present</h3>
+                  <p className="text-brand-300 text-[10px] font-extrabold tracking-wider uppercase bg-brand-500/20 border border-brand-500/30 px-3 py-1 rounded-full inline-block clay-badge-dark">
                     Session: {result.session}
                   </p>
                 </div>
-                <div className="p-3 bg-white/5 border border-white/5 rounded-2xl">
-                  <p className="text-sm font-extrabold text-white">{result.studentName}</p>
-                  <p className="text-[10px] font-mono text-slate-400 mt-0.5">ID: {result.studentId}</p>
+                <div className="p-4 bg-white/10 border border-white/10 rounded-2xl clay-badge-dark">
+                  <p className="text-base font-black text-white">{result.studentName}</p>
+                  <p className="text-xs font-mono text-slate-300 mt-1 font-bold">ID: {result.studentId}</p>
                 </div>
               </>
             )}
 
             {result.type === 'duplicate' && (
               <>
-                <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-3xl mx-auto mb-1">
+                <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 flex items-center justify-center text-3xl mx-auto mb-1 clay-badge-dark">
                   ⚠️
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-amber-300 font-heading">
+                  <h3 className="text-lg font-black text-amber-300 font-heading">
                     {result.message?.toLowerCase().includes('session') && !result.message?.toLowerCase().includes('already')
                       ? 'Invalid Scan Time'
                       : 'Already Verified'}
                   </h3>
-                  <p className="text-slate-400 text-xs font-medium">
+                  <p className="text-slate-300 text-xs font-bold px-2">
                     {result.message || 'Attendance is already registered for this session.'}
                   </p>
                 </div>
-                <div className="p-3 bg-white/5 border border-white/5 rounded-2xl">
-                  <p className="text-sm font-extrabold text-white">{result.studentName}</p>
-                  <p className="text-[10px] font-mono text-slate-400 mt-0.5">ID: {result.studentId}</p>
+                <div className="p-4 bg-white/10 border border-white/10 rounded-2xl clay-badge-dark">
+                  <p className="text-base font-black text-white">{result.studentName}</p>
+                  <p className="text-xs font-mono text-slate-300 mt-1 font-bold">ID: {result.studentId}</p>
                 </div>
               </>
             )}
 
             {result.type === 'error' && (
               <>
-                <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center text-3xl mx-auto mb-1">
+                <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center text-3xl mx-auto mb-1 clay-badge-dark">
                   ✕
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-red-400 font-heading">Scan Error</h3>
-                  <p className="text-slate-300 text-xs font-semibold px-4">{result.message}</p>
+                  <h3 className="text-lg font-black text-red-400 font-heading">Scan Error</h3>
+                  <p className="text-slate-200 text-xs font-bold px-4 leading-relaxed">{result.message}</p>
                 </div>
               </>
             )}
 
             <button 
               onClick={dismissPopup}
-              className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/15 active:scale-98 rounded-xl text-white text-xs font-bold border border-white/10 transition-all mt-2"
+              className="clay-button w-full py-3 px-5 text-white text-xs font-black min-h-[48px] mt-2"
             >
               Scan Next (Enter)
             </button>
@@ -1078,54 +1109,53 @@ export default function ScanPage() {
 
       {active && (
         <div className="space-y-4">
-          <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-4 rounded-3xl shadow-sm flex items-center justify-between">
+          <div className="clay-card p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Scans This Class Session</p>
-              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Ready for next student QR...</p>
+              <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Scans This Class Session</p>
+              <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Ready for next student QR code...</p>
             </div>
-            <div className="bg-brand-50 border border-brand-100 px-4 py-1.5 rounded-2xl flex items-center justify-center">
-              <span className="text-2xl font-extrabold text-brand-600 font-heading">{scanCount}</span>
+            <div className="clay-badge bg-brand-50 border border-brand-200 px-4 py-2 flex items-center justify-center">
+              <span className="text-2xl font-black text-brand-700 font-heading">{scanCount}</span>
             </div>
           </div>
 
-          <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 p-5 rounded-[2rem] shadow-sm space-y-4">
+          <div className="clay-card p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Recent Scans Feed</h3>
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Recent Scans Feed</h3>
+              <span className="clay-badge bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-0.5 text-[9px] font-black inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 Live Feed
               </span>
             </div>
 
             {recentScans.length === 0 ? (
               <div className="text-center py-6 text-slate-400">
-                <p className="text-xs font-medium">No students scanned yet in this session.</p>
-                <p className="text-[10px] text-slate-400/80 mt-1">Scanned details will populate here in real-time.</p>
+                <p className="text-xs font-bold">No students scanned yet in this session.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Scanned details will populate here in real-time.</p>
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
                 {recentScans.map((scan, i) => (
                   <div 
                     key={`${scan.id}-${i}`}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-100 shadow-sm transition-all hover:border-slate-200 animate-slide-up"
-                    style={{ animationDuration: '200ms' }}
+                    className="clay-badge bg-white border border-slate-200/80 flex items-center justify-between p-3.5 transition-all"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs flex-shrink-0 font-bold ${
-                        scan.type === 'success' ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' :
-                        scan.type === 'duplicate' ? 'bg-amber-50 text-amber-500 border border-amber-100' :
-                        'bg-red-50 text-red-500 border border-red-100'
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs flex-shrink-0 font-black ${
+                        scan.type === 'success' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                        scan.type === 'duplicate' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                        'bg-red-100 text-red-800 border border-red-200'
                       }`}>
                         {scan.type === 'success' ? '✓' : scan.type === 'duplicate' ? '⚠️' : '✕'}
                       </div>
 
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{scan.name}</p>
+                        <p className="text-xs font-black text-slate-800 truncate">{scan.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[9px] font-mono text-slate-500 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded-md">
+                          <span className="text-[9px] font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded-md font-extrabold">
                             {scan.id}
                           </span>
-                          <span className="text-[9px] font-bold text-slate-400">
+                          <span className="text-[9px] font-extrabold text-slate-500">
                             {scan.session}
                           </span>
                         </div>
@@ -1133,11 +1163,11 @@ export default function ScanPage() {
                     </div>
 
                     <div className="text-right flex-shrink-0">
-                      <p className="text-[10px] font-semibold text-slate-500">{scan.time}</p>
-                      <span className={`inline-block text-[8px] font-bold px-1.5 py-0.5 rounded-md mt-1 ${
-                        scan.type === 'success' ? 'bg-emerald-100 text-emerald-700' :
-                        scan.type === 'duplicate' ? 'bg-amber-100 text-amber-700' :
-                        'bg-red-100 text-red-700'
+                      <p className="text-[10px] font-bold text-slate-500">{scan.time}</p>
+                      <span className={`clay-badge inline-block text-[8px] font-black px-2 py-0.5 mt-1 ${
+                        scan.type === 'success' ? 'bg-emerald-100 text-emerald-800' :
+                        scan.type === 'duplicate' ? 'bg-amber-100 text-amber-800' :
+                        'bg-red-100 text-red-800'
                       }`}>
                         {scan.type === 'success' ? 'Present' : scan.type === 'duplicate' ? 'Verified' : 'Error'}
                       </span>

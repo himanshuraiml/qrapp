@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { verifyQrSignature } from '@/lib/qrSignature'
+import { decryptQrPayload } from '@/lib/qrSignature'
 import { todayIST } from '@/lib/utils'
 
 // Replaces the old flow where the faculty scanner called
@@ -10,8 +10,11 @@ import { todayIST } from '@/lib/utils'
 // UUID bypass, missing RBAC). This route:
 //   1. Authenticates the caller from their session cookie (never trusts a
 //      client-supplied marker id).
-//   2. Verifies the QR payload's HMAC signature — only ever issued by
-//      /api/attendance/qr-token for a real logged-in student.
+//   2. Decrypts the QR payload server-side (AES-256-GCM) — only ever issued
+//      by /api/attendance/qr-token for a real logged-in student. The client
+//      supplies only the opaque token; every field used below (student_id,
+//      name, department, ts, date, mode...) comes from the decrypted
+//      payload, never from client-supplied fields.
 //   3. Calls the hardened mark_attendance_safe RPC, which itself re-derives
 //      and re-checks the marker's role server-side (defense in depth).
 
@@ -56,49 +59,33 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { sig, mode, scan_timestamp, scan_date, ...payload } = body ?? {}
+    const { token, mode, scan_timestamp, scan_date } = body ?? {}
 
-    if (!payload?.student_id || payload?.ts === undefined) {
-      return NextResponse.json({ success: false, message: 'Invalid QR code structure.' }, { status: 400 })
-    }
-
-    const isOfflineMode = mode === 'offline' || payload.mode === 'offline'
-    const payloadToVerify = {
-      student_id: payload.student_id,
-      name: payload.name,
-      department: payload.department ?? '',
-      year: payload.year ?? 1,
-      section: payload.section ?? '',
-      batch: payload.batch ?? '',
-      ts: Number(payload.ts ?? 0),
-      ...(payload.date ? { date: payload.date } : {}),
-      ...(isOfflineMode ? { mode: 'offline' as const } : {}),
-    }
-
-    let isSigValid = verifyQrSignature(payloadToVerify, sig)
-    if (!isSigValid) {
-      isSigValid = verifyQrSignature({
-        student_id: payload.student_id,
-        name: payload.name,
-        department: payload.department ?? '',
-        year: payload.year ?? 1,
-        section: payload.section ?? '',
-        batch: payload.batch ?? '',
-        ts: Number(payload.ts ?? 0),
-      }, sig)
-    }
-
-    if (!isSigValid) {
+    const payload = decryptQrPayload(token)
+    if (!payload) {
       return NextResponse.json({ success: false, message: 'Invalid or tampered QR code.' }, { status: 400 })
     }
+
+    // `mode` from the request body is a client-supplied timing hint only —
+    // it is never trusted for identity (every identity field below comes
+    // from the decrypted, tamper-proof payload). It just says "apply the
+    // lenient same-day expiry window instead of the strict 120s live-scan
+    // TTL," which the faculty scanner sets when syncing a scan that was
+    // queued while its device was offline, regardless of whether the
+    // original QR was itself an offline pass.
+    const isOfflineMode = mode === 'offline' || payload.mode === 'offline'
 
     const nowSec = Math.floor(Date.now() / 1000)
     const effectiveDate = typeof scan_date === 'string' ? scan_date : (payload.date || todayIST())
 
     if (isOfflineMode) {
-      // Offline mode check: Must be for today's date in IST (or recorded within 12 hours)
+      // Offline mode check: Must be for today's date in IST (or recorded within 12 hours).
+      // Offline passes are always issued with ts=0 (see qr-token/route.ts), so
+      // isRecentTs must default to false when ts is 0 — otherwise a captured
+      // offline pass would stay valid forever instead of expiring after its
+      // issued date, since !isToday && !isRecentTs would never be true.
       const isToday = effectiveDate === todayIST()
-      const isRecentTs = payload.ts > 0 ? (nowSec - payload.ts <= 43200) : true
+      const isRecentTs = payload.ts > 0 ? (nowSec - payload.ts <= 43200) : false
       if (!isToday && !isRecentTs) {
         return NextResponse.json({ success: false, message: 'Offline QR pass has expired (must be from today).' }, { status: 400 })
       }

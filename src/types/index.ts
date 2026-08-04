@@ -96,8 +96,9 @@ export interface QrPayload {
   year: number
   section: string
   batch?: string | null
-  ts: number   // unix seconds — freshness check
-  sig?: string // server-issued HMAC signature, see src/lib/qrSignature.ts
+  ts: number   // unix seconds — freshness check (0 for offline pass)
+  date?: string
+  mode?: 'online' | 'offline'
 }
 
 export interface ReportFilters {

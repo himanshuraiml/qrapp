@@ -5,8 +5,8 @@ export interface OfflineScan {
   section: string
   year: number
   batch: string | null
-  ts: number   // QR timestamp (or 0 for offline pass)
-  sig: string  // server HMAC signature
+  ts: number    // QR timestamp (or 0 for offline pass)
+  token: string // raw encrypted QR token — re-decrypted server-side on sync
   timestamp: string // ISO timestamp of scan
   date: string // YYYY-MM-DD
 }

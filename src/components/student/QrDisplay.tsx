@@ -30,10 +30,9 @@ export default function QrDisplay() {
   const renderOfflineFallback = useCallback(async () => {
     if (!QRCode) return false
     try {
-      const cached = localStorage.getItem('student_daily_offline_pass')
-      if (cached) {
-        const offlinePass = JSON.parse(cached)
-        const dataUrl = await QRCode.toDataURL(JSON.stringify(offlinePass), {
+      const cachedToken = localStorage.getItem('student_daily_offline_pass')
+      if (cachedToken) {
+        const dataUrl = await QRCode.toDataURL(cachedToken, {
           width: 280,
           margin: 2,
           color: { dark: '#1e1b4b', light: '#ffffff' },
@@ -76,16 +75,13 @@ export default function QrDisplay() {
         return
       }
       const data = await res.json()
-      
-      // Auto-cache offline pass for today
-      if (data.offline_pass && typeof window !== 'undefined') {
-        localStorage.setItem('student_daily_offline_pass', JSON.stringify(data.offline_pass))
+
+      // Auto-cache offline pass token for today
+      if (data.offline_pass?.token && typeof window !== 'undefined') {
+        localStorage.setItem('student_daily_offline_pass', data.offline_pass.token)
       }
 
-      // Remove offline_pass from payload rendered in QR (only need core + sig)
-      const { offline_pass, ...livePayload } = data
-
-      const dataUrl = await QRCode.toDataURL(JSON.stringify(livePayload), {
+      const dataUrl = await QRCode.toDataURL(data.token, {
         width: 280,
         margin: 2,
         color: { dark: '#0f172a', light: '#ffffff' },
@@ -148,61 +144,65 @@ export default function QrDisplay() {
   const strokeColor = countdown > 15 ? '#2563eb' : countdown > 5 ? '#f59e0b' : '#ef4444'
 
   return (
-    <div className="card-premium flex flex-col items-center gap-6 py-8 relative overflow-hidden group">
-      {/* Dynamic background card decorations */}
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-500 via-indigo-500 to-indigo-600"></div>
-      <div className="absolute -top-12 -left-12 w-24 h-24 bg-brand-500/5 rounded-full blur-xl group-hover:bg-brand-500/10 transition-all duration-700"></div>
+    <div className="clay-card p-6 sm:p-8 flex flex-col items-center gap-6 relative overflow-hidden group">
+      {/* Soft ambient gradient overlay */}
+      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-500 via-indigo-500 to-purple-500 rounded-t-full"></div>
+      <div className="absolute -top-16 -left-16 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl group-hover:bg-brand-500/20 transition-all duration-700 pointer-events-none"></div>
 
-      <div className="text-center space-y-1">
-        <h3 className="text-lg font-bold text-slate-800 font-heading">Your Attendance QR</h3>
-        <p className="text-xs text-slate-500">Present this QR code to the faculty to mark your attendance</p>
+      <div className="text-center space-y-1.5">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-brand-700 bg-brand-50/80 border border-brand-200/60 clay-badge">
+          <span>📲</span>
+          <span>Live Digital Pass</span>
+        </div>
+        <h3 className="text-xl font-extrabold text-slate-800 font-heading tracking-tight">Your Attendance QR</h3>
+        <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto">Present this code to your faculty to verify attendance</p>
         
         {isOfflinePass ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 mt-1 rounded-full text-xs font-extrabold text-amber-800 bg-amber-100 border border-amber-300 shadow-sm animate-pulse">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 mt-1 rounded-full text-xs font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300/80 clay-badge animate-pulse">
             <span>⚡</span>
             <span>Offline Pass Active (Valid Today)</span>
           </div>
         ) : (
-          error && <p className="text-xs font-bold text-red-500">{error}</p>
+          error && <p className="text-xs font-bold text-red-500 mt-1">{error}</p>
         )}
       </div>
 
       {qrValue ? (
-        <div className="relative p-4 bg-white rounded-3xl border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.03)] group-hover:scale-[1.02] transition-all duration-500">
-          {/* Animated decorative corner borders */}
-          <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-brand-500 rounded-tl-lg"></div>
-          <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-brand-500 rounded-tr-lg"></div>
-          <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-brand-500 rounded-bl-lg"></div>
-          <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-brand-500 rounded-br-lg"></div>
+        <div className="relative p-5 bg-white rounded-[2.25rem] shadow-[inset_6px_6px_14px_rgba(255,255,255,1),inset_-6px_-6px_14px_rgba(0,0,0,0.05),0_20px_40px_-10px_rgba(79,70,229,0.15)] border border-slate-100 group-hover:scale-[1.02] transition-all duration-500">
+          {/* Tactile corner brackets */}
+          <div className="absolute top-3 left-3 w-5 h-5 border-t-3 border-l-3 border-brand-500 rounded-tl-xl"></div>
+          <div className="absolute top-3 right-3 w-5 h-5 border-t-3 border-r-3 border-brand-500 rounded-tr-xl"></div>
+          <div className="absolute bottom-3 left-3 w-5 h-5 border-b-3 border-l-3 border-brand-500 rounded-bl-xl"></div>
+          <div className="absolute bottom-3 right-3 w-5 h-5 border-b-3 border-r-3 border-brand-500 rounded-br-xl"></div>
 
-          <img src={qrValue} alt="Student QR Code" className="rounded-2xl" width={240} height={240} />
+          <img src={qrValue} alt="Student QR Code" className="rounded-2xl" width={230} height={230} />
 
-          {/* Premium Countdown circle ring overlay (Live mode) */}
+          {/* Premium Countdown circle ring overlay */}
           {!isOfflinePass && (
-            <div className="absolute -bottom-2.5 -right-2.5">
-              <svg width={48} height={48} className="drop-shadow-[0_4px_10px_rgba(0,0,0,0.08)]">
-                <circle cx={24} cy={24} r={20} fill="white" />
+            <div className="absolute -bottom-3 -right-3">
+              <svg width={52} height={52} className="drop-shadow-lg">
+                <circle cx={26} cy={26} r={21} fill="white" className="clay-badge" />
                 <circle
-                  cx={24} cy={24} r={20}
+                  cx={26} cy={26} r={21}
                   fill="none"
-                  stroke="#f1f5f9"
-                  strokeWidth={3.5}
+                  stroke="#e2e8f0"
+                  strokeWidth={4}
                 />
                 <circle
-                  cx={24} cy={24} r={20}
+                  cx={26} cy={26} r={21}
                   fill="none"
                   stroke={strokeColor}
-                  strokeWidth={3.5}
-                  strokeDasharray={`${2 * Math.PI * 20}`}
-                  strokeDashoffset={`${2 * Math.PI * 20 * (1 - pct / 100)}`}
+                  strokeWidth={4}
+                  strokeDasharray={`${2 * Math.PI * 21}`}
+                  strokeDashoffset={`${2 * Math.PI * 21 * (1 - pct / 100)}`}
                   strokeLinecap="round"
-                  transform="rotate(-90 24 24)"
+                  transform="rotate(-90 26 26)"
                   style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s' }}
                 />
                 <text
-                  x={24} y={28}
+                  x={26} y={30}
                   textAnchor="middle"
-                  fontSize={11}
+                  fontSize={12}
                   fontWeight={800}
                   fill={strokeColor}
                   className="font-sans"
@@ -214,34 +214,35 @@ export default function QrDisplay() {
           )}
         </div>
       ) : (
-        <div className="w-[240px] h-[240px] bg-slate-50 border border-slate-100 rounded-3xl animate-pulse flex items-center justify-center">
+        <div className="w-[230px] h-[230px] bg-slate-50 rounded-[2.25rem] clay-card animate-pulse flex flex-col items-center justify-center gap-2">
+          <span className="w-6 h-6 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
           <span className="text-slate-400 text-xs font-semibold">Generating QR...</span>
         </div>
       )}
 
-      {/* Anti-screenshot live verification badge */}
+      {/* Anti-screenshot live verification clay badge */}
       {currentTimeStr && (
-        <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-full border border-slate-200 text-[11px] text-slate-500 font-mono">
-          <span className="relative flex h-2 w-2">
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50/90 rounded-full border border-slate-200/80 text-[11px] text-slate-600 font-mono font-bold clay-badge">
+          <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
-          <span>Live Verified Screen · {currentTimeStr}</span>
+          <span>Live Verified · {currentTimeStr}</span>
         </div>
       )}
 
-      <div className="text-center space-y-3">
+      <div className="text-center space-y-3 pt-1">
         <p className="text-xs text-slate-400 font-medium">
           {isOfflinePass
-            ? 'Using pre-fetched offline pass · Will reconnect automatically'
-            : 'QR refreshes automatically · Fresh code ensures validity'}
+            ? 'Using pre-fetched offline pass · Reconnects automatically'
+            : 'Refreshes every 60s for anti-fraud verification'}
         </p>
         <button
           onClick={generateQr}
-          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold text-brand-600 bg-brand-50 hover:bg-brand-100 transition-all duration-300 transform active:scale-95 shadow-sm"
+          className="clay-button-secondary inline-flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-brand-600"
         >
           <span>🔄</span>
-          <span>Refresh Now</span>
+          <span>Refresh Token</span>
         </button>
       </div>
     </div>

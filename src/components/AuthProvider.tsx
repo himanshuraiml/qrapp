@@ -3,11 +3,14 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { clearCache } from '@/lib/cache'
+import { saveOfflineAuthSession, getOfflineAuthSession, clearOfflineAuthSession } from '@/lib/offlineAuth'
 import type { Profile } from '@/types'
 
 interface AuthContextValue {
   profile: Profile | null
   loading: boolean
+  isOffline: boolean
+  isSessionExpired: boolean
   logout: () => Promise<void>
 }
 
@@ -16,26 +19,19 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 interface AuthProviderProps {
   initialProfile: Profile | null
   initialUserId: string | null
-  initialAccessToken: string | null
-  initialRefreshToken: string | null
   children: React.ReactNode
 }
 
 export function AuthProvider({
   initialProfile,
   initialUserId,
-  initialAccessToken,
-  initialRefreshToken,
   children,
 }: AuthProviderProps) {
   const supabase = createClient()
-  // Seed from the server-validated profile. `loading` stays true until the
-  // server session has been handed to the browser client (setSession below),
-  // so pages wait for an authenticated client before firing RPCs — but it is
-  // ALWAYS cleared in the seed effect's finally, so the UI can never hang even
-  // if the profile is null or setSession fails.
   const [profile, setProfile] = useState<Profile | null>(initialProfile)
   const [loading, setLoading] = useState(true)
+  const [isOffline, setIsOffline] = useState(false)
+  const [isSessionExpired, setIsSessionExpired] = useState(false)
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -44,39 +40,69 @@ export function AuthProvider({
         .select('*')
         .eq('id', userId)
         .single()
-      setProfile((data as Profile) ?? null)
+      if (data) {
+        setProfile(data as Profile)
+        // Refresh local offline cache
+        saveOfflineAuthSession(userId, { access_token: null, refresh_token: null }, data as Profile)
+      }
     } catch {
       // Network error — keep whatever profile we already have
     }
   }, [supabase])
 
-  // Hand the server-issued session to the browser client once, so subsequent
-  // client-side RPCs/queries are authenticated. Replaces the old INITIAL_SESSION
-  // /api/auth/me fallback race.
+  // Track physical online/offline status
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsOffline(!navigator.onLine)
+      const handleOnline = () => setIsOffline(false)
+      const handleOffline = () => setIsOffline(true)
+      window.addEventListener('online', handleOnline)
+      window.addEventListener('offline', handleOffline)
+      return () => {
+        window.removeEventListener('online', handleOnline)
+        window.removeEventListener('offline', handleOffline)
+      }
+    }
+  }, [])
+
+  // Hand the server-issued session to the browser client & handle offline hydration
   const seeded = useRef(false)
   useEffect(() => {
     if (seeded.current) return
     seeded.current = true
     let cancelled = false
+
     ;(async () => {
       try {
-        if (initialAccessToken && initialRefreshToken) {
-          await supabase.auth.setSession({
-            access_token: initialAccessToken,
-            refresh_token: initialRefreshToken,
-          })
+        if (initialUserId && initialProfile) {
+          // Store authenticated profile in offline vault
+          await saveOfflineAuthSession(
+            initialUserId,
+            { access_token: null, refresh_token: null },
+            initialProfile
+          )
+        } else if (!initialProfile) {
+          // Server could not resolve user (e.g. offline load) — check offline vault for matching user
+          const cached = await getOfflineAuthSession(initialUserId)
+          if (cached && cached.profile) {
+            if (cached.isExpired) {
+              setIsSessionExpired(true)
+            } else {
+              setProfile(cached.profile)
+            }
+          }
         }
       } catch {
-        // ignore — fall through; pages fetch with whatever session exists
+        // ignore — fall through
       } finally {
-        // Always clear loading so the UI never hangs, even on null tokens/profile.
         if (!cancelled) setLoading(false)
       }
     })()
-    return () => { cancelled = true }
-  }, [supabase, initialAccessToken, initialRefreshToken])
 
-  // React only to later auth changes (token refresh, sign-out from another tab).
+    return () => { cancelled = true }
+  }, [initialUserId, initialProfile])
+
+  // React to auth changes (token refresh, sign-out)
   useEffect(() => {
     let active = true
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -84,6 +110,7 @@ export function AuthProvider({
         if (!active) return
         if (event === 'SIGNED_OUT') {
           setProfile(null)
+          clearOfflineAuthSession()
         } else if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           if (session?.user) fetchProfile(session.user.id)
         }
@@ -97,22 +124,22 @@ export function AuthProvider({
 
   const logout = useCallback(async (errorType?: string) => {
     clearCache()
+    await clearOfflineAuthSession()
 
-    // Wipe session from every client-side storage so the middleware never
-    // sees stale auth cookies and bounces the user back to the dashboard.
     try {
-      Object.keys(localStorage)
-        .filter((k) => k.startsWith('sb-'))
-        .forEach((k) => localStorage.removeItem(k))
-      document.cookie.split(';').forEach((c) => {
-        const key = c.split('=')[0].trim()
-        if (key.startsWith('sb-')) {
-          document.cookie = `${key}=; max-age=0; path=/`
-        }
-      })
+      if (typeof window !== 'undefined') {
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('sb-') || k.startsWith('faculty_') || k.startsWith('student_') || k.startsWith('qr_') || k.startsWith('scan_'))
+          .forEach((k) => localStorage.removeItem(k))
+        document.cookie.split(';').forEach((c) => {
+          const key = c.split('=')[0].trim()
+          if (key.startsWith('sb-')) {
+            document.cookie = `${key}=; max-age=0; path=/`
+          }
+        })
+      }
     } catch {}
 
-    // Best-effort network signOut — but don't let it block the redirect
     const timeout = new Promise<void>((resolve) => setTimeout(resolve, 2000))
     try {
       await Promise.race([supabase.auth.signOut(), timeout])
@@ -157,7 +184,12 @@ export function AuthProvider({
   }, [profile?.id, supabase, logout])
 
   return (
-    <AuthContext.Provider value={{ profile, loading, logout }}>
+    <AuthContext.Provider value={{ profile, loading, isOffline, isSessionExpired, logout }}>
+      {isSessionExpired && (
+        <div className="bg-rose-600 text-white text-xs py-2 px-4 text-center font-medium shadow-md">
+          Your offline session expired (24h limit). Please connect to the internet to sign in.
+        </div>
+      )}
       {children}
     </AuthContext.Provider>
   )
@@ -166,8 +198,8 @@ export function AuthProvider({
 export function useAuthContext(): AuthContextValue {
   const ctx = useContext(AuthContext)
   if (!ctx) {
-    // Rendered outside a provider (e.g. /login) — return a safe default.
-    return { profile: null, loading: false, logout: async () => {} }
+    return { profile: null, loading: false, isOffline: false, isSessionExpired: false, logout: async () => {} }
   }
   return ctx
 }
+

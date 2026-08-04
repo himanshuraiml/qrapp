@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { signQrPayload } from '@/lib/qrSignature'
+import { encryptQrPayload } from '@/lib/qrSignature'
 
-// Issues a short-lived, server-signed attendance QR payload for the
+// Issues a short-lived, server-encrypted attendance QR token for the
 // currently logged-in student. Replaces the old flow where the browser
 // built the entire QR payload (including the "ts" freshness field) itself
 // with no signature — which let anyone decode a captured QR, swap in any
 // student_id, regenerate ts, and re-encode a forged code (VAPT Vuln 1).
+//
+// The payload is AES-256-GCM encrypted rather than just signed, so the QR
+// image itself never carries readable student PII — a generic QR scanner
+// app only sees an opaque token. Only the server, and an authenticated
+// Faculty/Admin session that has fetched the key via /api/attendance/scan-key,
+// can turn it back into a name/department/etc.
 import { todayIST } from '@/lib/utils'
 
 export async function GET() {
@@ -40,7 +46,7 @@ export async function GET() {
       ts: Math.floor(Date.now() / 1000),
     }
 
-    const sig = signQrPayload(payload)
+    const token = encryptQrPayload(payload)
 
     const today = todayIST()
     const offlinePayload = {
@@ -54,14 +60,12 @@ export async function GET() {
       date: today,
       mode: 'offline' as const,
     }
-    const offlineSig = signQrPayload(offlinePayload)
+    const offlineToken = encryptQrPayload(offlinePayload)
 
     return NextResponse.json({
-      ...payload,
-      sig,
+      token,
       offline_pass: {
-        ...offlinePayload,
-        sig: offlineSig,
+        token: offlineToken,
       },
     })
   } catch (err: any) {

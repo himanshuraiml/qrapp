@@ -146,9 +146,9 @@ export default function LoginPage() {
         {/* Logo / Branding */}
         <div className="text-center mb-8 flex flex-col items-center">
           <img
-            src="https://www.facultyplus.com/wp-content/uploads/2024/01/cropped-srm-trp-logo.png"
-            alt="SRMIST Logo"
-            className="h-20 w-auto object-contain mb-4 filter drop-shadow-md hover:scale-105 transition-transform duration-300"
+            src="/srm-trp-logo.png"
+            alt="SRMIST Tiruchirappalli Logo"
+            className="h-20 w-auto object-contain mb-4 filter drop-shadow-md hover:scale-105 transition-transform duration-300 mix-blend-multiply"
           />
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight font-heading">{LABELS.title}</h1>
           <p className="text-brand-600 text-xs font-semibold mt-1 tracking-widest uppercase">{LABELS.subtitle}</p>
