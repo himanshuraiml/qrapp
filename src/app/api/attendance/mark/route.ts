@@ -79,15 +79,25 @@ export async function POST(request: Request) {
     const effectiveDate = typeof scan_date === 'string' ? scan_date : (payload.date || todayIST())
 
     if (isOfflineMode) {
-      // Offline mode check: Must be for today's date in IST (or recorded within 12 hours).
-      // Offline passes are always issued with ts=0 (see qr-token/route.ts), so
-      // isRecentTs must default to false when ts is 0 — otherwise a captured
-      // offline pass would stay valid forever instead of expiring after its
-      // issued date, since !isToday && !isRecentTs would never be true.
-      const isToday = effectiveDate === todayIST()
-      const isRecentTs = payload.ts > 0 ? (nowSec - payload.ts <= 43200) : false
-      if (!isToday && !isRecentTs) {
-        return NextResponse.json({ success: false, message: 'Offline QR pass has expired (must be from today).' }, { status: 400 })
+      // If the payload explicitly contains an issuance date (e.g. offline QR pass),
+      // verify that the pass date matches the scan date.
+      if (payload.date && payload.date !== effectiveDate) {
+        return NextResponse.json({
+          success: false,
+          message: `Offline QR pass was issued for ${payload.date}, but scanned on ${effectiveDate}.`
+        }, { status: 400 })
+      }
+
+      // Check scan date window (valid for up to 7 days to allow delayed offline sync)
+      const nowMs = Date.now()
+      const scanDateMs = new Date(effectiveDate + 'T00:00:00+05:30').getTime()
+      const diffDays = (nowMs - scanDateMs) / (1000 * 60 * 60 * 24)
+
+      if (diffDays < -1 || diffDays > 7) {
+        return NextResponse.json({
+          success: false,
+          message: 'Offline scan date is outside the valid sync window (max 7 days).'
+        }, { status: 400 })
       }
     } else {
       // Live scan check (120s TTL to handle poor mobile network latency and clock skew)

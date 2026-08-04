@@ -31,7 +31,14 @@ export default function QrDisplay() {
     if (!QRCode) return false
     try {
       const cachedToken = localStorage.getItem('student_daily_offline_pass')
+      const cachedDate = localStorage.getItem('student_daily_offline_pass_date')
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
       if (cachedToken) {
+        if (cachedDate && cachedDate !== today) {
+          setError(`Offline pass from ${cachedDate} has expired. Please connect to the internet once to update today's pass.`)
+          return false
+        }
         const dataUrl = await QRCode.toDataURL(cachedToken, {
           width: 280,
           margin: 2,
@@ -78,7 +85,9 @@ export default function QrDisplay() {
 
       // Auto-cache offline pass token for today
       if (data.offline_pass?.token && typeof window !== 'undefined') {
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
         localStorage.setItem('student_daily_offline_pass', data.offline_pass.token)
+        localStorage.setItem('student_daily_offline_pass_date', today)
       }
 
       const dataUrl = await QRCode.toDataURL(data.token, {

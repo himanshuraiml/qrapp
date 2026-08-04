@@ -61,10 +61,14 @@ export function sessionColor(session: string): string {
     : 'bg-amber-100 text-amber-700'
 }
 
-// Validate QR payload freshness (max 30 seconds old, or valid offline pass)
+// Validate QR payload freshness (covers 60s student display cycle + clock skew buffer)
 export function isQrFresh(tsUnix: number, isOffline: boolean = false): boolean {
   if (isOffline || tsUnix === 0) return true
-  return Math.floor(Date.now() / 1000) - tsUnix <= 30
+  const nowSec = Math.floor(Date.now() / 1000)
+  const age = nowSec - tsUnix
+  // Allow up to 90s (60s display refresh interval + 30s network/clock skew buffer)
+  // and up to 15s of future clock skew (student phone clock behind faculty clock)
+  return age <= 90 && age >= -15
 }
 
 export const SESSIONS: Array<{ label: string; value: string }> = [

@@ -7,6 +7,7 @@ import { todayIST, isQrFresh } from '@/lib/utils'
 import type { QrPayload } from '@/types'
 import { saveOfflineScan, getOfflineQueue, removeOfflineScan, clearOfflineQueue, type OfflineScan } from '@/lib/offlineStore'
 import { decryptQrToken } from '@/lib/qrCryptoClient'
+import { getOfflineAuthSession } from '@/lib/offlineAuth'
 
 type ScanResult = { type: 'success' | 'error' | 'duplicate'; message: string; studentName?: string; studentId?: string; session?: string }
 
@@ -173,6 +174,22 @@ export default function ScanPage() {
     async function loadConfig() {
       setLoadingConfig(true)
       try {
+        // Try restoring cached profile/settings first for offline readiness
+        const cachedAuth = await getOfflineAuthSession().catch(() => null)
+        if (cachedAuth?.profile) {
+          setFacultyProfile(cachedAuth.profile)
+        }
+        if (typeof window !== 'undefined') {
+          const cachedRestrict = localStorage.getItem('faculty_restrict_batch')
+          if (cachedRestrict !== null) {
+            setRestrictFaculty(cachedRestrict === 'true')
+          }
+          const cachedProfile = localStorage.getItem('faculty_cached_profile')
+          if (cachedProfile && !cachedAuth?.profile) {
+            try { setFacultyProfile(JSON.parse(cachedProfile)) } catch {}
+          }
+        }
+
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
@@ -184,6 +201,9 @@ export default function ScanPage() {
         
         if (prof) {
           setFacultyProfile(prof)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('faculty_cached_profile', JSON.stringify(prof))
+          }
           if (prof.batch) {
             supabase
               .from('batch_venues')
@@ -203,6 +223,9 @@ export default function ScanPage() {
           .single()
         if (settings) {
           setRestrictFaculty(!!settings.restrict_faculty_batch)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('faculty_restrict_batch', String(!!settings.restrict_faculty_batch))
+          }
         }
 
         const { data: batches } = await supabase
@@ -426,9 +449,14 @@ export default function ScanPage() {
             }),
           })
 
-          const data = await res.json()
+          const contentType = res.headers.get('content-type') || ''
+          const data = contentType.includes('application/json') ? await res.json().catch(() => null) : null
 
-          if (!res.ok) {
+          if (!res.ok || !data) {
+            if ((!res.ok && (res.status >= 500 || res.status === 429)) || !data) {
+              // Retriable server/rate-limit/network error — keep remaining items in queue and pause sync
+              break
+            }
             failureCount++
             await removeOfflineScan(scan.student_id)
             remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
@@ -542,6 +570,15 @@ export default function ScanPage() {
       }
 
       const isOfflinePass = payload.mode === 'offline' || payload.ts === 0
+      if (isOfflinePass && payload.date && payload.date !== todayIST()) {
+        const errResult: ScanResult = { type: 'error', message: `Offline pass expired (issued for ${payload.date}, today is ${todayIST()}). Ask student to reconnect.` }
+        setResult(errResult)
+        triggerHaptic([400])
+        addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Offline pass expired')
+        scheduleClear(1200)
+        return
+      }
+
       if (!isQrFresh(payload.ts, isOfflinePass)) {
         const errResult: ScanResult = { type: 'error', message: 'QR code expired. Ask student to tap refresh on dashboard.' }
         setResult(errResult)
@@ -654,29 +691,43 @@ export default function ScanPage() {
           })
           clearTimeout(fetchTimeout)
 
-          const data = await res.json()
+          const contentType = res.headers.get('content-type') || ''
+          const data = contentType.includes('application/json') ? await res.json().catch(() => null) : null
 
-          if (res.status === 401) {
+          if (!data) {
+            // Non-JSON response (e.g. HTML 404/500/offline fallback page) — treat as network error to fallback to offline queue!
+            networkErrorOccurred = true
+          } else if (res.status === 401) {
             const errResult: ScanResult = { type: 'error', message: 'Session expired. Please log out and log in again.' }
             setResult(errResult)
             triggerHaptic([400])
             addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Session expired')
             scheduleClear(1200)
             return
-          }
-
-          if (!res.ok) {
+          } else if (!res.ok) {
             const errResult: ScanResult = { type: 'error', message: data?.message || 'Database error' }
             setResult(errResult)
             triggerHaptic([400])
             addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', data?.message)
             scheduleClear(1200)
             return
+          } else {
+            dbResult = data
           }
-          dbResult = data
         } catch (err: any) {
           clearTimeout(fetchTimeout)
-          if (err?.name === 'AbortError' || err instanceof TypeError || err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Failed to fetch') || err.status === 0 || !navigator.onLine) {
+          if (
+            err?.name === 'AbortError' ||
+            err?.name === 'SyntaxError' ||
+            err instanceof TypeError ||
+            err.message?.includes('fetch') ||
+            err.message?.includes('network') ||
+            err.message?.includes('Failed to fetch') ||
+            err.message?.includes('JSON') ||
+            err.message?.includes('Unexpected token') ||
+            err.status === 0 ||
+            !navigator.onLine
+          ) {
             networkErrorOccurred = true
           } else {
             const errMsg = err?.message ?? 'An unexpected error occurred'
