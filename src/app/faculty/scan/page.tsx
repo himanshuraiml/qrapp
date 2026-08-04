@@ -293,7 +293,7 @@ export default function ScanPage() {
       if (document.visibilityState === 'visible') {
         processingRef.current = false
         setActive(false)
-        setTimeout(() => setActive(true), 600)
+        setTimeout(() => setActive(true), 200)
       }
     }
 
@@ -317,7 +317,7 @@ export default function ScanPage() {
 
         await html5QrCode.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 260, height: 260 } },
+          { fps: 25, qrbox: { width: 220, height: 220 } },
           handleQrCode,
           () => {}
         )
@@ -394,7 +394,7 @@ export default function ScanPage() {
     })
   }
 
-  const scheduleClear = (delay: number = 1200) => {
+  const scheduleClear = (delay: number = 700) => {
     if (timeoutIdRef.current) {
       clearTimeout(timeoutIdRef.current)
     }
@@ -546,7 +546,7 @@ export default function ScanPage() {
         setResult(errResult)
         triggerHaptic([400])
         addToRecentScans('N/A', 'Scanner Not Ready', 'N/A', 'error', 'No scan key cached yet')
-        scheduleClear(1200)
+        scheduleClear(700)
         return
       }
 
@@ -556,7 +556,7 @@ export default function ScanPage() {
         setResult(errResult)
         triggerHaptic([400])
         addToRecentScans('N/A', 'Malformed Code', 'N/A', 'error', 'Could not read QR code')
-        scheduleClear(1200)
+        scheduleClear(700)
         return
       }
 
@@ -565,7 +565,7 @@ export default function ScanPage() {
         setResult(errResult)
         triggerHaptic([400])
         addToRecentScans('N/A', payload.name || 'Unknown Student', 'N/A', 'error', 'Invalid code structure')
-        scheduleClear(1200)
+        scheduleClear(700)
         return
       }
 
@@ -575,7 +575,7 @@ export default function ScanPage() {
         setResult(errResult)
         triggerHaptic([400])
         addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Offline pass expired')
-        scheduleClear(1200)
+        scheduleClear(700)
         return
       }
 
@@ -584,7 +584,7 @@ export default function ScanPage() {
         setResult(errResult)
         triggerHaptic([400])
         addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'QR code expired')
-        scheduleClear(1200)
+        scheduleClear(700)
         return
       }
 
@@ -595,7 +595,7 @@ export default function ScanPage() {
           setResult(errResult)
           triggerHaptic([400])
           addToRecentScans(payload.student_id, payload.name, 'Placement', 'error', 'No Placement Drive selected')
-          scheduleClear(1200)
+          scheduleClear(700)
           return
         }
 
@@ -644,7 +644,7 @@ export default function ScanPage() {
           setResult({ type: 'error', message: err.message || 'Error processing placement drive attendance' })
           triggerHaptic([400])
         } finally {
-          scheduleClear(1200)
+          scheduleClear(700)
         }
         return
       }
@@ -656,7 +656,7 @@ export default function ScanPage() {
           setResult(errResult)
           triggerHaptic([400])
           addToRecentScans('N/A', payload.name || 'Unknown Student', 'N/A', 'error', 'No batch selected')
-          scheduleClear(1200)
+          scheduleClear(700)
           return
         }
 
@@ -668,7 +668,7 @@ export default function ScanPage() {
           setResult(errResult)
           triggerHaptic([400])
           addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', `Batch mismatch (Student is Batch ${payload.batch || 'None'})`)
-          scheduleClear(1200)
+          scheduleClear(700)
           return
         }
       }
@@ -680,7 +680,7 @@ export default function ScanPage() {
         networkErrorOccurred = true
       } else {
         const controller = new AbortController()
-        const fetchTimeout = setTimeout(() => controller.abort(), 1500) // 1.5s max wait for poor network
+        const fetchTimeout = setTimeout(() => controller.abort(), 800) // 800ms max — faster offline fallback
 
         try {
           const res = await fetch('/api/attendance/mark', {
@@ -702,14 +702,14 @@ export default function ScanPage() {
             setResult(errResult)
             triggerHaptic([400])
             addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'Session expired')
-            scheduleClear(1200)
+            scheduleClear(700)
             return
           } else if (!res.ok) {
             const errResult: ScanResult = { type: 'error', message: data?.message || 'Database error' }
             setResult(errResult)
             triggerHaptic([400])
             addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', data?.message)
-            scheduleClear(1200)
+            scheduleClear(700)
             return
           } else {
             dbResult = data
@@ -734,7 +734,7 @@ export default function ScanPage() {
             setResult({ type: 'error', message: errMsg })
             triggerHaptic([400])
             addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', errMsg)
-            scheduleClear(1200)
+            scheduleClear(700)
             return
           }
         }
@@ -752,7 +752,7 @@ export default function ScanPage() {
           })
           triggerHaptic([400])
           addToRecentScans(payload.student_id, payload.name, sessionMode + '1', 'duplicate', 'Already in offline queue')
-          scheduleClear(1200)
+          scheduleClear(700)
           return
         }
 
@@ -775,6 +775,9 @@ export default function ScanPage() {
 
         triggerHaptic([100, 50, 100])
 
+        // Release processing lock immediately so next scan is not blocked
+        processingRef.current = false
+
         setResult({
           type: 'success',
           message: 'Saved Offline (Pending Sync)',
@@ -783,7 +786,7 @@ export default function ScanPage() {
           session: sessionMode + '1'
         })
         addToRecentScans(payload.student_id, payload.name, sessionMode + '1', 'success', 'Queued Offline')
-        scheduleClear(1200)
+        scheduleClear(600)
         return
       }
 
@@ -800,7 +803,7 @@ export default function ScanPage() {
         })
         triggerHaptic([100, 50, 100])
         addToRecentScans(payload.student_id, payload.name, sess, 'success', 'Marked Present')
-        scheduleClear(1200)
+        scheduleClear(700)
       } else {
         const msg = dbResult?.message ?? `Attendance already verified`
         setResult({
@@ -811,14 +814,14 @@ export default function ScanPage() {
         })
         triggerHaptic([400])
         addToRecentScans(payload.student_id, payload.name, (sessionMode + '1'), 'duplicate', msg)
-        scheduleClear(1200)
+        scheduleClear(700)
       }
     } catch (err: any) {
       const errMsg = err?.message ?? 'An unexpected error occurred'
       setResult({ type: 'error', message: errMsg })
       triggerHaptic([400])
       addToRecentScans('N/A', 'Error', 'N/A', 'error', errMsg)
-      scheduleClear(1200)
+      scheduleClear(700)
     }
   }
 
