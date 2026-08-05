@@ -8,6 +8,7 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
     const search = searchParams.get('search') || ''
+    const institution = searchParams.get('institution') || 'all'
     const department = searchParams.get('department') || 'all'
     const year = searchParams.get('year') || 'all'
     const batch = searchParams.get('batch') || 'all'
@@ -34,6 +35,9 @@ export async function GET(request: Request) {
     // Apply filters
     if (search.trim()) {
       query = query.or(`name.ilike.%${search}%,student_id.ilike.%${search}%`)
+    }
+    if (institution !== 'all' && institution.trim() !== '') {
+      query = query.eq('institution', institution)
     }
     if (department !== 'all' && department.trim() !== '') {
       query = query.eq('department', department)

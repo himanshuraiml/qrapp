@@ -2,7 +2,9 @@
 
 import { useEffect, useState, FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { SessionSettings } from '@/types'
+import type { SessionSettings, ModuleType } from '@/types'
+import { useModule } from '@/context/ModuleContext'
+import CdcTimetableSettings from '@/modules/cdc/components/CdcTimetableSettings'
 
 const PRESETS = [
   {
@@ -51,15 +53,57 @@ function calculateDuration(start: string, end: string): string {
   return `${hrs > 0 ? `${hrs}h ` : ''}${mins > 0 ? `${mins}m` : ''}`
 }
 
+type ModuleTabType = ModuleType | 'global'
+type SubTabType = 'timetable' | 'schedule' | 'policies' | 'venues' | 'modules'
+
+const MODULE_DEFINITIONS: { id: ModuleTabType; name: string; icon: string; description: string; colorClass: string; activeTabClass: string }[] = [
+  {
+    id: 'cdc',
+    name: 'CDC Classes',
+    icon: '📚',
+    description: 'Manage CDC 8-period timetable schedules, daily period allocations, security policies, and batch venues.',
+    colorClass: 'indigo',
+    activeTabClass: 'bg-indigo-600 text-white shadow-md',
+  },
+  {
+    id: 'training',
+    name: 'Placement Training',
+    icon: '🎯',
+    description: 'Configure training session slot schedules (FN1-AN2), slot presets, compliance policies, and training venues.',
+    colorClass: 'amber',
+    activeTabClass: 'bg-amber-600 text-white shadow-md',
+  },
+  {
+    id: 'placements',
+    name: 'Placement Drives',
+    icon: '🚀',
+    description: 'Configure drive scanning safety policies, faculty drive assignments, and interview hall locations.',
+    colorClass: 'emerald',
+    activeTabClass: 'bg-emerald-600 text-white shadow-md',
+  },
+  {
+    id: 'global',
+    name: 'Module Feature Flags',
+    icon: '🎛️',
+    description: 'Enable or disable mini-application modules across the institution.',
+    colorClass: 'slate',
+    activeTabClass: 'bg-slate-900 text-white shadow-md',
+  },
+]
+
 export default function SettingsPage() {
   const supabase = createClient()
+  const { activeModule, setActiveModule } = useModule()
+
   const [settings, setSettings] = useState<SessionSettings | null>(null)
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [dbQrBlockingEnabled, setDbQrBlockingEnabled] = useState<boolean>(false)
 
-  // Tabs
-  const [activeTab, setActiveTab] = useState<'policies' | 'schedule' | 'batches'>('policies')
+  // Module Tab state (CDC | Placement Training | Placement Drives | Global)
+  const [selectedModule, setSelectedModule] = useState<ModuleTabType>('cdc')
+  // Sub tab inside module
+  const [subTab, setSubTab] = useState<SubTabType>('timetable')
 
   // Batch Venues States
   const [venues, setVenues] = useState<{ batch: string; venue: string }[]>([])
@@ -78,6 +122,26 @@ export default function SettingsPage() {
   // Individual card actions loader state
   const [savingVenues, setSavingVenues] = useState<Set<string>>(new Set())
   const [deletingVenues, setDeletingVenues] = useState<Set<string>>(new Set())
+
+  // Keep selectedModule in sync with activeModule from context if user changes top header dropdown
+  useEffect(() => {
+    if (activeModule && selectedModule !== 'global') {
+      setSelectedModule(activeModule)
+    }
+  }, [activeModule])
+
+  // Adjust default subTab when selectedModule changes
+  const handleSelectModuleTab = (mod: ModuleTabType) => {
+    setSelectedModule(mod)
+    if (mod !== 'global') {
+      setActiveModule(mod)
+    }
+
+    if (mod === 'cdc') setSubTab('timetable')
+    else if (mod === 'training') setSubTab('schedule')
+    else if (mod === 'placements') setSubTab('policies')
+    else setSubTab('modules')
+  }
 
   // Custom Toast helper
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -263,9 +327,19 @@ export default function SettingsPage() {
       block_immediate: settings.block_immediate ?? false,
       qr_blocking_enabled: settings.qr_blocking_enabled ?? false,
       restrict_faculty_batch: settings.restrict_faculty_batch ?? false,
+      module_training_enabled: settings.module_training_enabled ?? true,
+      module_cdc_enabled:      settings.module_cdc_enabled ?? true,
+      module_drives_enabled:   settings.module_drives_enabled ?? true,
+      p1_start: settings.p1_start ?? '09:00', p1_end: settings.p1_end ?? '09:50',
+      p2_start: settings.p2_start ?? '09:50', p2_end: settings.p2_end ?? '10:40',
+      p3_start: settings.p3_start ?? '10:50', p3_end: settings.p3_end ?? '11:40',
+      p4_start: settings.p4_start ?? '11:40', p4_end: settings.p4_end ?? '12:30',
+      p5_start: settings.p5_start ?? '13:20', p5_end: settings.p5_end ?? '14:10',
+      p6_start: settings.p6_start ?? '14:10', p6_end: settings.p6_end ?? '15:00',
+      p7_start: settings.p7_start ?? '15:10', p7_end: settings.p7_end ?? '16:00',
+      p8_start: settings.p8_start ?? '16:00', p8_end: settings.p8_end ?? '16:50',
     }
 
-    // Stamp the activation time so the SQL function ignores pre-activation missed sessions
     if (turningOnBlocking) {
       payload.qr_blocking_enabled_at = new Date().toISOString()
     }
@@ -281,31 +355,26 @@ export default function SettingsPage() {
       } else if (!(settings.qr_blocking_enabled ?? true)) {
         setDbQrBlockingEnabled(false)
       }
-      showToast('System configuration saved successfully!', 'success')
+      showToast('Module configuration saved successfully!', 'success')
     }
   }
 
   if (loading) {
     return (
       <div className="space-y-8 max-w-6xl mx-auto animate-pulse">
-        {/* Header Block Loader */}
         <div className="h-32 bg-slate-200/80 rounded-3xl border border-slate-100/50"></div>
-
-        {/* Stats Grid Loader */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="h-28 bg-slate-200/80 rounded-2xl border border-slate-100/50"></div>
           <div className="h-28 bg-slate-200/80 rounded-2xl border border-slate-100/50"></div>
           <div className="h-28 bg-slate-200/80 rounded-2xl border border-slate-100/50"></div>
         </div>
-
-        {/* Tabs Bar Loader */}
         <div className="h-12 bg-slate-200/80 rounded-2xl max-w-sm"></div>
-
-        {/* Content Panel Loader */}
         <div className="h-80 bg-slate-200/80 rounded-3xl border border-slate-100/50"></div>
       </div>
     )
   }
+
+  const currentModuleDef = MODULE_DEFINITIONS.find((m) => m.id === selectedModule) || MODULE_DEFINITIONS[0]
 
   const activeTogglesCount = [
     settings?.enabled,
@@ -323,31 +392,32 @@ export default function SettingsPage() {
 
   return (
     <div className="relative space-y-8 max-w-6xl mx-auto pb-12">
-      {/* Background Decorative Mesh Gradients */}
+      {/* Background Mesh */}
       <div className="absolute inset-0 z-[-1] pointer-events-none opacity-45 overflow-hidden">
         <div className="absolute top-[-10%] left-[-15%] w-[45vw] h-[45vw] rounded-full bg-brand-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '10s' }}></div>
         <div className="absolute bottom-[-10%] right-[-15%] w-[45vw] h-[45vw] rounded-full bg-indigo-500/10 blur-[130px] mix-blend-multiply animate-pulse" style={{ animationDuration: '12s' }}></div>
       </div>
       
-      {/* Premium Gradient Header Card */}
+      {/* Header Card */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-slate-800 shadow-xl p-8 md:p-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#080f25_1px,transparent_1px),linear-gradient(to_bottom,#080f25_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-35"></div>
         <div className="relative z-10 space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-brand-500/10 border border-brand-500/25 text-brand-300">
-            System Control Hub
+            <span>{currentModuleDef.icon}</span>
+            <span>{currentModuleDef.name} Settings</span>
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-heading">
-            Admin Configuration
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-heading flex items-center gap-3">
+            <span>Admin Configuration</span>
           </h1>
           <p className="text-slate-400 text-sm max-w-xl leading-relaxed">
-            Manage attendance enforcement rules, scan safety settings, session time intervals, and batch class locations.
+            {currentModuleDef.description}
           </p>
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 text-slate-300 backdrop-blur-md">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            Live settings active
+            Per-Module Configuration Active
           </span>
         </div>
       </div>
@@ -356,7 +426,7 @@ export default function SettingsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card bg-white/60 hover:bg-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100 flex items-center justify-between p-6">
           <div className="space-y-1">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Enforced Policies</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Enforced Security Policies</p>
             <h3 className="text-2xl font-extrabold text-slate-800 font-heading">{activeTogglesCount} Active</h3>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
@@ -368,7 +438,7 @@ export default function SettingsPage() {
 
         <div className="card bg-white/60 hover:bg-white/90 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100 flex items-center justify-between p-6">
           <div className="space-y-1">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Configured Locations</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Configured Batch Locations</p>
             <h3 className="text-2xl font-extrabold text-slate-800 font-heading">{configuredVenuesCount} Venues</h3>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600">
@@ -383,7 +453,7 @@ export default function SettingsPage() {
           (settings?.qr_scan_open ?? true) ? 'bg-emerald-50/60 border-emerald-100' : 'bg-red-50/60 border-red-100'
         }`}>
           <div className="space-y-1">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">QR Scan Status</p>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">QR Scan Window</p>
             <h3 className={`text-2xl font-extrabold font-heading ${(settings?.qr_scan_open ?? true) ? 'text-emerald-700' : 'text-red-600'}`}>
               {(settings?.qr_scan_open ?? true) ? 'Scan Open' : 'Scan Closed'}
             </h3>
@@ -398,56 +468,469 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex bg-white/70 backdrop-blur-md p-1.5 rounded-2xl gap-1 border border-slate-200/50 w-fit shadow-[0_8px_30px_rgb(0,0,0,0.01)] overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('policies')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 whitespace-nowrap
-            ${activeTab === 'policies'
-              ? 'bg-white text-brand-600 shadow-md border border-slate-100/80 font-bold'
-              : 'text-slate-600 hover:text-slate-900 font-semibold'}`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          Security Policies
-        </button>
-        <button
-          onClick={() => setActiveTab('schedule')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 whitespace-nowrap
-            ${activeTab === 'schedule'
-              ? 'bg-white text-brand-600 shadow-md border border-slate-100/80 font-bold'
-              : 'text-slate-600 hover:text-slate-900 font-semibold'}`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Session Schedules
-        </button>
-        <button
-          onClick={() => setActiveTab('batches')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 active:scale-95 whitespace-nowrap
-            ${activeTab === 'batches'
-              ? 'bg-white text-brand-600 shadow-md border border-slate-100/80 font-bold'
-              : 'text-slate-600 hover:text-slate-900 font-semibold'}`}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Batch Venues
-        </button>
+      {/* Module Selector Bar */}
+      <div className="bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-3">
+        <div className="px-2 pt-1 flex items-center justify-between">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-400">Select Settings Module Context</span>
+          <span className="text-xs font-bold text-slate-500">Active Module: <strong className="text-slate-800">{currentModuleDef.name}</strong></span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {MODULE_DEFINITIONS.map((m) => {
+            const isSelected = selectedModule === m.id
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleSelectModuleTab(m.id)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 text-left cursor-pointer border ${
+                  isSelected
+                    ? `${m.activeTabClass} border-transparent shadow-md`
+                    : 'bg-slate-50/70 hover:bg-slate-100/80 text-slate-700 border-slate-200/60'
+                }`}
+              >
+                <span className="text-lg flex-shrink-0">{m.icon}</span>
+                <div className="truncate">
+                  <div className="font-extrabold truncate">{m.name}</div>
+                  <div className={`text-[10px] font-semibold truncate ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                    {m.id === 'global' ? 'System Flags' : 'Module Settings'}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Tab Panels */}
-      <div className="transition-all duration-300">
+      {/* Sub-Tabs per Selected Module */}
+      <div className="flex bg-white/70 backdrop-blur-md p-1.5 rounded-2xl gap-1 border border-slate-200/50 w-fit shadow-[0_8px_30px_rgb(0,0,0,0.01)] overflow-x-auto">
         
-        {/* Policies Panel */}
-        {activeTab === 'policies' && (
+        {/* CDC Sub-tabs */}
+        {selectedModule === 'cdc' && (
+          <>
+            <button
+              onClick={() => setSubTab('timetable')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'timetable'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <span className="text-sm">📚</span>
+              CDC 8-Period Timetable
+            </button>
+            <button
+              onClick={() => setSubTab('policies')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'policies'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Security Policies
+            </button>
+            <button
+              onClick={() => setSubTab('venues')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'venues'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              CDC Batch Venues
+            </button>
+          </>
+        )}
+
+        {/* Placement Training Sub-tabs */}
+        {selectedModule === 'training' && (
+          <>
+            <button
+              onClick={() => setSubTab('schedule')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'schedule'
+                  ? 'bg-white text-amber-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Session Schedules
+            </button>
+            <button
+              onClick={() => setSubTab('policies')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'policies'
+                  ? 'bg-white text-amber-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Security Policies
+            </button>
+            <button
+              onClick={() => setSubTab('venues')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'venues'
+                  ? 'bg-white text-amber-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Training Batch Venues
+            </button>
+          </>
+        )}
+
+        {/* Placement Drives Sub-tabs */}
+        {selectedModule === 'placements' && (
+          <>
+            <button
+              onClick={() => setSubTab('policies')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'policies'
+                  ? 'bg-white text-emerald-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Drive Security Policies
+            </button>
+            <button
+              onClick={() => setSubTab('venues')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                subTab === 'venues'
+                  ? 'bg-white text-emerald-600 shadow-sm border border-slate-200/80 font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Drive & Hall Venues
+            </button>
+          </>
+        )}
+
+        {/* Global Feature Flags */}
+        {selectedModule === 'global' && (
+          <button
+            onClick={() => setSubTab('modules')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold bg-white text-slate-900 shadow-sm border border-slate-200/80 whitespace-nowrap"
+          >
+            <span className="text-sm">🎛️</span>
+            Institution Module Feature Flags
+          </button>
+        )}
+
+      </div>
+
+      {/* Main Content Panels */}
+      <div className="transition-all duration-300">
+
+        {/* CDC Timetable Schedule & Grid Panel */}
+        {selectedModule === 'cdc' && subTab === 'timetable' && (
+          <div className="space-y-6">
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              <div className="card bg-white p-6 space-y-4 border border-slate-100">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-base font-bold text-slate-800 font-heading">CDC Classes 8-Period Timetable Schedule</h4>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Set the exact start and end times for all 8 daily periods (9:00 AM to 5:00 PM) for CDC ongoing classes.
+                    </p>
+                  </div>
+                  <span className="badge bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold">
+                    8 Daily Periods
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((pNum) => {
+                    const startKey = `p${pNum}_start` as keyof SessionSettings
+                    const endKey = `p${pNum}_end` as keyof SessionSettings
+                    const defaultStarts = ['09:00', '09:50', '10:50', '11:40', '13:20', '14:10', '15:10', '16:00']
+                    const defaultEnds   = ['09:50', '10:40', '11:40', '12:30', '14:10', '15:00', '16:00', '16:50']
+                    
+                    const valStart = (settings?.[startKey] as string) || defaultStarts[pNum - 1]
+                    const valEnd = (settings?.[endKey] as string) || defaultEnds[pNum - 1]
+
+                    return (
+                      <div key={pNum} className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                          <span className="text-xs font-bold text-indigo-700 font-heading">Period {pNum}</span>
+                          <span className="text-[10px] text-slate-400 font-semibold">{pNum <= 4 ? 'Forenoon' : 'Afternoon'}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] font-extrabold uppercase text-slate-400">Start</label>
+                            <input
+                              type="time"
+                              className="input text-xs font-semibold py-1.5 px-2"
+                              value={valStart}
+                              onChange={(e) => setField(startKey, e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-extrabold uppercase text-slate-400">End</label>
+                            <input
+                              type="time"
+                              className="input text-xs font-semibold py-1.5 px-2"
+                              value={valEnd}
+                              onChange={(e) => setField(endKey, e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-end p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                <button type="submit" disabled={saving} className="btn-primary shadow-lg px-8">
+                  {saving ? 'Saving...' : 'Save CDC Period Timetable'}
+                </button>
+              </div>
+            </form>
+
+            <CdcTimetableSettings />
+          </div>
+        )}
+
+        {/* Placement Training Session Schedules Panel */}
+        {selectedModule === 'training' && subTab === 'schedule' && (
+          <form onSubmit={handleSaveSettings} className="space-y-6">
+            
+            {/* Presets Selector Card */}
+            <div className="card bg-white p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 font-heading">Placement Training Slot Presets</h4>
+                  <p className="text-xs text-slate-500">Fast-configure slot configurations with pre-arranged timings.</p>
+                </div>
+                <span className="text-[10px] font-extrabold tracking-widest text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg uppercase">One-Click Presets</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {PRESETS.map((preset) => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => applyPreset(preset.values)}
+                    className="flex flex-col text-left p-4 rounded-2xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/30 hover:shadow-[0_4px_20px_rgba(245,158,11,0.04)] active:scale-[0.98] transition-all group"
+                  >
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-amber-600 transition-colors">
+                      {preset.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                      {preset.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Time Slots 2x2 Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Slot 1: FN1 */}
+              <div className="card bg-white border border-slate-100 p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">Forenoon</span>
+                    <h4 className="text-xs font-bold text-slate-800 font-heading">Training Slot 1 (FN1)</h4>
+                  </div>
+                  {settings && (
+                    <span className={`badge text-[10px] font-bold ${
+                      calculateDuration(settings.fn1_start, settings.fn1_end) === 'Invalid range'
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {calculateDuration(settings.fn1_start, settings.fn1_end) || 'Empty'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.fn1_start ?? ''}
+                      onChange={(e) => setField('fn1_start', e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.fn1_end ?? ''}
+                      onChange={(e) => setField('fn1_end', e.target.value)} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Slot 2: FN2 */}
+              <div className="card bg-white border border-slate-100 p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">Forenoon</span>
+                    <h4 className="text-xs font-bold text-slate-800 font-heading">Training Slot 2 (FN2)</h4>
+                  </div>
+                  {settings && (
+                    <span className={`badge text-[10px] font-bold ${
+                      calculateDuration(settings.fn2_start, settings.fn2_end) === 'Invalid range'
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {calculateDuration(settings.fn2_start, settings.fn2_end) || 'Empty'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.fn2_start ?? ''}
+                      onChange={(e) => setField('fn2_start', e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.fn2_end ?? ''}
+                      onChange={(e) => setField('fn2_end', e.target.value)} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Slot 3: AN1 */}
+              <div className="card bg-white border border-slate-100 p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">Afternoon</span>
+                    <h4 className="text-xs font-bold text-slate-800 font-heading">Training Slot 3 (AN1)</h4>
+                  </div>
+                  {settings && (
+                    <span className={`badge text-[10px] font-bold ${
+                      calculateDuration(settings.an1_start, settings.an1_end) === 'Invalid range'
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {calculateDuration(settings.an1_start, settings.an1_end) || 'Empty'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.an1_start ?? ''}
+                      onChange={(e) => setField('an1_start', e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.an1_end ?? ''}
+                      onChange={(e) => setField('an1_end', e.target.value)} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Slot 4: AN2 */}
+              <div className="card bg-white border border-slate-100 p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">Afternoon</span>
+                    <h4 className="text-xs font-bold text-slate-800 font-heading">Training Slot 4 (AN2)</h4>
+                  </div>
+                  {settings && (
+                    <span className={`badge text-[10px] font-bold ${
+                      calculateDuration(settings.an2_start, settings.an2_end) === 'Invalid range'
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {calculateDuration(settings.an2_start, settings.an2_end) || 'Empty'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.an2_start ?? ''}
+                      onChange={(e) => setField('an2_start', e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
+                    <input 
+                      type="time" 
+                      className="input text-xs font-semibold py-2.5" 
+                      value={settings?.an2_end ?? ''}
+                      onChange={(e) => setField('an2_end', e.target.value)} 
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="flex justify-end p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+              <button 
+                type="submit" 
+                disabled={saving} 
+                className="btn-primary flex items-center gap-2 shadow-lg shadow-amber-500/20 w-full md:w-auto px-8 bg-amber-600 hover:bg-amber-700"
+              >
+                {saving ? 'Saving schedule...' : 'Save Placement Training Schedule'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Security Policies Panel (Filtered per module context) */}
+        {subTab === 'policies' && (
           <form onSubmit={handleSaveSettings} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-              {/* Card 0: QR Scan Open/Close — master switch */}
+              {/* Card 0: QR Scan Window */}
               <div className={`md:col-span-2 card transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6 group ${
                 (settings?.qr_scan_open ?? true)
                   ? 'bg-emerald-50/40 border-emerald-200/60 hover:border-emerald-300'
@@ -465,7 +948,11 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-slate-800 font-heading">QR Scan Window</h4>
+                      <h4 className="text-sm font-bold text-slate-800 font-heading">
+                        {selectedModule === 'cdc' && 'CDC QR Scan Window'}
+                        {selectedModule === 'training' && 'Training QR Scan Window'}
+                        {selectedModule === 'placements' && 'Drive QR Scan Window'}
+                      </h4>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
                         (settings?.qr_scan_open ?? true)
                           ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
@@ -475,7 +962,7 @@ export default function SettingsPage() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-lg">
-                      Master switch for student QR code visibility. Turn <strong>ON</strong> to open the scan window (e.g. 9:00 AM) and <strong>OFF</strong> to close it (e.g. 9:30 AM). When closed, students see a &ldquo;Scanning closed&rdquo; message instead of their QR code.
+                      Master switch for student QR code visibility during active {currentModuleDef.name} sessions. When closed, students see a &ldquo;Scanning closed&rdquo; alert instead of their QR code.
                     </p>
                   </div>
                 </div>
@@ -514,9 +1001,9 @@ export default function SettingsPage() {
                     </button>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800 font-heading">Enforce Session Hours</h4>
+                    <h4 className="text-sm font-bold text-slate-800 font-heading">Enforce Session Slot Hours</h4>
                     <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                      Restricts students from checking in unless they scan during the official slot times (FN1, FN2, AN1, AN2). Any scan request outside of these hours will be automatically rejected.
+                      Restricts students from checking in unless they scan during official slot time windows. Any scan request outside of these hours will be automatically rejected.
                     </p>
                   </div>
                 </div>
@@ -544,9 +1031,9 @@ export default function SettingsPage() {
                     </button>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800 font-heading">Enable Student QR Blocking</h4>
+                    <h4 className="text-sm font-bold text-slate-800 font-heading">Enable Student QR Blocking Policy</h4>
                     <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                      Activates the strict QR compliance policy. If a student misses any attendance sessions, their scanner view will be locked down, requiring them to contact faculty for an override.
+                      Activates the strict QR compliance policy. If a student misses required attendance sessions, their scanner view will be locked down until reset.
                     </p>
                   </div>
                 </div>
@@ -579,7 +1066,7 @@ export default function SettingsPage() {
                   <div>
                     <h4 className="text-sm font-bold text-slate-800 font-heading">Block QR Immediately on Miss</h4>
                     <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                      Imposes the attendance lock immediately after the session time windows closes. If toggled off, students who miss a session remain active for the rest of today and get blocked from tomorrow morning.
+                      Imposes attendance lockdown immediately after a session closes. If toggled off, missing students remain active for the rest of today and get blocked starting tomorrow morning.
                     </p>
                   </div>
                 </div>
@@ -607,9 +1094,9 @@ export default function SettingsPage() {
                     </button>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800 font-heading">Restrict Faculty to Assigned Batches</h4>
+                    <h4 className="text-sm font-bold text-slate-800 font-heading">Restrict Faculty to Assigned Batches / Drives</h4>
                     <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                      Forces strict access roles for faculty. Faculty members will only be allowed to generate QR codes and mark attendance for batches assigned to them, unless they have special override clearance.
+                      Forces strict access roles for faculty. Faculty members will only be allowed to generate QR codes and mark attendance for batches assigned to them in {currentModuleDef.name}.
                     </p>
                   </div>
                 </div>
@@ -617,272 +1104,27 @@ export default function SettingsPage() {
 
             </div>
 
-            {/* Sticky Save Bar */}
             <div className="flex justify-end p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
               <button 
                 type="submit" 
                 disabled={saving} 
                 className="btn-primary flex items-center gap-2 shadow-lg shadow-brand-500/20 w-full md:w-auto px-8"
               >
-                {saving ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Saving changes...
-                  </>
-                ) : 'Save Configuration'}
+                {saving ? 'Saving policies...' : `Save ${currentModuleDef.name} Policies`}
               </button>
             </div>
           </form>
         )}
 
-        {/* Schedule Panel */}
-        {activeTab === 'schedule' && (
-          <form onSubmit={handleSaveSettings} className="space-y-6">
-            
-            {/* Presets Selector Card */}
-            <div className="card bg-white p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800 font-heading">Time Schedule Presets</h4>
-                  <p className="text-xs text-slate-500">Fast-configure slot configurations with pre-arranged timings.</p>
-                </div>
-                <span className="text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">One-Click Presets</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {PRESETS.map((preset) => (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    onClick={() => applyPreset(preset.values)}
-                    className="flex flex-col text-left p-4 rounded-2xl border border-slate-200 hover:border-brand-500 hover:bg-slate-50/50 hover:shadow-[0_4px_20px_rgba(37,99,235,0.04)] active:scale-[0.98] transition-all group"
-                  >
-                    <span className="text-xs font-bold text-slate-800 group-hover:text-brand-600 transition-colors">
-                      {preset.name}
-                    </span>
-                    <span className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                      {preset.description}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Time Slots 2x2 Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Slot 1: FN1 */}
-              <div className="card bg-white border border-slate-100 p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">Forenoon</span>
-                    <h4 className="text-xs font-bold text-slate-800 font-heading">Session Slot 1 (FN1)</h4>
-                  </div>
-                  {settings && (
-                    <span className={`badge text-[10px] font-bold ${
-                      calculateDuration(settings.fn1_start, settings.fn1_end) === 'Invalid range'
-                        ? 'bg-red-50 text-red-700'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {calculateDuration(settings.fn1_start, settings.fn1_end) || 'Empty'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.fn1_start ?? ''}
-                        onChange={(e) => setField('fn1_start', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.fn1_end ?? ''}
-                        onChange={(e) => setField('fn1_end', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Slot 2: FN2 */}
-              <div className="card bg-white border border-slate-100 p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">Forenoon</span>
-                    <h4 className="text-xs font-bold text-slate-800 font-heading">Session Slot 2 (FN2)</h4>
-                  </div>
-                  {settings && (
-                    <span className={`badge text-[10px] font-bold ${
-                      calculateDuration(settings.fn2_start, settings.fn2_end) === 'Invalid range'
-                        ? 'bg-red-50 text-red-700'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {calculateDuration(settings.fn2_start, settings.fn2_end) || 'Empty'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.fn2_start ?? ''}
-                        onChange={(e) => setField('fn2_start', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.fn2_end ?? ''}
-                        onChange={(e) => setField('fn2_end', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Slot 3: AN1 */}
-              <div className="card bg-white border border-slate-100 p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">Afternoon</span>
-                    <h4 className="text-xs font-bold text-slate-800 font-heading">Session Slot 3 (AN1)</h4>
-                  </div>
-                  {settings && (
-                    <span className={`badge text-[10px] font-bold ${
-                      calculateDuration(settings.an1_start, settings.an1_end) === 'Invalid range'
-                        ? 'bg-red-50 text-red-700'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {calculateDuration(settings.an1_start, settings.an1_end) || 'Empty'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.an1_start ?? ''}
-                        onChange={(e) => setField('an1_start', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.an1_end ?? ''}
-                        onChange={(e) => setField('an1_end', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Slot 4: AN2 */}
-              <div className="card bg-white border border-slate-100 p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">Afternoon</span>
-                    <h4 className="text-xs font-bold text-slate-800 font-heading">Session Slot 4 (AN2)</h4>
-                  </div>
-                  {settings && (
-                    <span className={`badge text-[10px] font-bold ${
-                      calculateDuration(settings.an2_start, settings.an2_end) === 'Invalid range'
-                        ? 'bg-red-50 text-red-700'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {calculateDuration(settings.an2_start, settings.an2_end) || 'Empty'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Start Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.an2_start ?? ''}
-                        onChange={(e) => setField('an2_start', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">End Time</label>
-                    <div className="relative">
-                      <input 
-                        type="time" 
-                        className="input text-xs font-semibold py-2.5" 
-                        value={settings?.an2_end ?? ''}
-                        onChange={(e) => setField('an2_end', e.target.value)} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Sticky Save Bar */}
-            <div className="flex justify-end p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
-              <button 
-                type="submit" 
-                disabled={saving} 
-                className="btn-primary flex items-center gap-2 shadow-lg shadow-brand-500/20 w-full md:w-auto px-8"
-              >
-                {saving ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Saving schedule...
-                  </>
-                ) : 'Save Schedule'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Batch Venues Panel */}
-        {activeTab === 'batches' && (
+        {/* Batch & Venue Locations Panel */}
+        {subTab === 'venues' && (
           <div className="space-y-6">
             
             {/* Search & Add Header Controls */}
             <div className="flex flex-col lg:flex-row gap-6">
               
-              {/* Search Control Card */}
               <div className="card bg-white p-5 flex-1 space-y-3">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-heading">Search Batches</h4>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-heading">Search Batches & Venues</h4>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -891,7 +1133,7 @@ export default function SettingsPage() {
                   </span>
                   <input
                     type="text"
-                    placeholder="Search by Batch code or Venue location..."
+                    placeholder={`Search ${currentModuleDef.name} batch code or venue location...`}
                     className="input text-xs pl-10 py-2.5"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -909,9 +1151,8 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Add Custom Batch Card */}
               <div className="card bg-white p-5 lg:w-[48%] space-y-4">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-heading">Add New Batch Venue</h4>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-heading">Add New Venue Location</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="text"
@@ -932,7 +1173,7 @@ export default function SettingsPage() {
                   onClick={handleAddCustomBatch}
                   className="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider active:scale-95 transition-all shadow-md shadow-brand-500/10"
                 >
-                  Create Batch Venue
+                  Create Batch Venue Location
                 </button>
               </div>
 
@@ -948,7 +1189,7 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-2">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Showing {filteredVenues.length} of {venues.length} Batches
+                    Showing {filteredVenues.length} of {venues.length} Batches for {currentModuleDef.name}
                   </span>
                 </div>
 
@@ -984,7 +1225,7 @@ export default function SettingsPage() {
                                 </div>
                                 <div className="space-y-0.5">
                                   <h4 className="text-xs font-bold text-slate-700">Batch {v.batch}</h4>
-                                  <p className="text-[10px] text-slate-400">Class location</p>
+                                  <p className="text-[10px] text-slate-400">Classroom venue location</p>
                                 </div>
                               </div>
 
@@ -1030,7 +1271,7 @@ export default function SettingsPage() {
                                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                   </svg>
-                                  Save
+                                  Save Location
                                 </>
                               )}
                             </button>
@@ -1056,9 +1297,103 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* Global Module Feature Flags Panel */}
+        {selectedModule === 'global' && subTab === 'modules' && (
+          <form onSubmit={handleSaveSettings} className="space-y-6">
+            <div className="card bg-white p-6 space-y-4 border border-slate-100">
+              <div className="border-b border-slate-100 pb-3">
+                <h4 className="text-base font-bold text-slate-800 font-heading">Institution Module Feature Flags</h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  Enable or disable mini-application modules for your institution. Disabling a module hides its menus, dashboard widgets, reports, filters, and buttons without deleting any underlying data.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                {/* Module 1: Placement Training */}
+                <div className={`p-5 rounded-2xl border transition-all ${
+                  (settings?.module_training_enabled ?? true) ? 'bg-amber-50/50 border-amber-200' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xl">🎯</span>
+                    <button
+                      type="button"
+                      onClick={() => setField('module_training_enabled', !(settings?.module_training_enabled ?? true))}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        (settings?.module_training_enabled ?? true) ? 'bg-amber-600' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                        (settings?.module_training_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                  <h5 className="text-sm font-bold text-slate-800">Placement Training</h5>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Training sessions, attendance tracking, batch analytics, and training performance reports.
+                  </p>
+                </div>
+
+                {/* Module 2: CDC Classes */}
+                <div className={`p-5 rounded-2xl border transition-all ${
+                  (settings?.module_cdc_enabled ?? true) ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xl">📚</span>
+                    <button
+                      type="button"
+                      onClick={() => setField('module_cdc_enabled', !(settings?.module_cdc_enabled ?? true))}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        (settings?.module_cdc_enabled ?? true) ? 'bg-indigo-600' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                        (settings?.module_cdc_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                  <h5 className="text-sm font-bold text-slate-800">CDC Classes</h5>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    8-Period class timetable, subject-wise period attendance, CDC class logs, and reports.
+                  </p>
+                </div>
+
+                {/* Module 3: Placement Drives */}
+                <div className={`p-5 rounded-2xl border transition-all ${
+                  (settings?.module_drives_enabled ?? true) ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-2xl">🚀</span>
+                    <button
+                      type="button"
+                      onClick={() => setField('module_drives_enabled', !(settings?.module_drives_enabled ?? true))}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        (settings?.module_drives_enabled ?? true) ? 'bg-emerald-600' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                        (settings?.module_drives_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                    </button>
+                  </div>
+                  <h5 className="text-sm font-bold text-slate-800">Placement Drives</h5>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    Company profiles, recruitment drives, eligible candidate lists, drive attendance, and selection reports.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 bg-slate-50 border border-slate-200/80 rounded-2xl">
+              <button type="submit" disabled={saving} className="btn-primary shadow-lg px-8">
+                {saving ? 'Saving...' : 'Save Module Configuration'}
+              </button>
+            </div>
+          </form>
+        )}
+
       </div>
 
-      {/* Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       {confirmDeleteBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-2xl max-w-sm w-full mx-4 space-y-4 animate-slide-up">
@@ -1104,7 +1439,6 @@ export default function SettingsPage() {
                 : 'bg-indigo-50 border-indigo-100 text-indigo-800'
             }`}
           >
-            {/* Toast Icons */}
             {toast.type === 'success' && (
               <svg className="w-5 h-5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -1128,4 +1462,3 @@ export default function SettingsPage() {
     </div>
   )
 }
-

@@ -11,6 +11,7 @@ interface IncomingRow {
   rowNum: number          // 1-based source row in the spreadsheet (for error reporting)
   student_id: string
   name: string
+  institution?: string | null
   department: string
   year: string | number
   section: string
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       const rowNum = s.rowNum
       const student_id = String(s.student_id ?? '').trim().toUpperCase()
       const name = String(s.name ?? '').trim()
+      const institution = String(s.institution ?? '').trim() || 'FET'
       const department = String(s.department ?? '').trim()
       const section = String(s.section ?? '').trim()
       const batch = s.batch ? String(s.batch).trim().toUpperCase() : null
@@ -94,6 +96,7 @@ export async function POST(request: Request) {
           .from('profiles')
           .update({
             name,
+            institution,
             department,
             year: yearNum,
             section,
@@ -163,6 +166,7 @@ export async function POST(request: Request) {
         name,
         role:       'Student',
         student_id,
+        institution,
         department,
         year:       yearNum,
         section,

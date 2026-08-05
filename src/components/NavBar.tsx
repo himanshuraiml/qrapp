@@ -7,10 +7,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types'
 
-const NAV_LINKS: Record<UserRole, Array<{ label: string; href: string }>> = {
+import ModuleNav from '@/components/shell/ModuleNav'
+import { useModule } from '@/context/ModuleContext'
+
+const NAV_LINKS: Record<UserRole, Array<{ label: string; href: string; module?: 'placements' | 'cdc' | 'training' }>> = {
   Admin: [
     { label: 'Dashboard', href: '/admin' },
-    { label: 'Placements', href: '/admin/placement-drives' },
     { label: 'Reports',   href: '/admin/reports' },
     { label: 'Students',  href: '/admin/students' },
     { label: 'Faculty',   href: '/admin/faculty' },
@@ -19,7 +21,6 @@ const NAV_LINKS: Record<UserRole, Array<{ label: string; href: string }>> = {
   Faculty: [
     { label: 'Dashboard', href: '/faculty' },
     { label: 'Scan QR',   href: '/faculty/scan' },
-    { label: 'Placements', href: '/faculty/placement-drives' },
   ],
   Student: [
     { label: 'My QR & Attendance', href: '/student' },
@@ -34,9 +35,10 @@ const ROLE_COLORS: Record<UserRole, string> = {
 
 export default function NavBar({ role }: { role: UserRole }) {
   const { profile, logout } = useAuth()
+  const { featureFlags } = useModule()
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
-  const links = NAV_LINKS[role]
+  const links = NAV_LINKS[role].filter((l) => !l.module || featureFlags[l.module])
 
   // Automatic logout on tab-switch inactivity (5 min)
   useEffect(() => {
@@ -75,7 +77,7 @@ export default function NavBar({ role }: { role: UserRole }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
 
-          {/* Logo + role badge */}
+          {/* Logo + role badge + Module Switcher */}
           <div className="flex items-center gap-3">
             <Link href={`/${role.toLowerCase()}`} className="flex items-center gap-2">
               <img
@@ -88,6 +90,9 @@ export default function NavBar({ role }: { role: UserRole }) {
             <span className={cn('badge text-white text-xs hidden sm:inline-flex', ROLE_COLORS[role])}>
               {role}
             </span>
+            <div className="hidden lg:block ml-2">
+              <ModuleNav />
+            </div>
           </div>
 
           {/* Desktop nav links */}
@@ -143,6 +148,9 @@ export default function NavBar({ role }: { role: UserRole }) {
         {/* Mobile dropdown */}
         {menuOpen && (
           <div className="sm:hidden border-t border-slate-100 py-2 space-y-1">
+            <div className="px-2 py-1 mb-2">
+              <ModuleNav />
+            </div>
             {links.map((l) => (
               <Link
                 key={l.href}

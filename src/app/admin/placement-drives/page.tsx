@@ -8,6 +8,7 @@ import {
   downloadPlacementStudentTemplate,
 } from '@/lib/export'
 import type { PlacementDrive, PlacementDriveStudent, PlacementDriveStudentRow } from '@/types'
+import ModuleGuard from '@/components/shell/ModuleGuard'
 
 export default function PlacementDrivesPage() {
   const [drives, setDrives] = useState<PlacementDrive[]>([])
@@ -364,7 +365,8 @@ export default function PlacementDrivesPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <ModuleGuard module="placements">
+      <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
         <div>
@@ -853,5 +855,6 @@ export default function PlacementDrivesPage() {
         </div>
       )}
     </div>
+    </ModuleGuard>
   )
 }

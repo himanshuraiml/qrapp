@@ -22,18 +22,18 @@ async function mapInChunks<T, R>(items: T[], fn: (item: T) => R, chunkSize = 200
 // template and the parser can never drift apart.
 // ─────────────────────────────────────────
 export const STUDENT_TEMPLATE_HEADERS = [
-  'Register No', 'Name', 'Department', 'Year', 'Section', 'Batch', 'Password',
+  'Register No', 'Name', 'Institution', 'Department', 'Year', 'Section', 'Batch', 'Password',
 ] as const
 
 export async function downloadStudentTemplate() {
   const XLSX = await import('xlsx')
 
   const example = [
-    { 'Register No': 'RA2311003010001', Name: 'John Doe',  Department: 'CSE', Year: 1, Section: 'A', Batch: 'A', Password: '' },
-    { 'Register No': 'RA2311003010002', Name: 'Jane Smith', Department: 'IT',  Year: 2, Section: 'B', Batch: 'C', Password: '' },
+    { 'Register No': 'RA2311003010001', Name: 'John Doe',   Institution: 'FET', Department: 'CSE', Year: 1, Section: 'A', Batch: 'A', Password: '' },
+    { 'Register No': 'RA2311003010002', Name: 'Jane Smith', Institution: 'FET', Department: 'ECE', Year: 2, Section: 'B', Batch: 'C', Password: '' },
   ]
   const ws = XLSX.utils.json_to_sheet(example, { header: [...STUDENT_TEMPLATE_HEADERS] })
-  ws['!cols'] = [20, 24, 14, 6, 8, 8, 16].map((w) => ({ wch: w }))
+  ws['!cols'] = [20, 24, 14, 14, 6, 8, 8, 16].map((w) => ({ wch: w }))
 
   const notes = [
     ['QR Attendance — Bulk Student Upload Template'],
@@ -41,11 +41,12 @@ export async function downloadStudentTemplate() {
     ['Required columns (do NOT rename, remove, or reorder the header row in the Students sheet):'],
     ['  Register No  — roll / register number; must be unique (e.g. RA2311003010001)'],
     ['  Name         — student full name'],
-    ['  Department   — e.g. CSE, IT, AIML'],
+    ['  Department   — Branch (e.g. CSE, CSE-AIML, ECE, Mechanical, BCA)'],
     ['  Year         — must be 1, 2, 3 or 4'],
     ['  Section      — e.g. A, B, C'],
     [''],
     ['Optional columns:'],
+    ['  Institution  — e.g. FET, FSH, Faculty of Management (defaults to FET if blank)'],
     ['  Batch        — training batch A–P (leave blank if not applicable)'],
     ['  Password     — leave blank to default the password to the Register No'],
     [''],
@@ -849,5 +850,386 @@ export async function exportPlacementDriveToPDF(
   const dateSuffix = selectedDate && selectedDate !== 'All' ? selectedDate : drive.drive_date
   doc.save(`Placement_Attendance_${sanitizedCompany}_${dateSuffix}.pdf`)
 }
+
+// ─────────────────────────────────────────
+// CDC Report Exporters
+// ─────────────────────────────────────────
+export async function exportCdcPeriodSummaryToExcel(
+  rows: Array<{ period_number: number; subject: string | null; present_count: number; total_students: number; attendance_pct: number }>,
+  date: string
+) {
+  const XLSX = await import('xlsx')
+  const excelRows = rows.map((r) => ({
+    'Period': `Period ${r.period_number}`,
+    'Subject': r.subject || '—',
+    'Present Count': r.present_count,
+    'Total Students': r.total_students,
+    'Attendance %': `${r.attendance_pct}%`,
+  }))
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(excelRows)
+  ws['!cols'] = [14, 28, 16, 16, 16].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, 'CDC Period Summary')
+  XLSX.writeFile(wb, `CDC_Period_Summary_${date}.xlsx`)
+}
+
+export async function exportCdcPeriodSummaryToPDF(
+  rows: Array<{ period_number: number; subject: string | null; present_count: number; total_students: number; attendance_pct: number }>,
+  date: string
+) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('CDC Period Attendance Summary', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date: ${date} | Generated: ${new Date().toLocaleString('en-IN')}`, 14, 23)
+
+  const head = [['Period', 'Subject', 'Present', 'Total Students', 'Attendance %']]
+  const body = rows.map((r) => [
+    `Period ${r.period_number}`,
+    r.subject || '—',
+    r.present_count,
+    r.total_students,
+    `${r.attendance_pct}%`,
+  ])
+
+  autoTable(doc, {
+    startY: 28,
+    head,
+    body,
+    styles: { fontSize: 9, cellPadding: 3, halign: 'center' },
+    columnStyles: { 1: { halign: 'left' } },
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [243, 244, 246] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`CDC_Period_Summary_${date}.pdf`)
+}
+
+export async function exportCdcAttendanceToExcel(
+  records: Array<{
+    student_id: string
+    student_name: string
+    department: string
+    year: number
+    section: string
+    period_number: number
+    subject?: string | null
+    date: string
+    marked_at?: string | null
+    marked_by_name?: string | null
+  }>,
+  title: string,
+  filename: string
+) {
+  const XLSX = await import('xlsx')
+  const rows = records.map((r) => ({
+    'Student ID': r.student_id,
+    'Name': r.student_name,
+    'Department': r.department,
+    'Year': r.year,
+    'Section': r.section,
+    'Period #': r.period_number,
+    'Subject': r.subject || '—',
+    'Date': r.date,
+    'Marked At': r.marked_at ? formatTime(r.marked_at) : '—',
+    'Marked By': r.marked_by_name || '—',
+  }))
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [14, 24, 14, 6, 10, 10, 24, 12, 12, 24].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, 'CDC Attendance')
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+export async function exportCdcAttendanceToPDF(
+  records: Array<{
+    student_id: string
+    student_name: string
+    department: string
+    year: number
+    section: string
+    period_number: number
+    subject?: string | null
+    date: string
+    marked_at?: string | null
+    marked_by_name?: string | null
+  }>,
+  title: string,
+  filename: string
+) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('CDC Class Attendance Logs', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`${title} | Total Records: ${records.length}`, 14, 23)
+
+  const head = [['S.No', 'Student ID', 'Name', 'Dept', 'Yr', 'Sec', 'Period', 'Subject', 'Date', 'Time', 'Marked By']]
+  const body = records.map((r, i) => [
+    i + 1,
+    r.student_id,
+    r.student_name,
+    r.department,
+    r.year,
+    r.section,
+    `P${r.period_number}`,
+    r.subject || '—',
+    r.date,
+    r.marked_at ? formatTime(r.marked_at) : '—',
+    r.marked_by_name || '—',
+  ])
+
+  autoTable(doc, {
+    startY: 28,
+    head,
+    body,
+    styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+    columnStyles: { 1: { halign: 'left' }, 2: { halign: 'left' }, 7: { halign: 'left' } },
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [243, 244, 246] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`${filename}.pdf`)
+}
+
+export async function exportCdcRosterToExcel(
+  records: Array<{
+    student_id: string
+    name: string
+    department: string
+    year: number
+    section: string
+    periods_attended: number
+    total_periods_held: number
+    attendance_pct: number
+  }>,
+  dateRangeText: string
+) {
+  const XLSX = await import('xlsx')
+  const rows = records.map((r) => ({
+    'Student ID': r.student_id,
+    'Name': r.name,
+    'Department': r.department,
+    'Year': r.year,
+    'Section': r.section,
+    'Periods Attended': r.periods_attended,
+    'Total Periods Held': r.total_periods_held,
+    'CDC Attendance %': `${r.attendance_pct}%`,
+    'Status': r.attendance_pct < 75 ? 'Defaulter' : r.attendance_pct < 85 ? 'Critical' : 'Good',
+  }))
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [16, 26, 14, 6, 10, 16, 18, 16, 14].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, 'CDC Student Roster')
+  XLSX.writeFile(wb, `CDC_Student_Roster_${dateRangeText}.xlsx`)
+}
+
+export async function exportCdcRosterToPDF(
+  records: Array<{
+    student_id: string
+    name: string
+    department: string
+    year: number
+    section: string
+    periods_attended: number
+    total_periods_held: number
+    attendance_pct: number
+  }>,
+  dateRangeText: string
+) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('CDC Cumulative Attendance Roster', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Date Range: ${dateRangeText} | Generated: ${new Date().toLocaleString('en-IN')}`, 14, 23)
+
+  const head = [['S.No', 'Student ID', 'Name', 'Dept', 'Sec', 'Attended', 'Total', 'CDC %', 'Status']]
+  const body = records.map((r, i) => [
+    i + 1,
+    r.student_id,
+    r.name,
+    r.department,
+    r.section,
+    r.periods_attended,
+    r.total_periods_held,
+    `${r.attendance_pct}%`,
+    r.attendance_pct < 75 ? 'Defaulter' : r.attendance_pct < 85 ? 'Critical' : 'Good',
+  ])
+
+  autoTable(doc, {
+    startY: 28,
+    head,
+    body,
+    styles: { fontSize: 8, cellPadding: 2.5, halign: 'center' },
+    columnStyles: { 1: { halign: 'left' }, 2: { halign: 'left' } },
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+    didParseCell: (data: any) => {
+      if (data.column.index === 8 && data.section === 'body') {
+        const val = data.cell.raw
+        if (val === 'Defaulter') data.cell.styles.textColor = [220, 38, 38]
+        else if (val === 'Critical') data.cell.styles.textColor = [217, 119, 6]
+        else data.cell.styles.textColor = [22, 163, 74]
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+    alternateRowStyles: { fillColor: [243, 244, 246] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`CDC_Student_Roster_${dateRangeText}.pdf`)
+}
+
+export async function exportPlacementOverviewToExcel(
+  drives: Array<{
+    company_name: string
+    title: string
+    drive_date: string
+    venue: string
+    status: string
+    eligible_count: number
+    present_count: number
+    absent_count: number
+    turnout_pct: number
+  }>
+) {
+  const XLSX = await import('xlsx')
+  const rows = drives.map((d) => ({
+    'Company': d.company_name,
+    'Drive Title': d.title,
+    'Drive Date': d.drive_date,
+    'Venue': d.venue,
+    'Status': d.status,
+    'Eligible Students': d.eligible_count,
+    'Present Count': d.present_count,
+    'Absent Count': d.absent_count,
+    'Turnout %': `${d.turnout_pct}%`,
+  }))
+
+  const wb = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [22, 26, 14, 18, 12, 16, 14, 14, 14].map((w) => ({ wch: w }))
+  XLSX.utils.book_append_sheet(wb, ws, 'Placement Drives Summary')
+  XLSX.writeFile(wb, `Placement_Drives_Summary_${new Date().toISOString().split('T')[0]}.xlsx`)
+}
+
+export async function exportPlacementOverviewToPDF(
+  drives: Array<{
+    company_name: string
+    title: string
+    drive_date: string
+    venue: string
+    status: string
+    eligible_count: number
+    present_count: number
+    absent_count: number
+    turnout_pct: number
+  }>
+) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  doc.setFontSize(16)
+  doc.setTextColor(30, 27, 75)
+  doc.text('Placement Drives Overview & Turnout Summary', 14, 16)
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 14, 23)
+
+  const head = [['S.No', 'Company', 'Title', 'Date', 'Venue', 'Status', 'Eligible', 'Present', 'Absent', 'Turnout %']]
+  const body = drives.map((d, i) => [
+    i + 1,
+    d.company_name,
+    d.title,
+    d.drive_date,
+    d.venue,
+    d.status,
+    d.eligible_count,
+    d.present_count,
+    d.absent_count,
+    `${d.turnout_pct}%`,
+  ])
+
+  autoTable(doc, {
+    startY: 28,
+    head,
+    body,
+    styles: { fontSize: 8, cellPadding: 2.5, halign: 'center' },
+    columnStyles: { 1: { halign: 'left' }, 2: { halign: 'left' } },
+    headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [243, 244, 246] },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`Placement_Drives_Summary_${new Date().toISOString().split('T')[0]}.pdf`)
+}
+
+// ─────────────────────────────────────────
+// CDC Timetable Configuration Excel Template
+// ─────────────────────────────────────────
+export const CDC_TIMETABLE_TEMPLATE_HEADERS = [
+  'Day', 'Period', 'Institution', 'Branch', 'Year', 'Section', 'Faculty', 'Subject',
+] as const
+
+export async function downloadCdcTimetableTemplate() {
+  const XLSX = await import('xlsx')
+
+  const example = [
+    { Day: 'Monday', Period: 1, Institution: 'FET', Branch: 'CSE', Year: 3, Section: 'A', Faculty: 'Dr. Shanmuga Priya', Subject: 'CDC' },
+    { Day: 'Monday', Period: 1, Institution: 'FET', Branch: 'CSE-AIML', Year: 2, Section: 'B', Faculty: 'Prof. Rajesh', Subject: 'CDC' },
+    { Day: 'Tuesday', Period: 4, Institution: 'FSH', Branch: 'BCA', Year: 1, Section: 'C', Faculty: 'Dr. Anitha', Subject: 'CDC' },
+  ]
+
+  const ws = XLSX.utils.json_to_sheet(example, { header: [...CDC_TIMETABLE_TEMPLATE_HEADERS] })
+  ws['!cols'] = [14, 8, 14, 14, 6, 8, 24, 10].map((w) => ({ wch: w }))
+
+  const notes = [
+    ['CDC Timetable Configuration — Bulk Upload Template'],
+    [''],
+    ['Required columns (do NOT rename, remove, or reorder headers in the Timetable sheet):'],
+    ['  Day          — Monday, Tuesday, Wednesday, Thursday, Friday, Saturday (or 1, 2, 3, 4, 5, 6)'],
+    ['  Period       — Period slot number (1 to 8)'],
+    ['  Institution  — e.g. FET, FSH, Faculty of Management'],
+    ['  Branch       — e.g. CSE, CSE-AIML, AI&DS, ECE, Mechanical, BCA, MBA'],
+    ['  Year         — Year number 1, 2, 3, or 4'],
+    ['  Section      — Section letter (e.g. A, B, C, D)'],
+    ['  Faculty      — Faculty full name or email (assigned to teach this class)'],
+    [''],
+    ['Optional columns:'],
+    ['  Subject      — defaults to CDC if left blank'],
+    [''],
+    ['Notes:'],
+    ['  • Delete example rows before uploading.'],
+    ['  • Multiple sections can be assigned to the same period slot.'],
+    ['  • Uploading will update the scheduled timetable for the specified day & period slots.'],
+  ]
+
+  const wsNotes = XLSX.utils.aoa_to_sheet(notes)
+  wsNotes['!cols'] = [{ wch: 90 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Timetable')
+  XLSX.utils.book_append_sheet(wb, wsNotes, 'Instructions')
+  XLSX.writeFile(wb, 'cdc_timetable_upload_template.xlsx')
+}
+
 
 

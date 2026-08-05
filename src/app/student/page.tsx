@@ -6,13 +6,27 @@ import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatDate, formatTime, sessionColor } from '@/lib/utils'
 import QrDisplay from '@/components/student/QrDisplay'
 import AboutApp from '@/components/AboutApp'
+import { useModule } from '@/context/ModuleContext'
 import type { AttendanceRecord, StudentAttendanceStats, StudentAttendanceHistoryRecord } from '@/types'
+
+interface CdcHistoryRecord {
+  date: string
+  period_number: number
+  subject: string | null
+  marked_by_name: string
+  timestamp: string
+}
 
 export default function StudentDashboard() {
   const { profile, loading: authLoading } = useAuth()
+  const { activeModule } = useModule()
   const supabase = createClient()
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
+
+  // CDC attendance state
+  const [cdcHistory, setCdcHistory] = useState<CdcHistoryRecord[]>([])
+  const [cdcLoading, setCdcLoading] = useState(true)
 
   // Attendance stats states
   const [stats, setStats] = useState<StudentAttendanceStats | null>(null)
@@ -116,18 +130,38 @@ const fetchRecords = useCallback(async () => {
     }
   }, [profile?.student_id, supabase])
 
+  const fetchCdcHistory = useCallback(async () => {
+    if (!profile?.student_id) return
+    setCdcLoading(true)
+    try {
+      const { data, error } = await supabase
+        .rpc('get_cdc_student_history', { p_student_id: profile.student_id })
+      if (error) {
+        console.error('Failed to fetch CDC history:', error)
+      } else {
+        setCdcHistory((data as CdcHistoryRecord[]) ?? [])
+      }
+    } catch (err) {
+      console.error('Error fetching CDC history:', err)
+    } finally {
+      setCdcLoading(false)
+    }
+  }, [profile?.student_id, supabase])
+
   // Initial fetch
   useEffect(() => {
     if (authLoading) return
     if (!profile?.student_id) {
       setLoading(false)
       setStatsLoading(false)
+      setCdcLoading(false)
       return
     }
     setQrBlocked(!!profile.qr_blocked)
     fetchRecords()
     fetchStats()
     fetchHistory()
+    fetchCdcHistory()
     fetchPlacementDrives()
     supabase
       .from('session_settings')
@@ -224,6 +258,13 @@ const fetchRecords = useCallback(async () => {
 
   // Group history by date
   const byDate = records.reduce<Record<string, AttendanceRecord[]>>((acc, r) => {
+    if (!acc[r.date]) acc[r.date] = []
+    acc[r.date].push(r)
+    return acc
+  }, {})
+
+  const cdcTodayRecords = cdcHistory.filter((r) => r.date === today)
+  const cdcByDate = cdcHistory.reduce<Record<string, CdcHistoryRecord[]>>((acc, r) => {
     if (!acc[r.date]) acc[r.date] = []
     acc[r.date].push(r)
     return acc
@@ -331,6 +372,7 @@ const fetchRecords = useCallback(async () => {
       </div>
 
       {/* Tactile Clay Statistics Grid */}
+      {activeModule === 'training' && (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 animate-fade-in">
         {/* Overall Percentage Card */}
         <div className="clay-card-emerald p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
@@ -408,6 +450,53 @@ const fetchRecords = useCallback(async () => {
           </div>
         </div>
       </div>
+      )}
+
+      {/* CDC Statistics Grid */}
+      {activeModule === 'cdc' && (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 animate-fade-in">
+        <div className="clay-card-emerald p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
+          <div className="flex items-start justify-between">
+            <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest font-heading">Total CDC Sessions</span>
+            <span className="text-xl">📈</span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-black text-emerald-950 tracking-tight font-heading">
+              {cdcLoading ? '—' : cdcHistory.length}
+            </p>
+            <p className="text-[10px] font-extrabold text-emerald-700/80 mt-1">Periods marked present</p>
+          </div>
+        </div>
+
+        <div className="clay-card-blue p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1">
+          <div className="flex items-start justify-between">
+            <span className="text-[10px] font-black text-blue-800 uppercase tracking-widest font-heading">Days Attended</span>
+            <span className="text-xl">📁</span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-black text-blue-950 tracking-tight font-heading">
+              {cdcLoading ? '—' : Object.keys(cdcByDate).length}
+            </p>
+            <p className="text-[10px] font-extrabold text-blue-700/80 mt-1">Distinct CDC class days</p>
+          </div>
+        </div>
+
+        <div className="clay-card-purple p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 col-span-2 md:col-span-2">
+          <div className="flex items-start justify-between">
+            <span className="text-[10px] font-black text-purple-800 uppercase tracking-widest font-heading">Today</span>
+            <span className="text-xl text-purple-600">✓</span>
+          </div>
+          <div className="mt-4">
+            <p className="text-2xl sm:text-3xl font-black text-purple-950 tracking-tight font-heading">
+              {cdcLoading ? '—' : `${cdcTodayRecords.length} Period${cdcTodayRecords.length === 1 ? '' : 's'}`}
+            </p>
+            <p className="text-[10px] font-extrabold text-purple-700/80 mt-1">
+              {cdcTodayRecords.length > 0 ? `Periods: ${cdcTodayRecords.map((r) => r.period_number).sort().join(', ')}` : 'No CDC period marked yet today'}
+            </p>
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* Placement Drives Clay Container */}
       <div className="clay-card p-6 sm:p-8 space-y-4">
@@ -518,6 +607,7 @@ const fetchRecords = useCallback(async () => {
           )}
 
           {/* Today's scan verification status card */}
+          {activeModule === 'training' && (
           <div className="clay-card p-6 space-y-4">
             <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Today's Attendance Status</h3>
             <div className="space-y-3">
@@ -552,11 +642,37 @@ const fetchRecords = useCallback(async () => {
               </div>
             </div>
           </div>
+          )}
+
+          {/* CDC today's period status card */}
+          {activeModule === 'cdc' && (
+          <div className="clay-card p-6 space-y-4">
+            <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">Today's CDC Periods</h3>
+            {cdcLoading ? (
+              <p className="text-xs text-slate-400 font-semibold">Loading…</p>
+            ) : cdcTodayRecords.length === 0 ? (
+              <p className="text-xs text-slate-400 font-semibold">No CDC period marked present yet today.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {cdcTodayRecords.sort((a, b) => a.period_number - b.period_number).map((r) => (
+                  <div key={r.period_number} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/80 border border-slate-100 clay-badge">
+                    <div>
+                      <p className="text-xs font-black text-slate-800">Period {r.period_number}{r.subject ? ` · ${r.subject}` : ''}</p>
+                      <p className="text-[10px] text-slate-400 font-bold">Marked by {r.marked_by_name}</p>
+                    </div>
+                    <span className="clay-badge bg-emerald-100 text-emerald-800 border border-emerald-200 px-3.5 py-1 text-xs font-black">Present</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          )}
         </div>
 
         {/* Right Column: History Lists */}
         <div className="space-y-6">
           {/* Full History Feed */}
+          {activeModule === 'training' && (
           <div className="clay-card p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
@@ -617,13 +733,70 @@ const fetchRecords = useCallback(async () => {
               </div>
             )}
           </div>
+          )}
+
+          {/* CDC Recent Attendance Logs */}
+          {activeModule === 'cdc' && (
+          <div className="clay-card p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-800 font-heading">Recent CDC Attendance</h3>
+                <p className="text-xs text-slate-400 font-medium">List of your recent verified CDC period scans</p>
+              </div>
+              <button
+                onClick={() => fetchCdcHistory()}
+                className="clay-button-secondary text-xs text-slate-600 font-extrabold flex items-center gap-1.5 px-3.5 py-2"
+                disabled={cdcLoading}
+              >
+                {cdcLoading ? (
+                  <span className="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span>🔄</span>
+                )}
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {cdcLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center space-y-2">
+                <span className="w-8 h-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
+                <span className="text-xs text-slate-400 font-medium">Fetching record logs...</span>
+              </div>
+            ) : Object.keys(cdcByDate).length === 0 ? (
+              <div className="text-center py-12 space-y-2">
+                <span className="text-3xl">📭</span>
+                <p className="text-xs font-extrabold text-slate-400">No CDC attendance logs registered yet</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-[340px] overflow-y-auto pr-2 space-y-3.5">
+                {Object.entries(cdcByDate).map(([date, recs]) => (
+                  <div key={date} className="pt-3.5 first:pt-0">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">
+                      📅 {formatDate(date)}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {recs.map((r) => (
+                        <div key={r.period_number} className="clay-badge bg-white border border-slate-200/80 inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-700">
+                          <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/30"></span>
+                          <span className="text-slate-800">Period {r.period_number}{r.subject ? ` · ${r.subject}` : ''}</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-slate-500 text-[10px] font-semibold">Marked by {r.marked_by_name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          )}
         </div>
       </div>
 
       <AboutApp />
 
       {/* Tactile Clay Attendance History Drawer / Modal */}
-      {historyOpen && (
+      {historyOpen && activeModule === 'training' && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4 md:p-6 animate-fade-in animate-duration-200">
           <div className="w-full max-w-3xl clay-card bg-white rounded-[2.5rem] border border-white shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-scale-in">
             {/* Modal Header */}

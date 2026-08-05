@@ -7,10 +7,16 @@ import { useAuth } from '@/hooks/useAuth'
 import { todayIST, formatTime, sessionColor } from '@/lib/utils'
 import type { AttendanceRecord } from '@/types'
 import AboutApp from '@/components/AboutApp'
+import { useRouter } from 'next/navigation'
+import { useModule } from '@/context/ModuleContext'
+import CdcDashboard from '@/modules/cdc/components/CdcDashboard'
+import PlacementsDashboard from '@/modules/placements/components/PlacementsDashboard'
+import ModuleShell from '@/components/shell/ModuleShell'
 
-export default function FacultyDashboard() {
+function FacultyTrainingView() {
   const { profile, loading: authLoading } = useAuth()
   const supabase = createClient()
+
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -135,7 +141,7 @@ export default function FacultyDashboard() {
     : 'FC'
 
   // Filter records based on search query
-  const filteredRecords = records.filter(r => 
+  const filteredRecords = records.filter(r =>
     r.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.student_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.department.toLowerCase().includes(searchQuery.toLowerCase())
@@ -154,7 +160,7 @@ export default function FacultyDashboard() {
       <div className="clay-card-indigo relative overflow-hidden p-6 sm:p-8 rounded-[2.5rem]">
         <div className="absolute top-[-40%] right-[-10%] w-[320px] h-[320px] bg-white/10 rounded-full blur-[60px] pointer-events-none"></div>
         <div className="absolute bottom-[-40%] left-[-10%] w-[300px] h-[300px] bg-purple-500/20 rounded-full blur-[60px] pointer-events-none"></div>
-        
+
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start md:items-center justify-between gap-6">
           {/* Left Side: Avatar Emblem + Info */}
           <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 text-center sm:text-left">
@@ -162,15 +168,15 @@ export default function FacultyDashboard() {
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[2.25rem] bg-white/20 border-2 border-white/30 flex items-center justify-center text-white text-2xl sm:text-3xl font-black clay-badge-dark shadow-2xl transition-all duration-300 hover:scale-105 select-none tracking-wider">
               {initials}
             </div>
-            
+
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/15 border border-white/25 text-white text-[10px] sm:text-xs font-extrabold uppercase tracking-wider clay-badge-dark">
                 <span>🏫</span> Faculty Dashboard
               </div>
-              
+
               <div className="space-y-1.5">
                 <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight font-heading leading-tight">Welcome, {greeting}</h1>
-                
+
                 {/* Clay Attribute Badges */}
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
                   <span className="px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] sm:text-xs font-bold text-white/90 clay-badge-dark">
@@ -183,7 +189,7 @@ export default function FacultyDashboard() {
               </div>
             </div>
           </div>
-          
+
           {/* Right Side: Online Status Badge */}
           <div className="w-full sm:w-auto text-center sm:text-right flex flex-col items-center sm:items-end justify-center">
             <div className="flex items-center gap-3 bg-white/20 border border-white/30 px-4 py-2.5 rounded-2xl clay-badge-dark">
@@ -203,8 +209,8 @@ export default function FacultyDashboard() {
           <div>
             <h3 className="text-base font-black text-slate-800 tracking-tight font-heading">Assigned Training Batch</h3>
             <p className="text-xs text-slate-500 font-medium">
-              {restrictFaculty 
-                ? "Select your assigned batch to unlock live QR scanning." 
+              {restrictFaculty
+                ? "Select your assigned batch to unlock live QR scanning."
                 : "Optional: Assign a batch to filter student scans and view classroom venue."}
             </p>
           </div>
@@ -381,5 +387,41 @@ export default function FacultyDashboard() {
 
       <AboutApp />
     </div>
+  )
+}
+
+export default function FacultyDashboard() {
+  const { activeModule } = useModule()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (activeModule === 'placements') {
+      router.replace('/faculty/placement-drives')
+    }
+  }, [activeModule, router])
+
+  if (activeModule === 'cdc') {
+    return (
+      <ModuleShell module="cdc" showNav={false}>
+        <CdcDashboard />
+      </ModuleShell>
+    )
+  }
+
+  if (activeModule === 'placements') {
+    return (
+      <ModuleShell module="placements" showNav={false}>
+        <div className="py-12 flex flex-col items-center justify-center space-y-2">
+          <span className="w-8 h-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"></span>
+          <span className="text-xs text-slate-400 font-medium">Redirecting to Placement Drives...</span>
+        </div>
+      </ModuleShell>
+    )
+  }
+
+  return (
+    <ModuleShell module="training" showNav={false}>
+      <FacultyTrainingView />
+    </ModuleShell>
   )
 }

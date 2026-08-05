@@ -5,7 +5,7 @@ import { studentEmail } from '@/lib/utils'
 
 export async function POST(request: Request) {
   try {
-    const { student_id, name, department, year, section, batch, password } = await request.json()
+    const { student_id, name, institution, department, year, section, batch, password } = await request.json()
 
     // Verify caller is Admin
     const supabase = await createClient()
@@ -69,6 +69,7 @@ export async function POST(request: Request) {
       name,
       role:       'Student',
       student_id: student_id.toUpperCase(),
+      institution: institution ? String(institution).trim() : 'FET',
       department,
       year:       parseInt(year),
       section,

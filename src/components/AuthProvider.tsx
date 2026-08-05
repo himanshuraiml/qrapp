@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { createClient } from '@/lib/supabase/client'
 import { clearCache } from '@/lib/cache'
 import { saveOfflineAuthSession, getOfflineAuthSession, clearOfflineAuthSession } from '@/lib/offlineAuth'
+import { ModuleProvider } from '@/context/ModuleContext'
 import type { Profile } from '@/types'
 
 interface AuthContextValue {
@@ -190,7 +191,7 @@ export function AuthProvider({
           Your offline session expired (24h limit). Please connect to the internet to sign in.
         </div>
       )}
-      {children}
+      <ModuleProvider>{children}</ModuleProvider>
     </AuthContext.Provider>
   )
 }

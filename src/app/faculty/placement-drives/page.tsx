@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import type { PlacementDrive, PlacementDriveStudent } from '@/types'
+import ModuleGuard from '@/components/shell/ModuleGuard'
 
 export default function FacultyPlacementDrivesPage() {
   const [drives, setDrives] = useState<PlacementDrive[]>([])
@@ -118,6 +119,7 @@ export default function FacultyPlacementDrivesPage() {
   })
 
   return (
+    <ModuleGuard module="placements">
     <div className="relative space-y-8 animate-fade-in pb-16 max-w-4xl mx-auto px-4 md:px-0">
       {/* Soft Ambient Background Spheres */}
       <div className="absolute inset-0 z-[-1] pointer-events-none opacity-60 overflow-hidden">
@@ -368,5 +370,6 @@ export default function FacultyPlacementDrivesPage() {
         </div>
       )}
     </div>
+    </ModuleGuard>
   )
 }

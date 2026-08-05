@@ -6,6 +6,7 @@ export interface Profile {
   name: string
   role: UserRole
   student_id?: string | null
+  institution?: string | null
   department?: string | null
   year?: number | null
   section?: string | null
@@ -22,6 +23,7 @@ export interface AttendanceRecord {
   id: string
   student_id: string
   student_name: string
+  institution?: string | null
   department: string
   section: string
   year: number
@@ -66,6 +68,32 @@ export interface BatchSummary {
   an2_count?: number
 }
 
+export type ModuleType = 'training' | 'cdc' | 'placements'
+
+export interface ModuleFeatureFlags {
+  training: boolean
+  cdc: boolean
+  placements: boolean
+}
+
+export interface CdcPeriodTiming {
+  period: number
+  start_time: string
+  end_time: string
+}
+
+export interface Activity {
+  id: string
+  title: string
+  activity_type: 'Training' | 'CDC' | 'PlacementDrive'
+  period_number?: number
+  date: string
+  start_time?: string
+  end_time?: string
+  venue?: string
+  metadata?: Record<string, any>
+}
+
 export interface SessionSettings {
   id: number
   morning_start: string
@@ -86,12 +114,26 @@ export interface SessionSettings {
   qr_blocking_enabled?: boolean
   qr_blocking_enabled_at?: string | null
   restrict_faculty_batch?: boolean
+  // Module Feature Flags
+  module_training_enabled?: boolean
+  module_cdc_enabled?: boolean
+  module_drives_enabled?: boolean
+  // CDC 8 Periods Configuration
+  p1_start?: string; p1_end?: string
+  p2_start?: string; p2_end?: string
+  p3_start?: string; p3_end?: string
+  p4_start?: string; p4_end?: string
+  p5_start?: string; p5_end?: string
+  p6_start?: string; p6_end?: string
+  p7_start?: string; p7_end?: string
+  p8_start?: string; p8_end?: string
   updated_at: string
 }
 
 export interface QrPayload {
   student_id: string
   name: string
+  institution?: string | null
   department: string
   year: number
   section: string
@@ -104,6 +146,7 @@ export interface QrPayload {
 export interface ReportFilters {
   dateFrom: string
   dateTo: string
+  institution?: string
   department: string
   section: string
   year: string
@@ -114,6 +157,7 @@ export interface ReportFilters {
 export interface RosterRecord {
   student_id:  string
   name:        string
+  institution?: string | null
   department:  string
   year:        number
   section:     string
@@ -123,6 +167,7 @@ export interface RosterRecord {
 export interface RosterMultiRecord {
   student_id:   string
   name:         string
+  institution?: string | null
   department:   string
   year:         number
   section:      string
@@ -171,6 +216,7 @@ export interface StudentAttendanceHistoryRecord {
 export interface UnifiedRosterRecord {
   student_id: string
   name: string
+  institution?: string | null
   department: string
   year: number
   section: string
@@ -227,6 +273,7 @@ export interface PlacementDriveStudent {
   batch?: string
 }
 
+
 export interface PlacementDriveStudentRow {
   student_id: string
   mobile?: string
@@ -235,6 +282,28 @@ export interface PlacementDriveStudentRow {
   slot?: string
   venue?: string
 }
+
+export interface CdcPeriodAllocation {
+  id: string
+  section_name: string
+  institution?: string | null
+  department?: string | null
+  year?: number | string | null
+  section?: string | null
+  subject: string
+  faculty_id?: string | null
+  faculty_name?: string | null
+}
+
+export interface CdcTimetableEntry {
+  id?: string
+  day_of_week: number
+  period_number: number
+  subject?: string | null
+  faculty_name?: string | null
+  allocations: CdcPeriodAllocation[]
+}
+
 
 
 

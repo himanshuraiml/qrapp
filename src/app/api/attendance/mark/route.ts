@@ -59,72 +59,84 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { token, mode, scan_timestamp, scan_date } = body ?? {}
+    const rawScans: any[] = Array.isArray(body?.scans) ? body.scans : [body ?? {}]
 
-    const payload = decryptQrPayload(token)
-    if (!payload) {
-      return NextResponse.json({ success: false, message: 'Invalid or tampered QR code.' }, { status: 400 })
+    if (rawScans.length === 0 || (!rawScans[0]?.token && rawScans.length === 1)) {
+      return NextResponse.json({ success: false, message: 'No scan tokens provided.' }, { status: 400 })
     }
 
-    // `mode` from the request body is a client-supplied timing hint only —
-    // it is never trusted for identity (every identity field below comes
-    // from the decrypted, tamper-proof payload). It just says "apply the
-    // lenient same-day expiry window instead of the strict 120s live-scan
-    // TTL," which the faculty scanner sets when syncing a scan that was
-    // queued while its device was offline, regardless of whether the
-    // original QR was itself an offline pass.
-    const isOfflineMode = mode === 'offline' || payload.mode === 'offline'
-
+    const results: any[] = []
     const nowSec = Math.floor(Date.now() / 1000)
-    const effectiveDate = typeof scan_date === 'string' ? scan_date : (payload.date || todayIST())
 
-    if (isOfflineMode) {
-      // If the payload explicitly contains an issuance date (e.g. offline QR pass),
-      // verify that the pass date matches the scan date.
-      if (payload.date && payload.date !== effectiveDate) {
-        return NextResponse.json({
-          success: false,
-          message: `Offline QR pass was issued for ${payload.date}, but scanned on ${effectiveDate}.`
-        }, { status: 400 })
+    for (const scanItem of rawScans) {
+      const { token, mode, scan_timestamp, scan_date } = scanItem ?? {}
+
+      const payload = decryptQrPayload(token)
+      if (!payload) {
+        results.push({ success: false, message: 'Invalid or tampered QR code.' })
+        continue
       }
 
-      // Check scan date window (valid for up to 7 days to allow delayed offline sync)
-      const nowMs = Date.now()
-      const scanDateMs = new Date(effectiveDate + 'T00:00:00+05:30').getTime()
-      const diffDays = (nowMs - scanDateMs) / (1000 * 60 * 60 * 24)
+      const isOfflineMode = mode === 'offline' || payload.mode === 'offline'
+      const effectiveDate = typeof scan_date === 'string' ? scan_date : (payload.date || todayIST())
 
-      if (diffDays < -1 || diffDays > 7) {
-        return NextResponse.json({
-          success: false,
-          message: 'Offline scan date is outside the valid sync window (max 7 days).'
-        }, { status: 400 })
+      if (isOfflineMode) {
+        if (payload.date && payload.date !== effectiveDate) {
+          results.push({
+            success: false,
+            message: `Offline QR pass was issued for ${payload.date}, but scanned on ${effectiveDate}.`
+          })
+          continue
+        }
+
+        const nowMs = Date.now()
+        const scanDateMs = new Date(effectiveDate + 'T00:00:00+05:30').getTime()
+        const diffDays = (nowMs - scanDateMs) / (1000 * 60 * 60 * 24)
+
+        if (diffDays < -1 || diffDays > 7) {
+          results.push({
+            success: false,
+            message: 'Offline scan date is outside the valid sync window (max 7 days).'
+          })
+          continue
+        }
+      } else {
+        if (nowSec - payload.ts > 120 || payload.ts > nowSec + 10) {
+          results.push({ success: false, message: 'QR code expired. Ask student to refresh their code.' })
+          continue
+        }
       }
-    } else {
-      // Live scan check (120s TTL to handle poor mobile network latency and clock skew)
-      if (nowSec - payload.ts > 120 || payload.ts > nowSec + 10) {
-        return NextResponse.json({ success: false, message: 'QR code expired. Ask student to refresh their code.' }, { status: 400 })
+
+      const effectiveTimestamp = typeof scan_timestamp === 'string' ? scan_timestamp : new Date().toISOString()
+
+      const { data, error } = await supabase.rpc('mark_attendance_safe', {
+        p_student_id: payload.student_id,
+        p_student_name: payload.name,
+        p_department: payload.department,
+        p_section: payload.section,
+        p_year: payload.year,
+        p_batch: payload.batch,
+        p_session: null,
+        p_date: effectiveDate,
+        p_timestamp: effectiveTimestamp,
+      })
+
+      if (error) {
+        results.push({ success: false, message: error.message })
+      } else {
+        results.push(data)
       }
     }
 
-    const effectiveTimestamp = typeof scan_timestamp === 'string' ? scan_timestamp : new Date().toISOString()
-
-    const { data, error } = await supabase.rpc('mark_attendance_safe', {
-      p_student_id: payload.student_id,
-      p_student_name: payload.name,
-      p_department: payload.department,
-      p_section: payload.section,
-      p_year: payload.year,
-      p_batch: payload.batch,
-      p_session: null,
-      p_date: effectiveDate,
-      p_timestamp: effectiveTimestamp,
-    })
-
-    if (error) {
-      return NextResponse.json({ success: false, message: error.message }, { status: 500 })
+    if (Array.isArray(body?.scans)) {
+      return NextResponse.json({
+        success: true,
+        count: results.length,
+        results,
+      })
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(results[0] ?? { success: false, message: 'No scan processed.' })
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err?.message ?? 'Unexpected error' }, { status: 500 })
   }

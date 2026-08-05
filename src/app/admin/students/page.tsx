@@ -4,12 +4,14 @@ import { useEffect, useState, FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import BulkStudentUpload from '@/components/admin/BulkStudentUpload'
 import type { Profile } from '@/types'
+import { DEFAULT_INSTITUTIONS, getBranchesForInstitution, ACADEMIC_HIERARCHY } from '@/lib/constants/academic'
 
 export default function ManageStudentsPage() {
   const supabase = createClient()
   const [students, setStudents] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [instFilter, setInstFilter] = useState('all')
   const [deptFilter, setDeptFilter] = useState('all')
   const [yearFilter, setYearFilter] = useState('all')
   const [batchFilter, setBatchFilter] = useState('all')
@@ -17,12 +19,13 @@ export default function ManageStudentsPage() {
   const [sortField, setSortField] = useState<'status' | 'qr_blocked' | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [batches, setBatches] = useState<string[]>([])
+  const [institutions, setInstitutions] = useState<string[]>(DEFAULT_INSTITUTIONS)
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
-    student_id: '', name: '', department: '', year: '1', section: '', batch: '', password: '',
+    student_id: '', name: '', institution: 'FET', department: 'CSE', year: '1', section: '', batch: '', password: '',
   })
 
   // State for password reset modal
@@ -40,6 +43,7 @@ export default function ManageStudentsPage() {
   const [editForm, setEditForm] = useState({
     name: '',
     student_id: '',
+    institution: 'FET',
     department: '',
     year: '1',
     section: '',
@@ -57,6 +61,9 @@ export default function ManageStudentsPage() {
     yearAbsolute: '1',
     yearRelative: 'promote', // 'promote' | 'demote'
     
+    updateInst: false,
+    instAbsolute: 'FET',
+
     updateBatch: false,
     batchAbsolute: '',
     
@@ -85,6 +92,16 @@ export default function ManageStudentsPage() {
         setDepts(data.departments)
       }
 
+      const { data: instData } = await supabase
+        .from('profiles')
+        .select('institution')
+        .not('institution', 'is', null)
+        .neq('institution', '')
+      if (instData) {
+        const uniqueInsts = Array.from(new Set([...DEFAULT_INSTITUTIONS, ...instData.map((p: any) => p.institution)])).filter(Boolean).sort() as string[]
+        setInstitutions(uniqueInsts)
+      }
+
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('batch')
@@ -105,6 +122,7 @@ export default function ManageStudentsPage() {
         page: String(currentPage),
         limit: String(limit),
         search: search,
+        institution: instFilter,
         department: deptFilter,
         year: yearFilter,
         batch: batchFilter,
@@ -117,7 +135,7 @@ export default function ManageStudentsPage() {
         setStudents(json.data)
         setTotalCount(json.count ?? 0)
         
-        const cacheKey = `students_cache_${currentPage}_${search}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
+        const cacheKey = `students_cache_${currentPage}_${search}_${instFilter}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
         sessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
       }
     } catch (e) {
@@ -128,7 +146,7 @@ export default function ManageStudentsPage() {
   }
 
   useEffect(() => {
-    const cacheKey = `students_cache_${page}_${search}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
+    const cacheKey = `students_cache_${page}_${search}_${instFilter}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
     const cached = sessionStorage.getItem(cacheKey)
     if (cached) {
       try {
@@ -139,7 +157,7 @@ export default function ManageStudentsPage() {
       } catch (e) {}
     }
     loadStudents(page, !!cached)
-  }, [page, search, deptFilter, yearFilter, batchFilter, qrBlockedFilter])
+  }, [page, search, instFilter, deptFilter, yearFilter, batchFilter, qrBlockedFilter])
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
@@ -158,7 +176,7 @@ export default function ManageStudentsPage() {
     } else {
       setShowForm(false)
       loadStudents(1, false)
-      setForm({ student_id: '', name: '', department: '', year: '1', section: '', batch: '', password: '' })
+      setForm({ student_id: '', name: '', institution: 'FET', department: 'CSE', year: '1', section: '', batch: '', password: '' })
     }
     setSaving(false)
   }
@@ -214,6 +232,7 @@ export default function ManageStudentsPage() {
     setEditForm({
       name: student.name || '',
       student_id: student.student_id || '',
+      institution: student.institution || 'FET',
       department: student.department || '',
       year: student.year ? String(student.year) : '1',
       section: student.section || '',
@@ -235,6 +254,7 @@ export default function ManageStudentsPage() {
         .update({
           name: editForm.name,
           student_id: editForm.student_id ? editForm.student_id.trim() : null,
+          institution: editForm.institution ? editForm.institution.trim() : 'FET',
           department: editForm.department ? editForm.department.trim() : null,
           year: parseInt(editForm.year),
           section: editForm.section ? editForm.section.trim().toUpperCase() : null,
@@ -354,7 +374,7 @@ export default function ManageStudentsPage() {
     e.preventDefault()
     if (selectedIds.size === 0) return
     
-    if (!bulkForm.updateYear && !bulkForm.updateBatch && !bulkForm.updateSection && !bulkForm.updateDept && !bulkForm.updateStatus) {
+    if (!bulkForm.updateYear && !bulkForm.updateBatch && !bulkForm.updateSection && !bulkForm.updateDept && !bulkForm.updateInst && !bulkForm.updateStatus) {
       setBulkError('Please enable and configure at least one field to update.')
       return
     }
@@ -367,6 +387,9 @@ export default function ManageStudentsPage() {
     try {
       // 1. Build standard update object
       const baseUpdate: any = {}
+      if (bulkForm.updateInst) {
+        baseUpdate.institution = bulkForm.instAbsolute.trim() || 'FET'
+      }
       if (bulkForm.updateBatch) {
         baseUpdate.batch = bulkForm.batchAbsolute.trim() || null
       }
@@ -439,6 +462,8 @@ export default function ManageStudentsPage() {
         yearChangeType: 'relative',
         yearAbsolute: '1',
         yearRelative: 'promote',
+        updateInst: false,
+        instAbsolute: 'FET',
         updateBatch: false,
         batchAbsolute: '',
         updateSection: false,
@@ -523,9 +548,41 @@ export default function ManageStudentsPage() {
                 value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Department</label>
-              <input required className="input" placeholder="CSE"
-                value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Institution</label>
+              <select
+                required
+                className="input font-semibold"
+                value={form.institution}
+                onChange={(e) => {
+                  const inst = e.target.value
+                  const branches = getBranchesForInstitution(inst)
+                  setForm({
+                    ...form,
+                    institution: inst,
+                    department: branches.length > 0 ? branches[0] : form.department,
+                  })
+                }}
+              >
+                {institutions.map((inst) => (
+                  <option key={inst} value={inst}>{inst}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Branch (Department)</label>
+              <input
+                required
+                list="create-branches-list"
+                className="input uppercase"
+                placeholder="e.g. CSE, CSE-AIML, ECE"
+                value={form.department}
+                onChange={(e) => setForm({ ...form, department: e.target.value })}
+              />
+              <datalist id="create-branches-list">
+                {getBranchesForInstitution(form.institution).map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Year</label>
@@ -536,7 +593,7 @@ export default function ManageStudentsPage() {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Section</label>
-              <input required className="input" placeholder="A"
+              <input required className="input uppercase" placeholder="A"
                 value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
             </div>
             <div>
@@ -574,16 +631,31 @@ export default function ManageStudentsPage() {
       {/* Directory Filter & Data Table */}
       <div className="card bg-white/70 backdrop-blur-xl border border-white/60 shadow-[0_12px_40px_rgba(15,23,42,0.03)] p-6 space-y-6">
         {/* Filters Panel */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 border-b border-slate-100/50 pb-5">
-          {/* DEPARTMENT */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 border-b border-slate-100/50 pb-5">
+          {/* INSTITUTION */}
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">DEPARTMENT</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">INSTITUTION</label>
+            <select
+              value={instFilter}
+              onChange={(e) => { setInstFilter(e.target.value); setPage(1) }}
+              className="input text-xs font-bold text-slate-700 bg-white/60 backdrop-blur-sm border-slate-200/60 hover:border-slate-300 focus:border-brand-500 transition-all w-full"
+            >
+              <option value="all">All Institutions</option>
+              {institutions.map((i: string) => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* DEPARTMENT / BRANCH */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">BRANCH</label>
             <select
               value={deptFilter}
               onChange={(e) => { setDeptFilter(e.target.value); setPage(1) }}
               className="input text-xs font-bold text-slate-700 bg-white/60 backdrop-blur-sm border-slate-200/60 hover:border-slate-300 focus:border-brand-500 transition-all w-full"
             >
-              <option value="all">All Departments</option>
+              <option value="all">All Branches</option>
               {depts.map((d: string) => (
                 <option key={d} value={d}>{d}</option>
               ))}
@@ -671,7 +743,8 @@ export default function ManageStudentsPage() {
                   </th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Roll Number</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Full Name</th>
-                  <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Dept</th>
+                  <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Institution</th>
+                  <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest">Branch</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Year</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Sec</th>
                   <th className="p-4 font-extrabold text-slate-500 uppercase tracking-widest text-center">Batch</th>
@@ -727,6 +800,7 @@ export default function ManageStudentsPage() {
                     </td>
                     <td className="p-4 font-mono font-bold text-brand-600 bg-brand-50/40">{s.student_id}</td>
                     <td className="p-4 font-bold text-slate-800 text-sm">{s.name}</td>
+                    <td className="p-4 font-semibold text-brand-700 bg-brand-50/20">{s.institution || 'FET'}</td>
                     <td className="p-4 font-semibold text-slate-500 uppercase">{s.department}</td>
                     <td className="p-4 font-bold text-slate-600 text-center">{s.year}</td>
                     <td className="p-4 font-bold text-slate-600 text-center uppercase">{s.section}</td>
@@ -1019,14 +1093,33 @@ export default function ManageStudentsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Department</label>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Institution</label>
+                  <select
+                    required
+                    className="input text-xs font-semibold"
+                    value={editForm.institution}
+                    onChange={(e) => setEditForm({ ...editForm, institution: e.target.value })}
+                  >
+                    {institutions.map((inst) => (
+                      <option key={inst} value={inst}>{inst}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Branch (Department)</label>
                   <input
                     required
                     type="text"
+                    list="edit-branches-list"
                     className="input text-xs uppercase font-semibold"
                     value={editForm.department}
                     onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
                   />
+                  <datalist id="edit-branches-list">
+                    {getBranchesForInstitution(editForm.institution).map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">Year</label>
@@ -1278,6 +1371,33 @@ export default function ManageStudentsPage() {
                         ))}
                       </select>
                     )}
+                  </div>
+                )}
+              </div>
+
+              {/* 1b. Institution */}
+              <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/30 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bulkForm.updateInst}
+                    onChange={(e) => setBulkForm({ ...bulkForm, updateInst: e.target.checked })}
+                    className="rounded text-brand-600 focus:ring-brand-500/20 w-4 h-4"
+                  />
+                  <span className="text-xs font-bold text-slate-700">Update Institution</span>
+                </label>
+
+                {bulkForm.updateInst && (
+                  <div className="pl-6 animate-fade-in">
+                    <select
+                      className="input text-xs font-semibold"
+                      value={bulkForm.instAbsolute}
+                      onChange={(e) => setBulkForm({ ...bulkForm, instAbsolute: e.target.value })}
+                    >
+                      {institutions.map(inst => (
+                        <option key={inst} value={inst}>{inst}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>

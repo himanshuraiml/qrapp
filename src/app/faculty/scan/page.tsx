@@ -8,6 +8,7 @@ import type { QrPayload } from '@/types'
 import { saveOfflineScan, getOfflineQueue, removeOfflineScan, clearOfflineQueue, type OfflineScan } from '@/lib/offlineStore'
 import { decryptQrToken } from '@/lib/qrCryptoClient'
 import { getOfflineAuthSession } from '@/lib/offlineAuth'
+import { useModule } from '@/context/ModuleContext'
 
 type ScanResult = { type: 'success' | 'error' | 'duplicate'; message: string; studentName?: string; studentId?: string; session?: string }
 
@@ -25,10 +26,13 @@ export default function ScanPage() {
   })
   const processingRef = useRef(false)
 
+  const { activeModule } = useModule()
+
   // Placement Drive scan states
-  const [scanTargetMode, setScanTargetMode] = useState<'session' | 'placement'>('session')
+  const [scanTargetMode, setScanTargetMode] = useState<'cdc' | 'placement'>('cdc')
   const [placementDrives, setPlacementDrives] = useState<any[]>([])
   const [selectedPlacementDriveId, setSelectedPlacementDriveId] = useState<string>('')
+  const [cdcCurrentPeriod, setCdcCurrentPeriod] = useState<number | null>(null)
 
   // Batch & Restriction states
   const [facultyProfile, setFacultyProfile] = useState<any>(null)
@@ -251,8 +255,10 @@ export default function ScanPage() {
                 if (urlDriveId) {
                   setScanTargetMode('placement')
                   setSelectedPlacementDriveId(urlDriveId)
-                } else if (json.data.length > 0) {
-                  setSelectedPlacementDriveId(json.data[0].id)
+                } else {
+                  if (json.data.length > 0) setSelectedPlacementDriveId(json.data[0].id)
+                  if (activeModule === 'cdc') setScanTargetMode('cdc')
+                  else if (activeModule === 'placements') setScanTargetMode('placement')
                 }
               }
             }
@@ -266,6 +272,13 @@ export default function ScanPage() {
     }
     loadConfig()
   }, [supabase])
+
+  useEffect(() => {
+    if (scanTargetMode !== 'cdc') return
+    supabase.rpc('get_cdc_current_period').then(({ data }) => {
+      setCdcCurrentPeriod(typeof data === 'number' ? data : null)
+    })
+  }, [scanTargetMode, supabase])
 
   const toggleHaptics = () => {
     setHapticsEnabled((prev) => {
@@ -434,61 +447,59 @@ export default function ScanPage() {
       let duplicateCount = 0
       let failureCount = 0
       let remainingQueue = [...offlineQueueRef.current]
-      const processedScans = []
+      const processedScans: Array<{ id: string; name: string; session: string; type: 'success' | 'duplicate' | 'error'; message: string }> = []
 
-      for (const scan of offlineQueueRef.current) {
+      if (offlineQueueRef.current.length > 0) {
         try {
           const res = await fetch('/api/attendance/mark', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              token: scan.token,
-              mode: 'offline',
-              scan_timestamp: scan.timestamp,
-              scan_date: scan.date,
+              scans: offlineQueueRef.current.map((scan) => ({
+                token: scan.token,
+                mode: 'offline',
+                scan_timestamp: scan.timestamp,
+                scan_date: scan.date,
+              })),
             }),
           })
 
           const contentType = res.headers.get('content-type') || ''
           const data = contentType.includes('application/json') ? await res.json().catch(() => null) : null
 
-          if (!res.ok || !data) {
-            if ((!res.ok && (res.status >= 500 || res.status === 429)) || !data) {
-              // Retriable server/rate-limit/network error — keep remaining items in queue and pause sync
-              break
-            }
-            failureCount++
-            await removeOfflineScan(scan.student_id)
-            remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
-            continue
-          }
+          if (res.ok && data?.success && Array.isArray(data.results)) {
+            data.results.forEach((resItem: any, idx: number) => {
+              const originalScan = offlineQueueRef.current[idx]
+              if (!originalScan) return
 
-          if (data?.success) {
-            successCount++
-            const sessionLabel = data.session || (sessionMode + '1')
-            processedScans.push({
-              id: scan.student_id,
-              name: scan.name,
-              session: sessionLabel,
-              type: 'success' as const,
-              message: 'Marked Present (Synced)'
+              if (resItem?.success) {
+                successCount++
+                const sessionLabel = resItem.session || (sessionMode + '1')
+                processedScans.push({
+                  id: originalScan.student_id,
+                  name: originalScan.name,
+                  session: sessionLabel,
+                  type: 'success' as const,
+                  message: 'Marked Present (Synced)',
+                })
+              } else {
+                duplicateCount++
+                processedScans.push({
+                  id: originalScan.student_id,
+                  name: originalScan.name,
+                  session: sessionMode + '1',
+                  type: 'duplicate' as const,
+                  message: resItem?.message ?? 'Already Verified',
+                })
+              }
             })
-          } else {
-            duplicateCount++
-            processedScans.push({
-              id: scan.student_id,
-              name: scan.name,
-              session: sessionMode + '1',
-              type: 'duplicate' as const,
-              message: data?.message ?? 'Already Verified'
-            })
+            remainingQueue = []
+            await clearOfflineQueue().catch(() => {})
+          } else if (!res.ok) {
+            failureCount += offlineQueueRef.current.length
           }
-
-          await removeOfflineScan(scan.student_id)
-          remainingQueue = remainingQueue.filter(item => item.student_id !== scan.student_id)
         } catch (e) {
-          console.error("Error syncing scan for student:", scan.student_id, e)
-          break
+          console.error('Error syncing batch scans:', e)
         }
       }
 
@@ -585,6 +596,47 @@ export default function ScanPage() {
         triggerHaptic([400])
         addToRecentScans(payload.student_id, payload.name, 'N/A', 'error', 'QR code expired')
         scheduleClear(700)
+        return
+      }
+
+      // Handling CDC Classes period scanning
+      if (scanTargetMode === 'cdc') {
+        try {
+          const res = await fetch('/api/attendance/mark-cdc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: text }),
+          })
+          const json = await res.json()
+
+          if (json.success) {
+            setScanCount((c) => c + 1)
+            setCdcCurrentPeriod(json.period_number ?? cdcCurrentPeriod)
+            setResult({
+              type: 'success',
+              message: json.message || 'Marked Present',
+              studentName: payload.name,
+              studentId: payload.student_id,
+              session: json.period_number ? `Period ${json.period_number}` : 'CDC',
+            })
+            triggerHaptic([100, 50, 100])
+            addToRecentScans(payload.student_id, payload.name, json.period_number ? `P${json.period_number}` : 'CDC', 'success', json.message)
+          } else {
+            setResult({
+              type: json.message?.toLowerCase().includes('already') ? 'duplicate' : 'error',
+              message: json.message || 'Could not mark CDC attendance',
+              studentName: payload.name,
+              studentId: payload.student_id,
+            })
+            triggerHaptic([400])
+            addToRecentScans(payload.student_id, payload.name, 'CDC', json.message?.toLowerCase().includes('already') ? 'duplicate' : 'error', json.message)
+          }
+        } catch (err: any) {
+          setResult({ type: 'error', message: err.message || 'Error processing CDC attendance' })
+          triggerHaptic([400])
+        } finally {
+          scheduleClear(700)
+        }
         return
       }
 
@@ -918,17 +970,17 @@ export default function ScanPage() {
         </button>
       </div>
 
-      {/* Target Mode Switcher: Daily Class Session vs Placement Drive */}
+      {/* Target Mode Switcher: CDC Period vs Placement Drive */}
       <div className="clay-card p-2 rounded-[1.75rem] flex items-center gap-2 min-h-[52px]">
         <button
-          onClick={() => setScanTargetMode('session')}
+          onClick={() => setScanTargetMode('cdc')}
           className={`flex-1 py-2.5 px-4 rounded-2xl text-xs font-extrabold transition-all min-h-[44px] ${
-            scanTargetMode === 'session'
+            scanTargetMode === 'cdc'
               ? 'clay-button text-white shadow-md'
               : 'text-slate-600 hover:bg-slate-50'
           }`}
         >
-          📅 Daily Class Session
+          🎓 CDC Period
         </button>
         <button
           onClick={() => setScanTargetMode('placement')}
@@ -941,6 +993,19 @@ export default function ScanPage() {
           🚀 Placement Drive
         </button>
       </div>
+
+      {scanTargetMode === 'cdc' && (
+        <div className="clay-card p-6 space-y-2">
+          <label className="block text-xs font-black text-brand-900 uppercase tracking-wider">
+            CDC Classes — Live Period
+          </label>
+          {cdcCurrentPeriod ? (
+            <p className="text-sm font-black text-emerald-700">✅ Period {cdcCurrentPeriod} is active — scans will be marked here.</p>
+          ) : (
+            <p className="text-xs text-amber-700 font-bold">⚠️ No CDC period is active right now. Check the timetable in Settings.</p>
+          )}
+        </div>
+      )}
 
       {scanTargetMode === 'placement' && (
         <div className="clay-card p-6 space-y-3">
@@ -965,75 +1030,32 @@ export default function ScanPage() {
         </div>
       )}
 
-      {scanTargetMode === 'session' && (
-        <>
-          <div className="clay-card p-5 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Scanning Target</p>
-                {loadingConfig ? (
-                  <p className="text-xs text-slate-400 font-semibold">Loading batch details...</p>
-                ) : facultyProfile?.special_login ? (
-                  <p className="text-xs font-black text-purple-700 mt-0.5">⭐️ Special Login (All Batches Allowed)</p>
-                ) : facultyProfile?.batch ? (
-                  <p className="text-xs font-black text-slate-800 mt-0.5">
-                    Batch <span className="text-brand-700 font-black">{facultyProfile.batch}</span> {batchVenue ? `· Venue: ${batchVenue}` : ''}
-                  </p>
-                ) : (
-                  <p className="text-xs font-black text-amber-700 mt-0.5">⚠️ No Batch Selected</p>
-                )}
-              </div>
-
-              {!loadingConfig && !facultyProfile?.special_login && (
-                <select
-                  disabled={updatingBatch}
-                  value={facultyProfile?.batch || ''}
-                  onChange={(e) => handleAssignBatch(e.target.value)}
-                  className="clay-input min-h-[44px] px-3.5 py-2 text-xs font-extrabold text-slate-800 w-full sm:w-44"
-                >
-                  <option value="">Select Batch</option>
-                  {batchesList.map((b) => (
-                    <option key={b} value={b}>Batch {b}</option>
-                  ))}
-                </select>
-              )}
+      {/* Offline Queue Sync Card */}
+      {offlineQueue.length > 0 && (
+        <div className="clay-card-amber p-5 flex items-center justify-between gap-4 animate-slide-up">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-200/80 border border-amber-300 flex items-center justify-center text-lg animate-pulse flex-shrink-0 clay-badge">
+              ☁️
             </div>
-
-            {restrictFaculty && !facultyProfile?.batch && !facultyProfile?.special_login && (
-              <div className="p-3 bg-amber-100/90 border border-amber-300 rounded-2xl text-xs font-extrabold text-amber-950 clay-badge">
-                ⚠️ Restricted: Select a batch above to enable the camera scanner.
-              </div>
-            )}
+            <div>
+              <p className="text-xs font-black text-amber-950">
+                {offlineQueue.length} Pending Scan{offlineQueue.length > 1 ? 's' : ''} Offline
+              </p>
+              <p className="text-[10px] text-amber-900 font-bold mt-0.5">
+                Saved locally. Will sync when connection is restored.
+              </p>
+            </div>
           </div>
-
-          {/* Offline Queue Sync Card */}
-          {offlineQueue.length > 0 && (
-            <div className="clay-card-amber p-5 flex items-center justify-between gap-4 animate-slide-up">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-200/80 border border-amber-300 flex items-center justify-center text-lg animate-pulse flex-shrink-0 clay-badge">
-                  ☁️
-                </div>
-                <div>
-                  <p className="text-xs font-black text-amber-950">
-                    {offlineQueue.length} Pending Scan{offlineQueue.length > 1 ? 's' : ''} Offline
-                  </p>
-                  <p className="text-[10px] text-amber-900 font-bold mt-0.5">
-                    Saved locally. Will sync when connection is restored.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={syncOfflineScans}
-                disabled={isSyncing}
-                className={`clay-button px-4 py-2.5 text-xs font-extrabold flex-shrink-0 min-h-[44px] ${
-                  isSyncing ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isSyncing ? 'Syncing...' : 'Sync Now'}
-              </button>
-            </div>
-          )}
-        </>
+          <button
+            onClick={syncOfflineScans}
+            disabled={isSyncing}
+            className={`clay-button px-4 py-2.5 text-xs font-extrabold flex-shrink-0 min-h-[44px] ${
+              isSyncing ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {isSyncing ? 'Syncing...' : 'Sync Now'}
+          </button>
+        </div>
       )}
 
       {/* Live Camera Viewfinder (Clay Rounded Box) */}

@@ -130,13 +130,16 @@ export default function QrDisplay() {
     return () => clearInterval(tick)
   }, [QRCode, lastGenerated, generateQr, isOfflinePass])
 
-  // Refresh QR code automatically on tab visibility change or window focus
+  // Refresh QR code automatically on tab visibility change or window focus (throttled to 30s)
   useEffect(() => {
     if (!QRCode) return
 
     const handleActiveState = () => {
       if (document.visibilityState === 'visible') {
-        generateQr()
+        const nowSec = Math.floor(Date.now() / 1000)
+        if (nowSec - lastGenerated > 30) {
+          generateQr()
+        }
       }
     }
 
@@ -147,7 +150,7 @@ export default function QrDisplay() {
       document.removeEventListener('visibilitychange', handleActiveState)
       window.removeEventListener('focus', handleActiveState)
     }
-  }, [QRCode, generateQr])
+  }, [QRCode, generateQr, lastGenerated])
 
   const pct = (countdown / QR_TTL) * 100
   const strokeColor = countdown > 15 ? '#2563eb' : countdown > 5 ? '#f59e0b' : '#ef4444'

@@ -6,19 +6,21 @@ import { downloadStudentTemplate } from '@/lib/export'
 // Canonical field <- accepted (normalised) header aliases. Keeping a few common
 // aliases reduces "column name mismatch" failures on upload.
 const HEADER_ALIASES: Record<string, string[]> = {
-  student_id: ['register no', 'registerno', 'register number', 'roll no', 'rollno', 'roll number', 'student id', 'studentid', 'reg no'],
-  name:       ['name', 'full name', 'student name'],
-  department: ['department', 'dept'],
-  year:       ['year'],
-  section:    ['section', 'sec'],
-  batch:      ['batch'],
-  password:   ['password', 'pwd', 'pass'],
+  student_id:  ['register no', 'registerno', 'register number', 'roll no', 'rollno', 'roll number', 'student id', 'studentid', 'reg no'],
+  name:        ['name', 'full name', 'student name'],
+  institution: ['institution', 'inst', 'faculty', 'college'],
+  department:  ['department', 'dept', 'branch'],
+  year:        ['year'],
+  section:     ['section', 'sec'],
+  batch:       ['batch'],
+  password:    ['password', 'pwd', 'pass'],
 }
 
 interface ParsedRow {
   rowNum: number
   student_id: string
   name: string
+  institution: string
   department: string
   year: string
   section: string
@@ -83,7 +85,7 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
       const haveFields = new Set(Object.values(headerMap))
       const missing = ['student_id', 'name', 'department', 'year', 'section'].filter((f) => !haveFields.has(f))
       if (missing.length) {
-        const labels: Record<string, string> = { student_id: 'Register No', name: 'Name', department: 'Department', year: 'Year', section: 'Section' }
+        const labels: Record<string, string> = { student_id: 'Register No', name: 'Name', department: 'Department/Branch', year: 'Year', section: 'Section' }
         setParseError(`Missing required column(s): ${missing.map((m) => labels[m]).join(', ')}. Download the template and keep the header row unchanged.`)
         return
       }
@@ -98,6 +100,8 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
         const arr = matrix[i]
         const student_id = get(arr, 'student_id').toUpperCase()
         const name = get(arr, 'name')
+        const rawInst = get(arr, 'institution')
+        const institution = rawInst || 'FET'
         const department = get(arr, 'department')
         const year = get(arr, 'year')
         const section = get(arr, 'section')
@@ -116,7 +120,7 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
           valid = false; reason = 'Year must be 1–4'
         }
 
-        parsed.push({ rowNum: i + 1, student_id, name, department, year, section, batch, password, valid, reason })
+        parsed.push({ rowNum: i + 1, student_id, name, institution, department, year, section, batch, password, valid, reason })
       }
 
       if (parsed.length === 0) { setParseError('No student rows found (did you delete the example rows but leave them all blank?).'); return }
@@ -147,6 +151,7 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
           body: JSON.stringify({
             students: chunk.map((r) => ({
               rowNum: r.rowNum, student_id: r.student_id, name: r.name,
+              institution: r.institution || 'FET',
               department: r.department, year: r.year, section: r.section,
               batch: r.batch || null, password: r.password || null,
             })),
@@ -251,7 +256,8 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
                       <th className="text-left px-3 py-2 font-bold">Row</th>
                       <th className="text-left px-3 py-2 font-bold">Register No</th>
                       <th className="text-left px-3 py-2 font-bold">Name</th>
-                      <th className="text-left px-3 py-2 font-bold">Dept</th>
+                      <th className="text-left px-3 py-2 font-bold">Inst</th>
+                      <th className="text-left px-3 py-2 font-bold">Branch</th>
                       <th className="text-left px-3 py-2 font-bold">Yr</th>
                       <th className="text-left px-3 py-2 font-bold">Sec</th>
                       <th className="text-left px-3 py-2 font-bold">Batch</th>
@@ -264,6 +270,7 @@ export default function BulkStudentUpload({ onComplete }: { onComplete?: () => v
                         <td className="px-3 py-2 text-slate-400">{r.rowNum}</td>
                         <td className="px-3 py-2 font-semibold text-slate-700">{r.student_id || '—'}</td>
                         <td className="px-3 py-2 text-slate-600">{r.name || '—'}</td>
+                        <td className="px-3 py-2 text-slate-600 font-semibold">{r.institution || 'FET'}</td>
                         <td className="px-3 py-2 text-slate-600">{r.department || '—'}</td>
                         <td className="px-3 py-2 text-slate-600">{r.year || '—'}</td>
                         <td className="px-3 py-2 text-slate-600">{r.section || '—'}</td>
