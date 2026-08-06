@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const rawPage = parseInt(searchParams.get('page') || '1')
+    const rawLimit = parseInt(searchParams.get('limit') || '50')
+    const page = Math.max(rawPage, 1)
+    const limit = Math.min(Math.max(rawLimit, 1), 200)
     const search = searchParams.get('search') || ''
     const dateFrom = searchParams.get('dateFrom') || ''
     const dateTo = searchParams.get('dateTo') || ''

@@ -56,6 +56,23 @@ const securityHeaders = [
     key: 'X-XSS-Protection',
     value: '1; mode=block',
   },
+  {
+    // Restricts where resources can be loaded from.
+    // 'unsafe-inline' for styles is needed by Tailwind / Next.js SSR.
+    // Tighten further (add nonces) if an inline script injection is later discovered.
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js needs unsafe-eval in dev; harmless in prod
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob:",
+      "connect-src 'self' https://*.supabase.co https://wgdhuaatzolkrofkwxdb.supabase.co",
+      "media-src 'self'",
+      "worker-src 'self' blob:",
+      "frame-ancestors 'none'",
+    ].join('; '),
+  },
 ]
 
 /** @type {import('next').NextConfig} */

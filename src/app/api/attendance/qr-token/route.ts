@@ -15,6 +15,8 @@ import { encryptQrPayload } from '@/lib/qrSignature'
 // can turn it back into a name/department/etc.
 import { todayIST } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const supabase = await createClient()

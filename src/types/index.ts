@@ -241,6 +241,7 @@ export interface PlacementDrive {
   company_name: string
   title: string
   drive_date: string
+  drive_date_end?: string | null
   venue: string
   description?: string | null
   status: 'Upcoming' | 'Active' | 'Completed'

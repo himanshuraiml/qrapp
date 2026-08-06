@@ -22,6 +22,7 @@ export default function PlacementDrivesPage() {
     company_name: '',
     title: '',
     drive_date: new Date().toISOString().split('T')[0],
+    drive_date_end: '',
     venue: '',
     description: '',
   })
@@ -186,6 +187,7 @@ export default function PlacementDrivesPage() {
           company_name: '',
           title: '',
           drive_date: new Date().toISOString().split('T')[0],
+          drive_date_end: '',
           venue: '',
           description: '',
         })
@@ -450,7 +452,10 @@ export default function PlacementDrivesPage() {
 
                   <div className="text-xs text-slate-600 space-y-1">
                     <p className="flex items-center gap-1.5">
-                      <span className="font-semibold text-slate-400">📅 Date:</span> {drive.drive_date}
+                      <span className="font-semibold text-slate-400">📅 Date:</span>
+                      {drive.drive_date_end && drive.drive_date_end !== drive.drive_date
+                        ? `${drive.drive_date} → ${drive.drive_date_end}`
+                        : drive.drive_date}
                     </p>
                     <p className="flex items-center gap-1.5">
                       <span className="font-semibold text-slate-400">📍 Venue:</span> {drive.venue}
@@ -557,7 +562,7 @@ export default function PlacementDrivesPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Drive Date *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Drive Start Date *</label>
                   <input
                     type="date"
                     required
@@ -568,16 +573,30 @@ export default function PlacementDrivesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Venue / Location *</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Drive End Date <span className="text-slate-400 font-normal">(optional — for multi-day drives)</span></label>
                   <input
-                    type="text"
-                    required
-                    placeholder="e.g. Auditorium / Lab 3"
-                    value={formData.venue}
-                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                    type="date"
+                    min={formData.drive_date || undefined}
+                    value={formData.drive_date_end}
+                    onChange={(e) => setFormData({ ...formData, drive_date_end: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
                   />
+                  {formData.drive_date_end && formData.drive_date_end < formData.drive_date && (
+                    <p className="text-[11px] text-red-500 font-semibold mt-1">⚠ End date must be on or after start date</p>
+                  )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Venue / Location *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Auditorium / Lab 3"
+                  value={formData.venue}
+                  onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                />
               </div>
 
               <div>
@@ -679,7 +698,10 @@ export default function PlacementDrivesPage() {
                 </span>
                 <h2 className="text-xl font-bold text-slate-900 mt-1">{selectedDrive.title}</h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Date: {selectedDrive.drive_date} | Venue: {selectedDrive.venue}
+                  Date: {selectedDrive.drive_date_end && selectedDrive.drive_date_end !== selectedDrive.drive_date
+                    ? `${selectedDrive.drive_date} → ${selectedDrive.drive_date_end}`
+                    : selectedDrive.drive_date
+                  } | Venue: {selectedDrive.venue}
                 </p>
               </div>
 

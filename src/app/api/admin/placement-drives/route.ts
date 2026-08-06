@@ -63,11 +63,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { company_name, title, drive_date, venue, description, students } = body
+    const { company_name, title, drive_date, drive_date_end, venue, description, students } = body
 
     if (!company_name || !title || !drive_date || !venue) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields: company_name, title, drive_date, venue' },
+        { status: 400 }
+      )
+    }
+
+    // Validate end date is not before start date
+    if (drive_date_end && drive_date_end < drive_date) {
+      return NextResponse.json(
+        { success: false, error: 'drive_date_end cannot be before drive_date' },
         { status: 400 }
       )
     }
@@ -81,6 +89,7 @@ export async function POST(request: Request) {
         company_name: company_name.trim(),
         title: title.trim(),
         drive_date,
+        drive_date_end: drive_date_end || null,
         venue: venue.trim(),
         description: description?.trim() || null,
         status: 'Active',

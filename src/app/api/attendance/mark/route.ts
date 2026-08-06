@@ -24,13 +24,29 @@ import { todayIST } from '@/lib/utils'
 const recentRequests = new Map<string, number[]>()
 const RATE_LIMIT_PER_MINUTE = 60
 
+// SEC-4 & BUG-3: Evict old entries periodically and prevent double-counting
 function isRateLimited(key: string): boolean {
   const now = Date.now()
   const windowStart = now - 60_000
   const hits = (recentRequests.get(key) ?? []).filter((t) => t > windowStart)
+  if (hits.length >= RATE_LIMIT_PER_MINUTE) {
+    return true
+  }
   hits.push(now)
   recentRequests.set(key, hits)
-  return hits.length > RATE_LIMIT_PER_MINUTE
+  return false
+}
+
+if (typeof globalThis !== 'undefined') {
+  const g = globalThis as any
+  if (!g.__markRateLimitCleanupTimer) {
+    g.__markRateLimitCleanupTimer = setInterval(() => {
+      const cutoff = Date.now() - 60_000
+      for (const [k, hits] of recentRequests) {
+        if (hits.every((t) => t < cutoff)) recentRequests.delete(k)
+      }
+    }, 5 * 60_000)
+  }
 }
 
 export async function POST(request: Request) {
@@ -77,7 +93,10 @@ export async function POST(request: Request) {
         continue
       }
 
-      const isOfflineMode = mode === 'offline' || payload.mode === 'offline'
+      // ts === 0 is the authoritative offline-pass indicator baked in by the server;
+      // payload.mode === 'offline' is also present in all offline passes. Both are
+      // checked so older cached passes (pre-mode-field) still work.
+      const isOfflineMode = mode === 'offline' || payload.mode === 'offline' || payload.ts === 0
       const effectiveDate = typeof scan_date === 'string' ? scan_date : (payload.date || todayIST())
 
       if (isOfflineMode) {
@@ -101,11 +120,12 @@ export async function POST(request: Request) {
           continue
         }
       } else {
-        if (nowSec - payload.ts > 120 || payload.ts > nowSec + 10) {
+        if (nowSec - payload.ts > 120 || payload.ts > nowSec + 15) {
           results.push({ success: false, message: 'QR code expired. Ask student to refresh their code.' })
           continue
         }
       }
+
 
       const effectiveTimestamp = typeof scan_timestamp === 'string' ? scan_timestamp : new Date().toISOString()
 

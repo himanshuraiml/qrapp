@@ -34,7 +34,7 @@ export default function QrDisplay() {
       const cachedDate = localStorage.getItem('student_daily_offline_pass_date')
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
-      if (cachedToken) {
+      if (cachedToken && cachedToken.length > 32 && /^[A-Za-z0-9\-_]+$/.test(cachedToken)) {
         if (cachedDate && cachedDate !== today) {
           setError(`Offline pass from ${cachedDate} has expired. Please connect to the internet once to update today's pass.`)
           return false
@@ -129,6 +129,17 @@ export default function QrDisplay() {
     }, 1000)
     return () => clearInterval(tick)
   }, [QRCode, lastGenerated, generateQr, isOfflinePass])
+
+  // Auto-refresh QR when network is restored (replace offline pass with live token)
+  useEffect(() => {
+    if (!QRCode) return
+    const handleOnline = () => {
+      // Always regenerate on reconnect — dumps the cached offline pass
+      generateQr()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [QRCode, generateQr])
 
   // Refresh QR code automatically on tab visibility change or window focus (throttled to 30s)
   useEffect(() => {

@@ -15,9 +15,24 @@ function isIpRateLimited(ip: string): boolean {
   const now = Date.now()
   const windowStart = now - 60_000
   const hits = (ipAttempts.get(ip) ?? []).filter((t) => t > windowStart)
+  if (hits.length >= MAX_IP_ATTEMPTS_PER_MINUTE) {
+    return true
+  }
   hits.push(now)
   ipAttempts.set(ip, hits)
-  return hits.length > MAX_IP_ATTEMPTS_PER_MINUTE
+  return false
+}
+
+if (typeof globalThis !== 'undefined') {
+  const g = globalThis as any
+  if (!g.__loginGuardRateLimitCleanupTimer) {
+    g.__loginGuardRateLimitCleanupTimer = setInterval(() => {
+      const cutoff = Date.now() - 60_000
+      for (const [k, hits] of ipAttempts) {
+        if (hits.every((t) => t < cutoff)) ipAttempts.delete(k)
+      }
+    }, 5 * 60_000)
+  }
 }
 
 function normalizeEmail(email: unknown): string | null {

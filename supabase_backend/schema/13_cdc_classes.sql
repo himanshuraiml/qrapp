@@ -92,7 +92,7 @@ CREATE POLICY "cdc_attendance: admin delete"
 -- get_cdc_current_period — mirrors get_current_session, but resolves one
 -- of 8 configurable periods instead of FN/AN sessions.
 -- ─────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.get_cdc_current_period()
+CREATE OR REPLACE FUNCTION public.get_cdc_current_period(p_timestamp TIMESTAMPTZ DEFAULT NOW())
 RETURNS INTEGER
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
@@ -100,7 +100,7 @@ DECLARE
   v_periods TIME[16];
   i INTEGER;
 BEGIN
-  v_now := (NOW() AT TIME ZONE 'Asia/Kolkata')::TIME;
+  v_now := ((COALESCE(p_timestamp, NOW())) AT TIME ZONE 'Asia/Kolkata')::TIME;
 
   SELECT ARRAY[
     COALESCE(p1_start, '09:00'::TIME), COALESCE(p1_end, '09:50'::TIME),
@@ -201,7 +201,7 @@ BEGIN
     END IF;
   END IF;
 
-  v_target_period := get_cdc_current_period();
+  v_target_period := get_cdc_current_period(p_timestamp);
   IF v_target_period IS NULL THEN
     RETURN json_build_object('success', FALSE, 'message', 'Scan outside of any active CDC period window.');
   END IF;

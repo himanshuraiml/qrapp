@@ -66,9 +66,9 @@ export function isQrFresh(tsUnix: number, isOffline: boolean = false): boolean {
   if (isOffline || tsUnix === 0) return true
   const nowSec = Math.floor(Date.now() / 1000)
   const age = nowSec - tsUnix
-  // Allow up to 90s (60s display refresh interval + 30s network/clock skew buffer)
+  // Allow up to 120s (60s display refresh interval + 60s network/clock skew buffer)
   // and up to 15s of future clock skew (student phone clock behind faculty clock)
-  return age <= 90 && age >= -15
+  return age <= 120 && age >= -15
 }
 
 export const SESSIONS: Array<{ label: string; value: string }> = [

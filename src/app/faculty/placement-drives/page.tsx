@@ -16,6 +16,9 @@ export default function FacultyPlacementDrivesPage() {
   const [statusFilter, setStatusFilter] = useState<'All' | 'Present' | 'Absent'>('All')
   const [dateFilter, setDateFilter] = useState<string>('All')
 
+  // Today's date in IST (YYYY-MM-DD) for filtering expired drives
+  const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+
   useEffect(() => {
     fetchDrives()
   }, [])
@@ -26,7 +29,14 @@ export default function FacultyPlacementDrivesPage() {
       const res = await fetch('/api/admin/placement-drives')
       const json = await res.json()
       if (json.success) {
-        setDrives(json.data || [])
+        // Hide drives whose end date (or start date when no end date) has already passed
+        const activeDrives = (json.data || []).filter(
+          (d: PlacementDrive) => {
+            const effectiveEnd = d.drive_date_end || d.drive_date
+            return !effectiveEnd || effectiveEnd >= todayIST
+          }
+        )
+        setDrives(activeDrives)
       } else {
         setError(json.error || 'Failed to load placement drives')
       }
@@ -186,7 +196,11 @@ export default function FacultyPlacementDrivesPage() {
                   </div>
 
                   <div className="text-xs text-slate-600 font-semibold space-y-1">
-                    <p><span className="text-slate-400 font-bold">📅 Date:</span> {drive.drive_date}</p>
+                    <p><span className="text-slate-400 font-bold">📅 Date:</span>{' '}
+                      {drive.drive_date_end && drive.drive_date_end !== drive.drive_date
+                        ? `${drive.drive_date} → ${drive.drive_date_end}`
+                        : drive.drive_date}
+                    </p>
                     <p><span className="text-slate-400 font-bold">📍 Venue:</span> {drive.venue}</p>
                   </div>
 
@@ -234,7 +248,10 @@ export default function FacultyPlacementDrivesPage() {
                 </span>
                 <h2 className="text-xl font-black text-slate-900 mt-2 font-heading">{selectedDrive.title}</h2>
                 <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                  Date: {selectedDrive.drive_date} | Venue: {selectedDrive.venue}
+                  Date: {selectedDrive.drive_date_end && selectedDrive.drive_date_end !== selectedDrive.drive_date
+                    ? `${selectedDrive.drive_date} → ${selectedDrive.drive_date_end}`
+                    : selectedDrive.drive_date
+                  } | Venue: {selectedDrive.venue}
                 </p>
               </div>
               <div className="flex items-center gap-3">
