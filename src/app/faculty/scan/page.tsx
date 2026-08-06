@@ -18,6 +18,7 @@ export default function ScanPage() {
   const scannerRef = useRef<any>(null)
   // Auto-start immediately on page load
   const [active, setActive] = useState(true)
+  const [cameraError, setCameraError] = useState<string | null>(null)
   const [result, setResult] = useState<ScanResult | null>(null)
   const [scanCount, setScanCount] = useState(0)
   const [sessionMode, setSessionMode] = useState<'FN' | 'AN'>(() => {
@@ -299,35 +300,102 @@ export default function ScanPage() {
 
   useEffect(() => {
     if (!active) return
-    let html5QrCode: any
     let isCancelled = false
 
     async function startScanner() {
+      setCameraError(null)
       try {
+        if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          throw new Error('Camera access requires HTTPS or localhost. Current HTTP connection is insecure.')
+        }
+        if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera API (getUserMedia) is not supported or blocked by browser settings.')
+        }
+
         const { Html5Qrcode } = await import('html5-qrcode')
         if (isCancelled) return
-        html5QrCode = new Html5Qrcode('qr-reader')
+
+        if (scannerRef.current) {
+          try {
+            if (scannerRef.current.isScanning) {
+              await scannerRef.current.stop()
+            }
+            await scannerRef.current.clear()
+          } catch (e) {
+            console.warn('Error clearing existing scanner:', e)
+          }
+          scannerRef.current = null
+        }
+
+        const html5QrCode = new Html5Qrcode('qr-reader')
         scannerRef.current = html5QrCode
-        await html5QrCode.start(
-          // Request continuous autofocus at the MediaStream level
-          {
-            facingMode: 'environment',
-            advanced: [{ focusMode: 'continuous' }] as any,
-          },
-          // fps:30 is max reliable for html5-qrcode; qrbox small for speed
-          { fps: 30, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 },
-          handleQrCode,
-          () => {}
-        )
+
+        const qrConfig = { fps: 30, qrbox: { width: 240, height: 240 }, aspectRatio: 1.0 }
+
+        let started = false
+
+        // Attempt 1: Facing mode environment (Back Camera)
+        try {
+          await html5QrCode.start(
+            { facingMode: 'environment' },
+            qrConfig,
+            handleQrCode,
+            () => {}
+          )
+          started = true
+        } catch (envErr) {
+          console.warn('Environment camera failed, trying fallback camera:', envErr)
+        }
+
+        // Attempt 2: Facing mode user (Front Camera / Desktop Webcam)
+        if (!started && !isCancelled) {
+          try {
+            await html5QrCode.start(
+              { facingMode: 'user' },
+              qrConfig,
+              handleQrCode,
+              () => {}
+            )
+            started = true
+          } catch (userErr) {
+            console.warn('User camera failed, trying available devices list:', userErr)
+          }
+        }
+
+        // Attempt 3: Specific Camera device ID
+        if (!started && !isCancelled) {
+          try {
+            const devices = await Html5Qrcode.getCameras()
+            if (devices && devices.length > 0) {
+              await html5QrCode.start(
+                devices[0].id,
+                qrConfig,
+                handleQrCode,
+                () => {}
+              )
+              started = true
+            }
+          } catch (devErr) {
+            console.warn('Device ID camera start failed:', devErr)
+          }
+        }
+
+        if (!started && !isCancelled) {
+          throw new Error('Could not access camera. Please check camera permissions in your browser.')
+        }
+
         if (isCancelled && html5QrCode.isScanning) {
           await html5QrCode.stop()
           return
         }
-        // Re-apply at the track level — some browsers need both
+
         await applyFocusConstraints()
-      } catch {
+      } catch (err: any) {
         if (!isCancelled) {
-          setResult({ type: 'error', message: 'Camera access denied. Enable camera permission.' })
+          console.error('Camera start failed:', err)
+          const errMsg = err?.message || 'Camera access denied. Enable camera permission in your browser.'
+          setCameraError(errMsg)
+          setResult({ type: 'error', message: errMsg })
           setActive(false)
         }
       }
@@ -336,8 +404,11 @@ export default function ScanPage() {
     startScanner()
     return () => {
       isCancelled = true
-      const scanner = html5QrCode || scannerRef.current
-      if (scanner?.isScanning) scanner.stop().catch(() => {})
+      if (scannerRef.current) {
+        const scanner = scannerRef.current
+        scannerRef.current = null
+        if (scanner?.isScanning) scanner.stop().catch(() => {})
+      }
     }
   }, [active])
 
@@ -971,13 +1042,31 @@ export default function ScanPage() {
                 Grant camera permission to scan QR codes.
               </p>
             </div>
+
+            {cameraError && (
+              <div className="p-3 bg-red-950/80 border border-red-500/50 rounded-xl text-left space-y-1 my-2">
+                <p className="text-xs font-bold text-red-300 flex items-center gap-1.5">
+                  <span>⚠️</span> Camera Error
+                </p>
+                <p className="text-[11px] text-red-200/90 font-medium leading-relaxed">
+                  {cameraError}
+                </p>
+                <p className="text-[10px] text-red-300/70 font-semibold pt-1">
+                  Click the lock 🔒 or camera icon in your browser URL bar to allow camera access.
+                </p>
+              </div>
+            )}
+
             {isRestricted ? (
               <button disabled className="clay-button w-full min-h-[52px] py-4 text-sm font-extrabold opacity-40 cursor-not-allowed shadow-none">
                 Select Batch to Start Scanner
               </button>
             ) : (
               <button
-                onClick={() => setActive(true)}
+                onClick={() => {
+                  setCameraError(null)
+                  setActive(true)
+                }}
                 className="clay-button w-full min-h-[52px] py-4 text-sm font-extrabold text-white"
               >
                 Start Attendance Scanner
