@@ -13,6 +13,7 @@ import {
   exportUnifiedRosterToExcel,
   exportUnifiedRosterToPDF,
 } from '@/lib/export'
+import { safeSessionStorage } from '@/lib/safeStorage'
 import SectionSummaryTable from '@/components/admin/SectionSummaryTable'
 import type { AttendanceRecord, SectionSummary, ReportFilters, BatchSummary, UnifiedRosterRecord, ModuleType } from '@/types'
 import { useModule } from '@/context/ModuleContext'
@@ -134,7 +135,7 @@ export default function ReportsPage() {
             setRecords(data)
             setTotalCount(count ?? 0)
             const cacheKey = `report_${tab}_${page}_${JSON.stringify(filters)}`
-            sessionStorage.setItem(cacheKey, JSON.stringify({ data, count }))
+            safeSessionStorage.setItem(cacheKey, JSON.stringify({ data, count }))
           }
         }
 
@@ -150,7 +151,7 @@ export default function ReportsPage() {
           setTotalCount(count ?? res.length)
           if (res.length) {
             const cacheKey = `report_${tab}_section_${JSON.stringify(filters)}`
-            sessionStorage.setItem(cacheKey, JSON.stringify({ data: res, count: count ?? res.length }))
+            safeSessionStorage.setItem(cacheKey, JSON.stringify({ data: res, count: count ?? res.length }))
           }
           return res
         } else {
@@ -180,7 +181,7 @@ export default function ReportsPage() {
           setTotalCount(rows.length)
           if (rows.length) {
             const cacheKey = `report_${tab}_batch_${JSON.stringify(filters)}`
-            sessionStorage.setItem(cacheKey, JSON.stringify({ data: rows, count: rows.length }))
+            safeSessionStorage.setItem(cacheKey, JSON.stringify({ data: rows, count: rows.length }))
           }
           return rows
         }
@@ -208,7 +209,7 @@ export default function ReportsPage() {
             setRosterRecords(json.data)
             setTotalCount(json.count ?? 0)
             const cacheKey = `report_${tab}_${rosterView}_${page}_${searchQuery}_${attendanceFilter}_${JSON.stringify(filters)}`
-            sessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
+            safeSessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
           }
         }
       }
@@ -229,7 +230,7 @@ export default function ReportsPage() {
         : `report_${tab}_${page}_${JSON.stringify(filters)}`
 
     // 1. Instant load from cache
-    const cached = sessionStorage.getItem(cacheKey)
+    const cached = safeSessionStorage.getItem(cacheKey)
     if (cached) {
       try {
         const { data, count } = JSON.parse(cached)

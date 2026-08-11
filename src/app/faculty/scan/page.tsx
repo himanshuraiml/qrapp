@@ -9,6 +9,7 @@ import { saveOfflineScan, getOfflineQueue, clearOfflineQueue, type OfflineScan }
 import { decryptQrToken } from '@/lib/qrCryptoClient'
 import { getOfflineAuthSession } from '@/lib/offlineAuth'
 import { useModule } from '@/context/ModuleContext'
+import { safeStorage } from '@/lib/safeStorage'
 
 type ScanResult = { type: 'success' | 'error' | 'duplicate'; message: string; studentName?: string; studentId?: string; session?: string }
 
@@ -79,7 +80,7 @@ export default function ScanPage() {
       const data = await res.json()
       if (data?.key) {
         setScanKey(data.key)
-        localStorage.setItem('faculty_scan_key', data.key)
+        safeStorage.setItem('faculty_scan_key', data.key)
       }
     } catch (e) {
       console.warn('Could not refresh scan key:', e)
@@ -88,7 +89,7 @@ export default function ScanPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('faculty_scan_key')
+      const cached = safeStorage.getItem('faculty_scan_key')
       if (cached) setScanKey(cached)
     }
     fetchScanKey()
@@ -143,7 +144,7 @@ export default function ScanPage() {
     setSessionMode(hour < 12 ? 'FN' : 'AN')
 
     if (typeof window !== 'undefined') {
-      const savedHaptics = localStorage.getItem('scan_haptics_enabled')
+      const savedHaptics = safeStorage.getItem('scan_haptics_enabled')
       if (savedHaptics !== null) setHapticsEnabled(savedHaptics === 'true')
       getOfflineQueue().then((queue) => {
         if (queue && queue.length > 0) setOfflineQueue(queue)
@@ -157,9 +158,9 @@ export default function ScanPage() {
         if (cachedAuth?.profile) setFacultyProfile(cachedAuth.profile)
 
         if (typeof window !== 'undefined') {
-          const cachedRestrict = localStorage.getItem('faculty_restrict_batch')
+          const cachedRestrict = safeStorage.getItem('faculty_restrict_batch')
           if (cachedRestrict !== null) setRestrictFaculty(cachedRestrict === 'true')
-          const cachedProfile = localStorage.getItem('faculty_cached_profile')
+          const cachedProfile = safeStorage.getItem('faculty_cached_profile')
           if (cachedProfile && !cachedAuth?.profile) {
             try { setFacultyProfile(JSON.parse(cachedProfile)) } catch {}
           }
@@ -176,7 +177,7 @@ export default function ScanPage() {
 
         if (prof) {
           setFacultyProfile(prof)
-          if (typeof window !== 'undefined') localStorage.setItem('faculty_cached_profile', JSON.stringify(prof))
+          if (typeof window !== 'undefined') safeStorage.setItem('faculty_cached_profile', JSON.stringify(prof))
           if (prof.batch) {
             supabase.from('batch_venues').select('venue').eq('batch', prof.batch).maybeSingle()
               .then(({ data }) => { if (data) setBatchVenue(data.venue) })
@@ -190,7 +191,7 @@ export default function ScanPage() {
           .single()
         if (settings) {
           setRestrictFaculty(!!settings.restrict_faculty_batch)
-          if (typeof window !== 'undefined') localStorage.setItem('faculty_restrict_batch', String(!!settings.restrict_faculty_batch))
+          if (typeof window !== 'undefined') safeStorage.setItem('faculty_restrict_batch', String(!!settings.restrict_faculty_batch))
         }
 
         const { data: batches } = await supabase
@@ -251,7 +252,7 @@ export default function ScanPage() {
   const toggleHaptics = () => {
     setHapticsEnabled((prev) => {
       const newVal = !prev
-      localStorage.setItem('scan_haptics_enabled', String(newVal))
+      safeStorage.setItem('scan_haptics_enabled', String(newVal))
       return newVal
     })
   }

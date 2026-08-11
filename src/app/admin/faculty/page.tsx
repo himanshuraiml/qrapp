@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { safeSessionStorage } from '@/lib/safeStorage'
 import type { Profile } from '@/types'
 
 export default function ManageFacultyPage() {
@@ -63,7 +64,7 @@ export default function ManageFacultyPage() {
       const json = await res.json()
       if (json.success && json.data) {
         setFaculty(json.data as Profile[])
-        sessionStorage.setItem('faculty_cache', JSON.stringify(json.data))
+        safeSessionStorage.setItem('faculty_cache', JSON.stringify(json.data))
         setLoadError('')
       } else {
         setLoadError(json.error || 'Failed to load faculty')
@@ -76,7 +77,7 @@ export default function ManageFacultyPage() {
 
   useEffect(() => {
     // 1. Instant load from cache
-    const cached = sessionStorage.getItem('faculty_cache')
+    const cached = safeSessionStorage.getItem('faculty_cache')
     if (cached) {
       try {
         setFaculty(JSON.parse(cached))
@@ -130,8 +131,8 @@ export default function ManageFacultyPage() {
       }
       const updatedList = [newFaculty, ...faculty]
       setFaculty(updatedList)
-      sessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
-      
+      safeSessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
+
       setForm({ name: '', email: '', department: '', password: '' })
     }
     setSaving(false)
@@ -143,14 +144,14 @@ export default function ManageFacultyPage() {
     // Local optimistic update
     const updatedList = faculty.map(item => item.id === f.id ? { ...item, status: newStatus } : item)
     setFaculty(updatedList)
-    sessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
-    
+    safeSessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
+
     const { error } = await supabase.from('profiles').update({ status: newStatus }).eq('id', f.id)
     if (error) {
       // Revert if database save fails
       const revertedList = faculty.map(item => item.id === f.id ? { ...item, status: f.status } : item)
       setFaculty(revertedList)
-      sessionStorage.setItem('faculty_cache', JSON.stringify(revertedList))
+      safeSessionStorage.setItem('faculty_cache', JSON.stringify(revertedList))
     }
   }
 
@@ -434,7 +435,7 @@ export default function ManageFacultyPage() {
                           : item
                       )
                       setFaculty(updatedList)
-                      sessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
+                      safeSessionStorage.setItem('faculty_cache', JSON.stringify(updatedList))
                       setModalSuccess(true)
                     } else {
                       setModalError(data.error || 'Failed to update Auth credentials')

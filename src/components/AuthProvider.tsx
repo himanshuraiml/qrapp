@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { createClient } from '@/lib/supabase/client'
 import { clearCache } from '@/lib/cache'
 import { saveOfflineAuthSession, getOfflineAuthSession, clearOfflineAuthSession } from '@/lib/offlineAuth'
+import { safeStorage } from '@/lib/safeStorage'
 import { ModuleProvider } from '@/context/ModuleContext'
 import type { Profile } from '@/types'
 
@@ -129,9 +130,9 @@ export function AuthProvider({
 
     try {
       if (typeof window !== 'undefined') {
-        Object.keys(localStorage)
+        safeStorage.keys()
           .filter((k) => k.startsWith('sb-') || k.startsWith('faculty_') || k.startsWith('student_') || k.startsWith('qr_') || k.startsWith('scan_'))
-          .forEach((k) => localStorage.removeItem(k))
+          .forEach((k) => safeStorage.removeItem(k))
         document.cookie.split(';').forEach((c) => {
           const key = c.split('=')[0].trim()
           if (key.startsWith('sb-')) {

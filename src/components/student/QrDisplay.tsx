@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { safeStorage } from '@/lib/safeStorage'
 
 const QR_TTL = 60 // seconds before auto-refresh
 
@@ -30,8 +31,8 @@ export default function QrDisplay() {
   const renderOfflineFallback = useCallback(async () => {
     if (!QRCode) return false
     try {
-      const cachedToken = localStorage.getItem('student_daily_offline_pass')
-      const cachedDate = localStorage.getItem('student_daily_offline_pass_date')
+      const cachedToken = safeStorage.getItem('student_daily_offline_pass')
+      const cachedDate = safeStorage.getItem('student_daily_offline_pass_date')
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
       if (cachedToken && cachedToken.length > 32 && /^[A-Za-z0-9\-_]+$/.test(cachedToken)) {
@@ -84,10 +85,10 @@ export default function QrDisplay() {
       const data = await res.json()
 
       // Auto-cache offline pass token for today
-      if (data.offline_pass?.token && typeof window !== 'undefined') {
+      if (data.offline_pass?.token) {
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
-        localStorage.setItem('student_daily_offline_pass', data.offline_pass.token)
-        localStorage.setItem('student_daily_offline_pass_date', today)
+        safeStorage.setItem('student_daily_offline_pass', data.offline_pass.token)
+        safeStorage.setItem('student_daily_offline_pass_date', today)
       }
 
       const dataUrl = await QRCode.toDataURL(data.token, {

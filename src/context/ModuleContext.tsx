@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { safeStorage } from '@/lib/safeStorage'
 import type { ModuleType, ModuleFeatureFlags, CdcPeriodTiming } from '@/types'
 
 interface ModuleContextType {
@@ -90,7 +91,7 @@ export const ModuleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Initialize activeModule from localStorage or default to first available
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('qrapp_active_module') as ModuleType | null
+      const stored = safeStorage.getItem('qrapp_active_module') as ModuleType | null
       if (stored && featureFlags[stored]) {
         setActiveModuleState(stored)
       } else if (availableModules.length > 0 && !availableModules.includes(activeModuleState)) {
@@ -102,9 +103,7 @@ export const ModuleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const setActiveModule = (module: ModuleType) => {
     if (featureFlags[module]) {
       setActiveModuleState(module)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('qrapp_active_module', module)
-      }
+      safeStorage.setItem('qrapp_active_module', module)
     }
   }
 

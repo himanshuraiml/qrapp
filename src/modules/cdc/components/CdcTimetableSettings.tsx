@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { safeRandomUUID } from '@/lib/safeStorage'
 import type { CdcPeriodAllocation } from '@/types'
 import { DEFAULT_INSTITUTIONS, getBranchesForInstitution } from '@/lib/constants/academic'
 import { downloadCdcTimetableTemplate } from '@/lib/export'
@@ -148,7 +149,7 @@ export default function CdcTimetableSettings() {
     const defaultSecName = `${defaultInst} • ${defaultDept} ${YEAR_ROMAN[defaultYear]}-${defaultSec}`
 
     const newAlloc: CdcPeriodAllocation = {
-      id: crypto.randomUUID(),
+      id: safeRandomUUID(),
       institution: defaultInst,
       department: defaultDept,
       year: defaultYear,

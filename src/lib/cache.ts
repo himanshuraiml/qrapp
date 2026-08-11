@@ -1,3 +1,5 @@
+import { safeSessionStorage } from './safeStorage'
+
 export const CACHE_TTL = {
   profile:    5  * 60 * 1000, // 5 min — profile data rarely changes mid-session
   attendance: 2  * 60 * 1000, // 2 min — tolerate brief staleness for read-heavy views
@@ -6,12 +8,11 @@ export const CACHE_TTL = {
 }
 
 export function readCache<T>(key: string, ttl: number): T | null {
-  if (typeof window === 'undefined') return null
   try {
-    const raw = sessionStorage.getItem(key)
+    const raw = safeSessionStorage.getItem(key)
     if (!raw) return null
     const { data, ts } = JSON.parse(raw)
-    if (Date.now() - ts > ttl) { sessionStorage.removeItem(key); return null }
+    if (Date.now() - ts > ttl) { safeSessionStorage.removeItem(key); return null }
     return data as T
   } catch {
     return null
@@ -19,16 +20,12 @@ export function readCache<T>(key: string, ttl: number): T | null {
 }
 
 export function writeCache<T>(key: string, data: T): void {
-  if (typeof window === 'undefined') return
-  try {
-    sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }))
-  } catch {}
+  safeSessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }))
 }
 
 export function clearCache(prefix?: string): void {
-  if (typeof window === 'undefined') return
-  if (!prefix) { sessionStorage.clear(); return }
-  Object.keys(sessionStorage)
+  if (!prefix) { safeSessionStorage.clear(); return }
+  safeSessionStorage.keys()
     .filter((k) => k.startsWith(prefix))
-    .forEach((k) => sessionStorage.removeItem(k))
+    .forEach((k) => safeSessionStorage.removeItem(k))
 }

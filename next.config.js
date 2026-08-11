@@ -1,11 +1,18 @@
 const withPWA = require('@ducanh2912/next-pwa').default({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
-  reloadOnOnline: false,
+  cacheOnFrontEndNav: false,
+  // aggressiveFrontEndNavCaching REMOVED — caused iOS Safari service worker to serve
+  // stale JS chunks after a new deployment, producing "Application error: client-side
+  // exception" on all iPhones. iOS Safari's SW update flow is more conservative than
+  // Chrome's and this option breaks it.
+  reloadOnOnline: true, // Reload on reconnect to clear any stale SW state on iOS
   workboxOptions: {
-    skipWaiting: true,
+    // skipWaiting + clientsClaim can cause a race condition on iOS Safari where the new
+    // SW takes over mid-navigation and serves mixed old/new JS chunks. Removed skipWaiting
+    // so the SW only takes over when all tabs using the old version are closed.
+    // The page will auto-reload via the 'controllerchange' listener in sw-update.ts.
+    skipWaiting: false,
     clientsClaim: true,
     runtimeCaching: [
       {

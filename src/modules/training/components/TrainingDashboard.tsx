@@ -9,6 +9,7 @@ import SessionBarChart from '@/components/admin/SessionBarChart'
 import type { DashboardStats, SectionSummary, BatchSummary } from '@/types'
 import AboutApp from '@/components/AboutApp'
 import { exportBatchSummaryToExcel, exportBatchSummaryToPDF } from '@/lib/export'
+import { safeSessionStorage } from '@/lib/safeStorage'
 
 function KpiCard({
   label, value, sub, icon, gradient, trend,
@@ -190,7 +191,7 @@ export default function TrainingDashboard() {
         setBatches(calculatedBatches)
 
         if (statsData) {
-          sessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData, batches: calculatedBatches }))
+          safeSessionStorage.setItem(cacheKey, JSON.stringify({ stats: statsData, summary: sumData, batches: calculatedBatches }))
         }
       } catch (err) {
         console.error(err)
@@ -199,7 +200,7 @@ export default function TrainingDashboard() {
       }
     }
 
-    const cached = sessionStorage.getItem(cacheKey)
+    const cached = safeSessionStorage.getItem(cacheKey)
     if (cached) {
       try {
         const { stats: cachedStats, summary: cachedSummary, batches: cachedBatches } = JSON.parse(cached)

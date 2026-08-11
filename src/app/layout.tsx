@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import InstallPWA from '@/components/InstallPWA'
+import SwUpdateReloader from '@/components/SwUpdateReloader'
 
 export const metadata: Metadata = {
   title: 'QR Attendance — SRMIST Tiruchirappalli Campus',
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <InstallPWA />
+        <SwUpdateReloader />
       </body>
     </html>
   )

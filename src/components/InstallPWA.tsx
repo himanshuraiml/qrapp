@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { safeStorage } from '@/lib/safeStorage'
 
 export default function InstallPWA() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
@@ -9,15 +10,15 @@ export default function InstallPWA() {
 
   useEffect(() => {
     // Check if user previously dismissed the prompt
-    const isDismissed = localStorage.getItem('pwa_prompt_dismissed')
-    const dismissedAt = localStorage.getItem('pwa_prompt_dismissed_at')
+    const isDismissed = safeStorage.getItem('pwa_prompt_dismissed')
+    const dismissedAt = safeStorage.getItem('pwa_prompt_dismissed_at')
     
     // Auto-reset dismissal after 7 days
     if (isDismissed && dismissedAt) {
       const daysSinceDismissal = (Date.now() - parseInt(dismissedAt)) / (1000 * 60 * 60 * 24)
       if (daysSinceDismissal > 7) {
-        localStorage.removeItem('pwa_prompt_dismissed')
-        localStorage.removeItem('pwa_prompt_dismissed_at')
+        safeStorage.removeItem('pwa_prompt_dismissed')
+        safeStorage.removeItem('pwa_prompt_dismissed_at')
       } else {
         return // Still dismissed
       }
@@ -77,8 +78,8 @@ export default function InstallPWA() {
   const handleDismiss = () => {
     setShowAndroidPrompt(false)
     setShowIOSPrompt(false)
-    localStorage.setItem('pwa_prompt_dismissed', 'true')
-    localStorage.setItem('pwa_prompt_dismissed_at', Date.now().toString())
+    safeStorage.setItem('pwa_prompt_dismissed', 'true')
+    safeStorage.setItem('pwa_prompt_dismissed_at', Date.now().toString())
   }
 
   // Render iOS Safari Add to Home Screen Instructions Prompt

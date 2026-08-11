@@ -1,3 +1,5 @@
+import { safeStorage } from './safeStorage'
+
 export interface OfflineScan {
   student_id: string
   name: string
@@ -49,12 +51,10 @@ export async function saveOfflineScan(scan: OfflineScan): Promise<void> {
   } catch (e) {
     console.warn('IndexedDB save failed, falling back to localStorage:', e)
     // Fallback to localStorage if IndexedDB fails
-    if (typeof window !== 'undefined') {
-      const currentQueue = JSON.parse(localStorage.getItem('offline_scans_queue') || '[]')
-      const filtered = currentQueue.filter((x: OfflineScan) => x.student_id !== scan.student_id)
-      filtered.push(scan)
-      localStorage.setItem('offline_scans_queue', JSON.stringify(filtered))
-    }
+    const currentQueue = JSON.parse(safeStorage.getItem('offline_scans_queue') || '[]')
+    const filtered = currentQueue.filter((x: OfflineScan) => x.student_id !== scan.student_id)
+    filtered.push(scan)
+    safeStorage.setItem('offline_scans_queue', JSON.stringify(filtered))
   }
 }
 
@@ -70,14 +70,11 @@ export async function getOfflineQueue(): Promise<OfflineScan[]> {
     })
   } catch (e) {
     console.warn('IndexedDB get failed, reading from localStorage fallback:', e)
-    if (typeof window !== 'undefined') {
-      try {
-        return JSON.parse(localStorage.getItem('offline_scans_queue') || '[]')
-      } catch {
-        return []
-      }
+    try {
+      return JSON.parse(safeStorage.getItem('offline_scans_queue') || '[]')
+    } catch {
+      return []
     }
-    return []
   }
 }
 
@@ -92,11 +89,9 @@ export async function removeOfflineScan(studentId: string): Promise<void> {
       req.onerror = () => reject(req.error)
     })
   } catch (e) {
-    if (typeof window !== 'undefined') {
-      const currentQueue = JSON.parse(localStorage.getItem('offline_scans_queue') || '[]')
-      const filtered = currentQueue.filter((x: OfflineScan) => x.student_id !== studentId)
-      localStorage.setItem('offline_scans_queue', JSON.stringify(filtered))
-    }
+    const currentQueue = JSON.parse(safeStorage.getItem('offline_scans_queue') || '[]')
+    const filtered = currentQueue.filter((x: OfflineScan) => x.student_id !== studentId)
+    safeStorage.setItem('offline_scans_queue', JSON.stringify(filtered))
   }
 }
 
@@ -111,8 +106,6 @@ export async function clearOfflineQueue(): Promise<void> {
       req.onerror = () => reject(req.error)
     })
   } catch (e) {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('offline_scans_queue')
-    }
+    safeStorage.removeItem('offline_scans_queue')
   }
 }

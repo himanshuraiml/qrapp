@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import BulkStudentUpload from '@/components/admin/BulkStudentUpload'
+import { safeSessionStorage } from '@/lib/safeStorage'
 import type { Profile } from '@/types'
 import { DEFAULT_INSTITUTIONS, getBranchesForInstitution, ACADEMIC_HIERARCHY } from '@/lib/constants/academic'
 
@@ -136,7 +137,7 @@ export default function ManageStudentsPage() {
         setTotalCount(json.count ?? 0)
         
         const cacheKey = `students_cache_${currentPage}_${search}_${instFilter}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
-        sessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
+        safeSessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, count: json.count }))
       }
     } catch (e) {
       console.error(e)
@@ -147,7 +148,7 @@ export default function ManageStudentsPage() {
 
   useEffect(() => {
     const cacheKey = `students_cache_${page}_${search}_${instFilter}_${deptFilter}_${yearFilter}_${batchFilter}_${qrBlockedFilter}`
-    const cached = sessionStorage.getItem(cacheKey)
+    const cached = safeSessionStorage.getItem(cacheKey)
     if (cached) {
       try {
         const { data, count } = JSON.parse(cached)

@@ -1,4 +1,5 @@
 import type { Profile } from '@/types'
+import { safeStorage } from './safeStorage'
 
 export interface CachedAuthSession {
   user_id: string
@@ -55,11 +56,7 @@ export async function saveOfflineAuthSession(
     timestamp: Date.now(),
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem('qr_last_active_user_id', userId)
-    } catch {}
-  }
+  safeStorage.setItem('qr_last_active_user_id', userId)
 
   try {
     const db = await openAuthDB()
@@ -72,11 +69,7 @@ export async function saveOfflineAuthSession(
     })
   } catch (e) {
     console.warn('IndexedDB saveOfflineAuthSession failed, falling back to localStorage:', e)
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('qr_offline_auth_session', JSON.stringify(record))
-      } catch {}
-    }
+    safeStorage.setItem('qr_offline_auth_session', JSON.stringify(record))
   }
 }
 
@@ -88,8 +81,8 @@ export async function getOfflineAuthSession(expectedUserId?: string | null): Pro
 } | null> {
   let targetUserId = expectedUserId
 
-  if (!targetUserId && typeof window !== 'undefined') {
-    targetUserId = localStorage.getItem('qr_last_active_user_id')
+  if (!targetUserId) {
+    targetUserId = safeStorage.getItem('qr_last_active_user_id')
   }
 
   // Never return an arbitrary cached session without knowing which user identity to expect
@@ -110,17 +103,15 @@ export async function getOfflineAuthSession(expectedUserId?: string | null): Pro
     })
   } catch (e) {
     console.warn('IndexedDB getOfflineAuthSession failed, checking localStorage fallback:', e)
-    if (typeof window !== 'undefined') {
-      try {
-        const item = localStorage.getItem('qr_offline_auth_session')
-        if (item) {
-          const parsed = JSON.parse(item)
-          if (parsed?.user_id === targetUserId) {
-            cached = parsed
-          }
+    try {
+      const item = safeStorage.getItem('qr_offline_auth_session')
+      if (item) {
+        const parsed = JSON.parse(item)
+        if (parsed?.user_id === targetUserId) {
+          cached = parsed
         }
-      } catch {}
-    }
+      }
+    } catch {}
   }
 
   if (!cached || cached.user_id !== targetUserId) return null
@@ -151,13 +142,9 @@ export async function clearOfflineAuthSession(): Promise<void> {
     console.warn('IndexedDB clearOfflineAuthSession failed:', e)
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem('qr_offline_auth_session')
-      localStorage.removeItem('qr_last_active_user_id')
-      localStorage.removeItem('faculty_scan_key')
-      localStorage.removeItem('student_daily_offline_pass')
-      localStorage.removeItem('scan_haptics_enabled')
-    } catch {}
-  }
+  safeStorage.removeItem('qr_offline_auth_session')
+  safeStorage.removeItem('qr_last_active_user_id')
+  safeStorage.removeItem('faculty_scan_key')
+  safeStorage.removeItem('student_daily_offline_pass')
+  safeStorage.removeItem('scan_haptics_enabled')
 }
