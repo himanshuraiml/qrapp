@@ -193,60 +193,71 @@ const fetchRecords = useCallback(async () => {
   useEffect(() => {
     if (authLoading || !profile?.student_id) return
 
-    const attendanceChannel = supabase
-      .channel(`student_attendance_${profile.student_id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'attendance',
-          filter: `student_id=eq.${profile.student_id}`,
-        },
-        () => {
-          fetchRecords()
-          fetchStats()
-          fetchHistory()
-        }
-      )
-      .subscribe()
+    let attendanceChannel: ReturnType<typeof supabase.channel> | null = null
+    let profileChannel: ReturnType<typeof supabase.channel> | null = null
+    let settingsChannel: ReturnType<typeof supabase.channel> | null = null
 
-    const profileChannel = supabase
-      .channel(`student_profile_${profile.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${profile.id}`,
-        },
-        (payload) => {
-          if (payload.new && 'qr_blocked' in payload.new) {
-            setQrBlocked(!!payload.new.qr_blocked)
+    try {
+      attendanceChannel = supabase
+        .channel(`student_attendance_${profile.student_id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'attendance',
+            filter: `student_id=eq.${profile.student_id}`,
+          },
+          () => {
+            fetchRecords()
+            fetchStats()
+            fetchHistory()
           }
-        }
-      )
-      .subscribe()
+        )
+        .subscribe()
 
-    const settingsChannel = supabase
-      .channel('session_settings_scan')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'session_settings', filter: 'id=eq.1' },
-        (payload) => {
-          if (payload.new && 'qr_scan_open' in payload.new) {
-            const val = (payload.new as { qr_scan_open?: boolean }).qr_scan_open
-            setScanOpen(val ?? true)
+      profileChannel = supabase
+        .channel(`student_profile_${profile.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${profile.id}`,
+          },
+          (payload) => {
+            if (payload.new && 'qr_blocked' in payload.new) {
+              setQrBlocked(!!payload.new.qr_blocked)
+            }
           }
-        }
-      )
-      .subscribe()
+        )
+        .subscribe()
+
+      settingsChannel = supabase
+        .channel('session_settings_scan')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'session_settings', filter: 'id=eq.1' },
+          (payload) => {
+            if (payload.new && 'qr_scan_open' in payload.new) {
+              const val = (payload.new as { qr_scan_open?: boolean }).qr_scan_open
+              setScanOpen(val ?? true)
+            }
+          }
+        )
+        .subscribe()
+    } catch (e) {
+      // Realtime is a nice-to-have live-refresh; a blocked/failed WebSocket
+      // connection must never crash the whole page for a feature that
+      // otherwise degrades silently to manual refresh.
+      console.warn('Realtime subscription failed', e)
+    }
 
     return () => {
-      supabase.removeChannel(attendanceChannel)
-      supabase.removeChannel(profileChannel)
-      supabase.removeChannel(settingsChannel)
+      if (attendanceChannel) supabase.removeChannel(attendanceChannel)
+      if (profileChannel) supabase.removeChannel(profileChannel)
+      if (settingsChannel) supabase.removeChannel(settingsChannel)
     }
   }, [profile?.id, profile?.student_id, authLoading, supabase, fetchRecords, fetchStats, fetchHistory])
 

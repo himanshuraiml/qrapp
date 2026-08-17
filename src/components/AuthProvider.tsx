@@ -157,31 +157,39 @@ export function AuthProvider({
   useEffect(() => {
     if (!profile?.id) return
     let active = true
+    let profileChannel: ReturnType<typeof supabase.channel> | null = null
 
-    const profileChannel = supabase
-      .channel(`user_profile_status_${profile.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${profile.id}`,
-        },
-        (payload) => {
-          if (!active) return
-          if (payload.new && 'status' in payload.new && payload.new.status === 'Inactive') {
-            logout('deactivated')
-          } else if (payload.new) {
-            setProfile(payload.new as Profile)
+    try {
+      profileChannel = supabase
+        .channel(`user_profile_status_${profile.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${profile.id}`,
+          },
+          (payload) => {
+            if (!active) return
+            if (payload.new && 'status' in payload.new && payload.new.status === 'Inactive') {
+              logout('deactivated')
+            } else if (payload.new) {
+              setProfile(payload.new as Profile)
+            }
           }
-        }
-      )
-      .subscribe()
+        )
+        .subscribe()
+    } catch (e) {
+      // Realtime is a nice-to-have (instant deactivation logout); a WebSocket
+      // failure (blocked connection, restrictive network) must never crash
+      // the app for a feature that otherwise degrades silently.
+      console.warn('Realtime profile subscription failed', e)
+    }
 
     return () => {
       active = false
-      supabase.removeChannel(profileChannel)
+      if (profileChannel) supabase.removeChannel(profileChannel)
     }
   }, [profile?.id, supabase, logout])
 
