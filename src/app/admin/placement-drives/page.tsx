@@ -240,7 +240,7 @@ export default function PlacementDrivesPage() {
       const res = await fetch(`/api/admin/placement-drives/${selectedDrive.id}/attendance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ student_id: studentId, status: nextStatus }),
+        body: JSON.stringify({ student_id: studentId, status: nextStatus, is_manual_override: true }),
       })
       const json = await res.json()
 

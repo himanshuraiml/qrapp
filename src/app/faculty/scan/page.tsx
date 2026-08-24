@@ -69,9 +69,20 @@ export default function ScanPage() {
   const offlineQueueRef = useRef(offlineQueue)
   const isSyncingRef = useRef(isSyncing)
 
+  // The QR scanner (html5-qrcode) is started once and keeps calling the same
+  // handleQrCode/syncOfflineScans closures from that render, so any state
+  // they read must be mirrored into a ref — otherwise switching scan target
+  // mode (CDC vs Placement) after the camera has started is silently ignored.
+  const scanTargetModeRef = useRef(scanTargetMode)
+  const selectedPlacementDriveIdRef = useRef(selectedPlacementDriveId)
+  const placementDrivesRef = useRef(placementDrives)
+
   useEffect(() => { offlineQueueRef.current = offlineQueue }, [offlineQueue])
   useEffect(() => { isSyncingRef.current = isSyncing }, [isSyncing])
   useEffect(() => { scanKeyRef.current = scanKey }, [scanKey])
+  useEffect(() => { scanTargetModeRef.current = scanTargetMode }, [scanTargetMode])
+  useEffect(() => { selectedPlacementDriveIdRef.current = selectedPlacementDriveId }, [selectedPlacementDriveId])
+  useEffect(() => { placementDrivesRef.current = placementDrives }, [placementDrives])
 
   const fetchScanKey = useCallback(async () => {
     try {
@@ -472,7 +483,7 @@ export default function ScanPage() {
       const processedScans: Array<{ id: string; name: string; session: string; type: 'success' | 'duplicate' | 'error'; message: string }> = []
 
       try {
-        const syncEndpoint = scanTargetMode === 'cdc' ? '/api/attendance/mark-cdc' : '/api/attendance/mark'
+        const syncEndpoint = scanTargetModeRef.current === 'cdc' ? '/api/attendance/mark-cdc' : '/api/attendance/mark'
         const res = await fetch(syncEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -582,7 +593,7 @@ export default function ScanPage() {
       }
 
       // CDC Classes
-      if (scanTargetMode === 'cdc') {
+      if (scanTargetModeRef.current === 'cdc') {
         // Offline or force-offline: fall back to the general offline queue
         if (forceOffline || !navigator.onLine) {
           const isAlreadyQueued = offlineQueueRef.current.some(x => x.student_id === payload.student_id)
@@ -667,8 +678,9 @@ export default function ScanPage() {
       }
 
       // Placement Drive
-      if (scanTargetMode === 'placement') {
-        if (!selectedPlacementDriveId) {
+      if (scanTargetModeRef.current === 'placement') {
+        const activeDriveId = selectedPlacementDriveIdRef.current
+        if (!activeDriveId) {
           setResult({ type: 'error', message: 'Select a Placement Drive first.' })
           triggerHaptic([300])
           addToRecentScans(payload.student_id, payload.name, 'Placement', 'error')
@@ -676,13 +688,13 @@ export default function ScanPage() {
           return
         }
         try {
-          const res = await fetch(`/api/admin/placement-drives/${selectedPlacementDriveId}/attendance`, {
+          const res = await fetch(`/api/admin/placement-drives/${activeDriveId}/attendance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: text, status: 'Present' }),
           })
           const json = await res.json()
-          const driveLabel = placementDrives.find((d) => d.id === selectedPlacementDriveId)?.company_name || 'Drive'
+          const driveLabel = placementDrivesRef.current.find((d) => d.id === activeDriveId)?.company_name || 'Drive'
           if (json.success) {
             setScanCount((c) => c + 1)
             setResult({ type: 'success', message: 'Present', studentName: json.student_name, studentId: json.student_id, session: driveLabel })
